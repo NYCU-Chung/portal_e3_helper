@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "NYCU E3 Helper",
-  "version": "1.9.0",
+  "version": "2.0.0",
   "description": "優化 NYCU E3 使用體驗：作業倒數、成績分析、檔案下載（教材/影片/公告）、AI 智能翻譯與摘要、智能通知徽章等功能",
   "permissions": [
     "storage",

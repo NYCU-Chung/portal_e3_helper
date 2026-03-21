@@ -318,24 +318,31 @@ async function checkLoginStatus() {
     const response = await fetchWithTimeout('https://e3p.nycu.edu.tw/', {
       method: 'GET',
       credentials: 'include'
-    }, 10000); // 增加到 10秒
+    }, 10000);
 
-    const text = await response.text();
-
-    // 檢查是否被重定向到登入頁面
-    if (response.url.includes('/login/') || text.includes('loginform')) {
+    // 被重導向到登入頁面 → 確定未登入
+    if (response.url.includes('/login/')) {
       return false;
     }
 
-    // 檢查是否包含登出按鈕（代表已登入）
-    if (text.includes('logout') || text.includes('登出')) {
+    const text = await response.text();
+
+    // 包含登入表單 → 確定未登入
+    if (text.includes('loginform')) {
+      return false;
+    }
+
+    // sesskey 是最可靠的登入指標（未登入時不會有 sesskey）
+    if (text.includes('sesskey') || text.includes('data-userid') ||
+        text.includes('logout') || text.includes('登出')) {
       return true;
     }
 
     return false;
   } catch (error) {
-    console.error('E3 Helper: 檢查登入狀態失敗', error);
-    return false;
+    // 網路錯誤時樂觀假設已登入，避免誤判（實際錯誤由 syncAssignments 處理）
+    console.warn('E3 Helper: 檢查登入狀態時網路錯誤，假設已登入', error.message);
+    return true;
   }
 }
 
@@ -676,14 +683,19 @@ async function syncAssignments() {
   return [];
 }
 
-// 檢查作業繳交狀態（使用 HTML 解析）
+// 檢查作業繳交狀態與評分狀態（使用 HTML 解析）
 async function checkAssignmentSubmissionStatus(assignments, sesskey, statuses) {
   let checkedCount = 0;
   let submittedCount = 0;
+  let gradedCount = 0;
   let statusUpdated = false;
   const updatedStatuses = { ...statuses }; // 複製一份狀態字典
 
-  console.log(`E3 Helper: 開始使用 HTML 解析檢測 ${assignments.length} 個作業的繳交狀態...`);
+  // 載入已通知評分的作業列表（避免重複通知）
+  const gradingStorage = await chrome.storage.local.get(['gradedNotified']);
+  const gradedNotified = new Set(gradingStorage.gradedNotified || []);
+
+  console.log(`E3 Helper: 開始使用 HTML 解析檢測 ${assignments.length} 個作業的繳交與評分狀態...`);
 
   for (const assignment of assignments) {
     // 跳過手動新增的作業
@@ -728,6 +740,19 @@ async function checkAssignmentSubmissionStatus(assignments, sesskey, statuses) {
           console.log(`E3 Helper: ${assignment.name} 保持已繳交狀態`);
         }
 
+        // 檢查評分狀態
+        const isGraded =
+          html.includes('已評分') ||  // 中文
+          html.includes('Graded') ||  // 英文
+          html.includes('submissiongraded');  // CSS class
+
+        if (isGraded && !gradedNotified.has(assignment.eventId)) {
+          gradedNotified.add(assignment.eventId);
+          gradedCount++;
+          console.log(`E3 Helper: ✓ 偵測到已評分 - ${assignment.name}`);
+          await sendGradingNotification(assignment);
+        }
+
         checkedCount++;
       } else {
         console.warn(`E3 Helper: 無法訪問 ${assignment.name} (status: ${htmlResponse.status})`);
@@ -740,7 +765,10 @@ async function checkAssignmentSubmissionStatus(assignments, sesskey, statuses) {
     await new Promise(resolve => setTimeout(resolve, 200));
   }
 
-  console.log(`E3 Helper: 檢測完成 - 已檢查 ${checkedCount} 個作業，其中 ${submittedCount} 個已繳交`);
+  // 儲存已通知評分的作業列表
+  await chrome.storage.local.set({ gradedNotified: [...gradedNotified] });
+
+  console.log(`E3 Helper: 檢測完成 - 已檢查 ${checkedCount} 個作業，其中 ${submittedCount} 個已繳交，${gradedCount} 個新評分`);
 
   // 如果有更新狀態，返回更新後的字典
   return statusUpdated ? updatedStatuses : null;
@@ -903,11 +931,63 @@ async function sendAssignmentNotification(assignment) {
   }
 }
 
+// 發送評分通知
+async function sendGradingNotification(assignment) {
+  try {
+    const now = Date.now();
+
+    // 發送桌面通知
+    await chrome.notifications.create(`grading-${assignment.eventId}`, {
+      type: 'basic',
+      iconUrl: 'chrome-extension://' + chrome.runtime.id + '/128.png',
+      title: '📊 作業已評分！',
+      message: `${assignment.name}\n📚 課程：${assignment.course}`,
+      priority: 2,
+      requireInteraction: false
+    });
+
+    // 儲存到通知中心
+    const storage = await chrome.storage.local.get(['notifications']);
+    const notifications = storage.notifications || [];
+
+    const notification = {
+      id: `grading-${assignment.eventId}-${now}`,
+      type: 'grading',
+      title: assignment.name,
+      message: `📚 課程：${assignment.course}\n📊 作業已評分，點擊查看成績`,
+      timestamp: now,
+      read: false,
+      url: assignment.url
+    };
+
+    notifications.unshift(notification);
+
+    if (notifications.length > 50) {
+      notifications.splice(50);
+    }
+
+    await chrome.storage.local.set({ notifications });
+
+    // 更新 badge 計數
+    if (chrome.action) {
+      const unreadCount = notifications.filter(n => !n.read).length;
+      if (unreadCount > 0) {
+        chrome.action.setBadgeText({ text: unreadCount > 99 ? '99+' : unreadCount.toString() });
+        chrome.action.setBadgeBackgroundColor({ color: '#dc3545' });
+      }
+    }
+
+    console.log(`E3 Helper: 已發送評分通知 - ${assignment.name}`);
+  } catch (error) {
+    console.error('E3 Helper: 發送評分通知時發生錯誤', error);
+  }
+}
+
 // 監聽通知點擊事件
 chrome.notifications.onClicked.addListener((notificationId) => {
-  if (notificationId.startsWith('assignment-')) {
+  if (notificationId.startsWith('assignment-') || notificationId.startsWith('grading-')) {
     // 提取作業 ID
-    const eventId = notificationId.replace('assignment-', '');
+    const eventId = notificationId.replace('assignment-', '').replace('grading-', '');
 
     // 獲取作業資料
     chrome.storage.local.get(['assignments'], (result) => {

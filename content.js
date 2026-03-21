@@ -1748,12 +1748,9 @@ function createSidebar() {
     helpTab.dataset.tab = 'help';
     helpTab.title = '使用說明';
 
-    // 只添加作業倒數和公告 tab，在 E3 網站才添加成績和下載 tab
     tabs.appendChild(assignmentTab);
-    if (onE3Site) {
-      tabs.appendChild(gradeTab);
-      tabs.appendChild(downloadTab);
-    }
+    tabs.appendChild(gradeTab);
+    tabs.appendChild(downloadTab);
     tabs.appendChild(announcementTab);
     tabs.appendChild(notificationTab);
     tabs.appendChild(helpTab);
@@ -1803,9 +1800,9 @@ function createSidebar() {
     assignmentContent.appendChild(listContainer);
     sidebar.appendChild(assignmentContent);
 
-    // 只在 E3 網站創建成績分析和檔案下載容器
+    // 創建成績分析和檔案下載容器
     let gradeContent, downloadContent;
-    if (onE3Site) {
+    {
       // 創建課程列表容器
       gradeContent = document.createElement('div');
       gradeContent.className = 'e3-helper-content';
@@ -1929,7 +1926,7 @@ function createSidebar() {
       downloadContent.appendChild(progressContainer);
 
       sidebar.appendChild(downloadContent);
-    } // 結束 if (onE3Site)
+    }
 
     // 創建公告容器
     const announcementContent = document.createElement('div');
@@ -2125,17 +2122,13 @@ function createSidebar() {
       notificationContent.classList.remove('active');
       announcementContent.classList.remove('active');
       helpContent.classList.remove('active');
-      if (onE3Site) {
-        gradeTab.classList.remove('active');
-        downloadTab.classList.remove('active');
-        gradeContent.classList.remove('active');
-        downloadContent.classList.remove('active');
-      }
+      gradeTab.classList.remove('active');
+      downloadTab.classList.remove('active');
+      gradeContent.classList.remove('active');
+      downloadContent.classList.remove('active');
     });
 
-    // 只在 E3 網站添加成績和下載 tab 的事件處理器
-    if (onE3Site) {
-      gradeTab.addEventListener('click', async () => {
+    gradeTab.addEventListener('click', async () => {
       gradeTab.classList.add('active');
       assignmentTab.classList.remove('active');
       downloadTab.classList.remove('active');
@@ -2347,7 +2340,6 @@ function createSidebar() {
         }
       }
     });
-    } // 結束 if (onE3Site) - 成績和下載 tab 事件處理器
 
     // 通知中心 tab 事件（新增）
     notificationTab.addEventListener('click', async () => {
@@ -2355,18 +2347,14 @@ function createSidebar() {
       assignmentTab.classList.remove('active');
       announcementTab.classList.remove('active');
       helpTab.classList.remove('active');
-      if (onE3Site) {
-        gradeTab.classList.remove('active');
-        downloadTab.classList.remove('active');
-      }
+      gradeTab.classList.remove('active');
+      downloadTab.classList.remove('active');
       notificationContent.classList.add('active');
       assignmentContent.classList.remove('active');
       announcementContent.classList.remove('active');
       helpContent.classList.remove('active');
-      if (onE3Site) {
-        gradeContent.classList.remove('active');
-        downloadContent.classList.remove('active');
-      }
+      gradeContent.classList.remove('active');
+      downloadContent.classList.remove('active');
 
       // 載入並顯示通知
       await loadNotifications();
@@ -2380,18 +2368,14 @@ function createSidebar() {
       assignmentTab.classList.remove('active');
       notificationTab.classList.remove('active');
       helpTab.classList.remove('active');
-      if (onE3Site) {
-        gradeTab.classList.remove('active');
-        downloadTab.classList.remove('active');
-      }
+      gradeTab.classList.remove('active');
+      downloadTab.classList.remove('active');
       announcementContent.classList.add('active');
       assignmentContent.classList.remove('active');
       notificationContent.classList.remove('active');
       helpContent.classList.remove('active');
-      if (onE3Site) {
-        gradeContent.classList.remove('active');
-        downloadContent.classList.remove('active');
-      }
+      gradeContent.classList.remove('active');
+      downloadContent.classList.remove('active');
 
       // 檢查是否需要顯示歡迎訊息
       const storage = await chrome.storage.local.get(['lastSyncTime', 'courses', 'announcements', 'messages', 'readAnnouncements', 'readMessages']);
@@ -2545,12 +2529,10 @@ function createSidebar() {
       assignmentContent.classList.remove('active');
       announcementContent.classList.remove('active');
       notificationContent.classList.remove('active');
-      if (onE3Site) {
-        gradeTab.classList.remove('active');
-        downloadTab.classList.remove('active');
-        gradeContent.classList.remove('active');
-        downloadContent.classList.remove('active');
-      }
+      gradeTab.classList.remove('active');
+      downloadTab.classList.remove('active');
+      gradeContent.classList.remove('active');
+      downloadContent.classList.remove('active');
     });
 
     // 添加 resize handle
@@ -5384,10 +5366,65 @@ async function loadAnnouncements() {
   // 按時間排序（最新的在前）
   allAnnouncements.sort((a, b) => b.timestamp - a.timestamp);
 
-  // 儲存到 storage
-  await chrome.storage.local.set({ announcements: allAnnouncements });
+  // 偵測新公告並發送通知
+  const storageData = await chrome.storage.local.get(['announcements', 'announcementNotified']);
+  const oldAnnouncementIds = new Set((storageData.announcements || []).map(a => a.id));
+  const announcementNotified = new Set(storageData.announcementNotified || []);
 
-  console.log(`E3 Helper: 公告載入完成，共 ${allAnnouncements.length} 個`);
+  const newAnnouncements = allAnnouncements.filter(a =>
+    !oldAnnouncementIds.has(a.id) && !announcementNotified.has(a.id)
+  );
+
+  for (const announcement of newAnnouncements) {
+    announcementNotified.add(announcement.id);
+    await notifyNewAnnouncement(announcement);
+    console.log(`E3 Helper: 新公告通知 - ${announcement.title}`);
+  }
+
+  // 儲存到 storage
+  await chrome.storage.local.set({
+    announcements: allAnnouncements,
+    announcementNotified: [...announcementNotified]
+  });
+
+  console.log(`E3 Helper: 公告載入完成，共 ${allAnnouncements.length} 個，其中 ${newAnnouncements.length} 個新公告`);
+}
+
+// 發送新公告通知
+async function notifyNewAnnouncement(announcement) {
+  try {
+    const now = Date.now();
+
+    // 桌面通知（透過 background script）
+    chrome.runtime.sendMessage({
+      action: 'showNotification',
+      title: `📢 新公告：${announcement.courseName}`,
+      message: announcement.title
+    }).catch(() => {});
+
+    // 存入通知中心
+    const storage = await chrome.storage.local.get(['notifications']);
+    const notifications = storage.notifications || [];
+
+    notifications.unshift({
+      id: `announcement-${announcement.id}-${now}`,
+      type: 'announcement',
+      title: announcement.title,
+      message: `📚 課程：${announcement.courseName}`,
+      timestamp: now,
+      read: false,
+      url: announcement.url
+    });
+
+    if (notifications.length > 50) notifications.splice(50);
+
+    await chrome.storage.local.set({ notifications });
+
+    // 更新 badge
+    updateNotificationBadge();
+  } catch (error) {
+    console.error('E3 Helper: 發送公告通知失敗', error);
+  }
 }
 
 // 載入通知列表
@@ -5437,6 +5474,9 @@ async function loadNotifications() {
     } else if (notification.type === 'deadline') {
       icon = '⏰';
       typeText = '截止提醒';
+    } else if (notification.type === 'grading') {
+      icon = '📊';
+      typeText = '已評分';
     } else if (notification.type === 'announcement') {
       icon = '📢';
       typeText = '公告';
