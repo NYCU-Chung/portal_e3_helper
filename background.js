@@ -48,8 +48,8 @@ function sendLogToContentScript(type, args) {
     chrome.storage.local.set({ backgroundLogs: logs });
   });
 
-  // 廣播日誌到所有 tabs（即時顯示）
-  chrome.tabs.query({}, (tabs) => {
+  // 廣播日誌到有 E3 Helper sidebar 的 tabs（不廣播到所有 tabs）
+  chrome.tabs.query({ url: ['*://*.nycu.edu.tw/*'] }, (tabs) => {
     tabs.forEach(tab => {
       chrome.tabs.sendMessage(tab.id, {
         action: 'backgroundLog',
@@ -74,6 +74,24 @@ console.log('E3 Helper Background Script 已載入');
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'download') {
     console.log(`E3 Helper: 收到下載請求 - ${request.filename}`);
+
+    // 驗證下載 URL 域名
+    const downloadAllowedDomains = ['e3.nycu.edu.tw', 'e3p.nycu.edu.tw'];
+    try {
+      const urlObj = new URL(request.url);
+      if (!downloadAllowedDomains.some(d => urlObj.hostname.endsWith(d))) {
+        sendResponse({ success: false, error: 'Download URL not from allowed domain' });
+        return true;
+      }
+    } catch {
+      sendResponse({ success: false, error: 'Invalid URL' });
+      return true;
+    }
+    // 驗證 filename 無路徑遍歷
+    if (request.filename && (request.filename.includes('..') || request.filename.includes('/'))) {
+      sendResponse({ success: false, error: 'Invalid filename' });
+      return true;
+    }
 
     // 使用 Chrome Downloads API 下載檔案
     chrome.downloads.download({
@@ -144,6 +162,46 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('E3 Helper: 收到手動成員檢測請求');
     checkParticipantsInTabs();
     sendResponse({ success: true, message: '已觸發成員檢測' });
+    return true;
+  } else if (request.action === 'callGeminiApi') {
+    // 代理 Gemini API 呼叫（避免 API key 暴露在 content script）
+    (async () => {
+      try {
+        const { model, apiKey, content, generationConfig } = request;
+        const requestBody = {
+          contents: [{ parts: [{ text: content }] }]
+        };
+        if (generationConfig) {
+          requestBody.generationConfig = generationConfig;
+        }
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+          }
+        );
+        if (!response.ok) {
+          const errorData = await response.json();
+          sendResponse({ success: false, error: errorData.error?.message || `HTTP ${response.status}` });
+          return;
+        }
+        const data = await response.json();
+        if (!data.candidates || data.candidates.length === 0) {
+          sendResponse({ success: false, error: data.promptFeedback?.blockReason || 'Gemini API 返回空結果' });
+          return;
+        }
+        const candidate = data.candidates[0];
+        if (candidate.content?.parts?.[0]?.text) {
+          sendResponse({ success: true, data: candidate.content.parts[0].text.trim() });
+        } else {
+          sendResponse({ success: false, error: candidate.finishReason || 'Gemini API 返回格式錯誤' });
+        }
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
     return true;
   } else if (request.action === 'callAI') {
     // 處理 AI API 請求
@@ -340,9 +398,9 @@ async function checkLoginStatus() {
 
     return false;
   } catch (error) {
-    // 網路錯誤時樂觀假設已登入，避免誤判（實際錯誤由 syncAssignments 處理）
-    console.warn('E3 Helper: 檢查登入狀態時網路錯誤，假設已登入', error.message);
-    return true;
+    // 網路錯誤時返回 null，由呼叫方決定如何處理
+    console.warn('E3 Helper: 檢查登入狀態時網路錯誤', error.message);
+    return null;
   }
 }
 
@@ -355,7 +413,7 @@ async function getSesskey() {
     const html = await response.text();
 
     // 從 HTML 中提取 sesskey
-    const sesskeyMatch = html.match(/sesskey[="]([a-zA-Z0-9]+)/);
+    const sesskeyMatch = html.match(/"sesskey"\s*:\s*"([a-zA-Z0-9]+)"/) || html.match(/sesskey=([a-zA-Z0-9]+)&/);
     if (sesskeyMatch) {
       return sesskeyMatch[1];
     }
@@ -1303,6 +1361,15 @@ async function callCustomAPI(config, prompt) {
 // 從 E3 抓取公告/信件內容
 async function fetchContentFromE3(url) {
   console.log(`E3 Helper: 開始抓取內容 - ${url}`);
+
+  // 驗證 URL 域名
+  const fetchAllowedDomains = ['e3.nycu.edu.tw', 'e3p.nycu.edu.tw'];
+  try {
+    const urlObj = new URL(url);
+    if (!fetchAllowedDomains.some(d => urlObj.hostname.endsWith(d))) {
+      throw new Error('URL not from allowed E3 domain');
+    }
+  } catch (e) { throw e; }
 
   try {
     const response = await fetchWithTimeout(url, {

@@ -1,5 +1,10 @@
 // NYCU E3 Helper - Content Script
 // 優化 E3 使用體驗
+(function() {
+'use strict';
+
+// 判斷是否為 E3 網站
+const isE3Site = location.hostname.endsWith('nycu.edu.tw');
 
 // ==================== 全局變數 ====================
 // 自動同步定時器
@@ -41,9 +46,9 @@ function interceptConsole() {
         args: args // 保存原始參數
       });
 
-      // 限制日誌數量
+      // 限制日誌數量（批次截斷避免頻繁 shift）
       if (e3HelperLogs.length > 500) {
-        e3HelperLogs.shift();
+        e3HelperLogs.splice(0, e3HelperLogs.length - 400);
       }
 
       // 動態更新顯示
@@ -59,8 +64,10 @@ function interceptConsole() {
   interceptMethod('table', 'table');
 }
 
-// ⭐ 立即執行攔截器
-interceptConsole();
+// ⭐ 只在 E3 網站攔截 console
+if (isE3Site) {
+  interceptConsole();
+}
 
 // 日誌更新節流控制
 let logUpdateTimeout = null;
@@ -157,6 +164,7 @@ function renderLogEntry(log) {
 
 // 渲染值（支援展開/收合）
 function renderValue(value, logId, path, depth = 0) {
+  if (depth > 10) return '<span class="e3-helper-log-string">[nested too deep]</span>';
   const pathStr = path.join('.');
 
   if (value === null) {
@@ -180,7 +188,7 @@ function renderValue(value, logId, path, depth = 0) {
   }
 
   if (typeof value === 'function') {
-    return `<span class="e3-helper-log-function">${value.toString().substring(0, 100)}${value.toString().length > 100 ? '...' : ''}</span>`;
+    return `<span class="e3-helper-log-function">${escapeHtml(value.toString().substring(0, 100))}${value.toString().length > 100 ? '...' : ''}</span>`;
   }
 
   // 陣列
@@ -307,6 +315,22 @@ function deepStringify(obj, indent = 0, visited = new WeakSet()) {
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
+  return div.innerHTML;
+}
+
+// HTML 白名單清理（用於公告/信件等 rich content）
+function sanitizeHtml(html) {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  // 移除危險標籤
+  div.querySelectorAll('script,style,iframe,form,object,embed,applet,link,meta,base,svg').forEach(el => el.remove());
+  // 移除所有 on* 事件屬性和危險屬性
+  div.querySelectorAll('*').forEach(el => {
+    [...el.attributes].forEach(attr => {
+      if (attr.name.startsWith('on') || attr.name === 'srcdoc') el.removeAttribute(attr.name);
+      if (attr.name === 'href' && el.getAttribute('href')?.startsWith('javascript:')) el.setAttribute('href', '#');
+    });
+  });
   return div.innerHTML;
 }
 
@@ -2277,7 +2301,7 @@ function createSidebar() {
                 return `
                   <div class="e3-helper-course-item" data-course-id="${course.id}">
                     <input type="checkbox" class="e3-helper-course-checkbox" data-course-id="${course.id}" ${isSelected ? 'checked' : ''}>
-                    <span class="e3-helper-course-name">${course.fullname}</span>
+                    <span class="e3-helper-course-name">${escapeHtml(course.fullname)}</span>
                   </div>
                 `;
               }).join('');
@@ -2963,6 +2987,9 @@ function setupAssignmentPageListener() {
   let lastTriggerTime = 0;
   const MIN_TRIGGER_INTERVAL = 10000; // 最少 10 秒間隔
 
+  // 在開始新的 observer 前先 disconnect 舊的
+  if (window._e3HelperObserver) window._e3HelperObserver.disconnect();
+
   // 監聽整個頁面的變化（包括作業繳交訊息）
   const observer = new MutationObserver((mutations) => {
     // 檢查是否在作業頁面
@@ -3034,6 +3061,7 @@ function setupAssignmentPageListener() {
     childList: true,
     subtree: true
   });
+  window._e3HelperObserver = observer;
 }
 
 // 創建 log modal 面板
@@ -3369,7 +3397,7 @@ async function saveAISettings() {
 
   await chrome.storage.local.set({ aiSettings: aiSettings });
 
-  console.log('E3 Helper: AI 設定已儲存', aiSettings);
+  console.log('E3 Helper: AI 設定已儲存', { ...aiSettings, geminiApiKey: aiSettings.geminiApiKey ? '***' : '' });
   showTemporaryMessage('設定已儲存！', 'success');
 }
 
@@ -3396,35 +3424,32 @@ async function testAIConnection() {
   testBtn.disabled = true;
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: 'Hello, test connection.'
-            }]
-          }]
-        })
-      }
-    );
+    const result = await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage({
+        action: 'callGeminiApi',
+        model: 'gemini-2.5-flash',
+        apiKey: geminiApiKey,
+        content: 'Hello, test connection.'
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve(response);
+        }
+      });
+    });
 
-    if (response.ok) {
+    if (result.success) {
       statusIcon.textContent = '✅';
       statusText.textContent = '連接成功';
       statusDiv.style.color = '#4caf50';
       console.log('E3 Helper: Gemini API 連接測試成功');
     } else {
-      const errorData = await response.json();
       statusIcon.textContent = '❌';
       statusText.textContent = '連接失敗';
       statusDiv.style.color = '#f44336';
-      console.error('E3 Helper: Gemini API 連接測試失敗', errorData);
-      showTemporaryMessage(`連接失敗：${errorData.error?.message || '未知錯誤'}`, 'error');
+      console.error('E3 Helper: Gemini API 連接測試失敗', result.error);
+      showTemporaryMessage(`連接失敗：${result.error || '未知錯誤'}`, 'error');
     }
   } catch (error) {
     statusIcon.textContent = '❌';
@@ -3650,8 +3675,8 @@ async function updateSidebarContent() {
 
     return `
       <a href="${hasValidUrl ? assignment.url : 'javascript:void(0);'}" target="${hasValidUrl ? '_blank' : '_self'}" class="e3-helper-assignment-item ${statusClass}" data-event-id="${assignment.eventId}" ${!hasValidUrl ? 'data-need-fetch="true"' : ''} style="display: block; text-decoration: none; color: inherit; cursor: pointer;">
-        <div class="e3-helper-assignment-name">${assignment.name}${urgentBadge}</div>
-        <div class="e3-helper-assignment-course">${assignment.course || '(未知課程)'}</div>
+        <div class="e3-helper-assignment-name">${escapeHtml(assignment.name)}${urgentBadge}</div>
+        <div class="e3-helper-assignment-course">${escapeHtml(assignment.course || '(未知課程)')}</div>
         <div class="e3-helper-assignment-deadline">
           📅 ${dateStr}
           <span class="e3-helper-status-toggle ${statusToggleClass}" data-event-id="${assignment.eventId}" onclick="event.preventDefault(); event.stopPropagation();">${statusToggleText}</span>
@@ -4400,7 +4425,7 @@ async function loadAllCourseGrades(forceRefresh = false) {
     // 載入每個課程的成績
     for (const course of allCourses) {
       try {
-        statsContainer.innerHTML = `<div class="e3-helper-loading">載入課程成績中... ${loadedCount + 1}/${allCourses.length}<br><small style="color: #999; margin-top: 8px; display: block;">${course.fullname}</small></div>`;
+        statsContainer.innerHTML = `<div class="e3-helper-loading">載入課程成績中... ${loadedCount + 1}/${allCourses.length}<br><small style="color: #999; margin-top: 8px; display: block;">${escapeHtml(course.fullname)}</small></div>`;
 
         // 構建成績頁面URL
         const gradeUrl = `https://e3p.nycu.edu.tw/local/courseextension/grade/report/user/index.php?id=${course.id}`;
@@ -4556,7 +4581,7 @@ async function loadAllCoursesList() {
         <div class="e3-helper-course-item" data-course-id="${course.id}" style="padding: 12px; border-bottom: 1px solid #e9ecef; cursor: pointer; transition: background 0.2s; position: relative;"
              onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">
           <div style="padding-right: 55px; margin-bottom: 6px;">
-            <div style="font-size: 13px; font-weight: 600; color: #495057; line-height: 1.4; word-wrap: break-word;">${course.fullname}</div>
+            <div style="font-size: 13px; font-weight: 600; color: #495057; line-height: 1.4; word-wrap: break-word;">${escapeHtml(course.fullname)}</div>
             <span style="position: absolute; right: 12px; top: 12px; font-size: 11px; color: #6c757d; background: #e9ecef; padding: 2px 6px; border-radius: 3px; white-space: nowrap;">👥 ${participantCount}</span>
           </div>
           ${course.summary ? `<div style="font-size: 11px; color: #6c757d; line-height: 1.3; margin-top: 4px;">${course.summary.replace(/<[^>]*>/g, '').substring(0, 60)}${course.summary.length > 60 ? '...' : ''}</div>` : ''}
@@ -4642,7 +4667,7 @@ async function loadAllCoursesList() {
     container.innerHTML = `
       <div class="e3-helper-welcome-message">
         <h3>❌ 載入失敗</h3>
-        <p>${error.message}</p>
+        <p>${escapeHtml(error.message)}</p>
       </div>
     `;
   }
@@ -4849,7 +4874,7 @@ async function showCourseStats(course) {
     statsContent.innerHTML = `
       <div style="padding: 16px; text-align: center; color: #dc3545;">
         載入失敗<br>
-        <small style="color: #6c757d;">${error.message}</small>
+        <small style="color: #6c757d;">${escapeHtml(error.message)}</small>
       </div>
     `;
   }
@@ -4962,7 +4987,7 @@ async function loadCourseMembers(courseId, courseName) {
         membersHTML += `
           <div style="margin-bottom: 16px;">
             <div style="font-size: 11px; font-weight: 600; color: #6c757d; margin-bottom: 8px; text-transform: uppercase;">
-              ${role} (${roleGroups[role].length})
+              ${escapeHtml(role)} (${roleGroups[role].length})
             </div>
         `;
 
@@ -4970,8 +4995,8 @@ async function loadCourseMembers(courseId, courseName) {
           membersHTML += `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: white; border-radius: 4px; margin-bottom: 6px; border: 1px solid #dee2e6;">
               <div>
-                <div style="font-size: 12px; color: #495057; font-weight: 500;">${member.name}</div>
-                ${member.email ? `<div style="font-size: 10px; color: #6c757d; margin-top: 2px;">${member.email}</div>` : ''}
+                <div style="font-size: 12px; color: #495057; font-weight: 500;">${escapeHtml(member.name)}</div>
+                ${member.email ? `<div style="font-size: 10px; color: #6c757d; margin-top: 2px;">${escapeHtml(member.email)}</div>` : ''}
               </div>
             </div>
           `;
@@ -4996,7 +5021,7 @@ async function loadCourseMembers(courseId, courseName) {
     membersContainer.innerHTML = `
       <div style="background: #f8f9fa; border-radius: 8px; padding: 16px; text-align: center; color: #dc3545; font-size: 12px;">
         載入失敗<br>
-        <small style="color: #6c757d; margin-top: 4px; display: block;">${error.message}</small>
+        <small style="color: #6c757d; margin-top: 4px; display: block;">${escapeHtml(error.message)}</small>
       </div>
     `;
   }
@@ -5122,7 +5147,7 @@ async function displayCourseGradeList() {
 
     return `
       <div class="e3-helper-assignment-item ${statusClass}" data-course-id="${courseId}">
-        <div class="e3-helper-assignment-name">${course.fullname}</div>
+        <div class="e3-helper-assignment-name">${escapeHtml(course.fullname)}</div>
         <div class="e3-helper-assignment-deadline">
           📊 評分進度: ${stats.progress.toFixed(0)}%
           <span style="margin-left: 12px;">當前表現: <span style="color: #667eea; font-weight: 600;">${stats.currentPerformance.toFixed(1)}</span></span>
@@ -5169,7 +5194,7 @@ function showCourseGradeDetails(courseId) {
   const summaryHTML = `
     <div style="padding: 12px; border-bottom: 1px solid #e9ecef; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-        <div style="color: white; font-size: 14px; font-weight: 600;">${course.fullname}</div>
+        <div style="color: white; font-size: 14px; font-weight: 600;">${escapeHtml(course.fullname)}</div>
         <button id="e3-helper-back-to-list" style="background: rgba(255,255,255,0.2); border: 1px solid white; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer;">← 返回列表</button>
       </div>
       <div style="display: flex; justify-content: space-around; color: white;">
@@ -5255,10 +5280,11 @@ async function loadCourseSelector() {
     return `
       <div class="e3-helper-course-item" data-course-id="${course.id}">
         <input type="checkbox" class="e3-helper-course-checkbox" data-course-id="${course.id}" ${isSelected ? 'checked' : ''}>
-        <span class="e3-helper-course-name">${course.fullname}</span>
+        <span class="e3-helper-course-name">${escapeHtml(course.fullname)}</span>
       </div>
     `;
   }).join('');
+
 
   // 綁定勾選框事件
   courseListContainer.querySelectorAll('.e3-helper-course-checkbox').forEach(checkbox => {
@@ -6357,11 +6383,11 @@ async function displayAnnouncements() {
         <div class="e3-helper-announcement-item ${isRead ? 'read' : 'unread'}" data-item-id="${item.id}" data-item-type="${item.type}">
           ${isRead ? '' : '<div class="e3-helper-unread-dot"></div>'}
           <div class="e3-helper-announcement-title">
-            ${typeIcon} ${item.title}
+            ${typeIcon} ${escapeHtml(item.title)}
           </div>
           <div class="e3-helper-announcement-meta">
-            <span>${typeLabel}: ${item.courseName.substring(0, 30)}${item.courseName.length > 30 ? '...' : ''}</span>
-            <span style="margin-left: 12px;">👤 ${item.author}</span>
+            <span>${typeLabel}: ${escapeHtml(item.courseName.substring(0, 30))}${item.courseName.length > 30 ? '...' : ''}</span>
+            <span style="margin-left: 12px;">👤 ${escapeHtml(item.author)}</span>
             <span style="margin-left: 12px;">⏰ ${timeAgo}</span>
           </div>
           <button class="e3-helper-status-toggle" data-item-id="${item.id}" data-item-type="${item.type}">
@@ -6516,61 +6542,34 @@ async function translateWithGemini(text, sourceLang, targetLang, apiKey, model =
   const prompt = `Translate the following text to ${targetLanguage}. IMPORTANT: Preserve all line breaks, paragraph structure, and formatting. Only translate the text content, do not add any explanations or notes.\n\n${text}`;
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: prompt
-            }]
-          }],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 2048,
-            thinkingConfig: {
-              thinkingBudget: 0
-            }
+    const result = await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage({
+        action: 'callGeminiApi',
+        model: model,
+        apiKey: apiKey,
+        content: prompt,
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 2048,
+          thinkingConfig: {
+            thinkingBudget: 0
           }
-        })
-      }
-    );
+        }
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve(response);
+        }
+      });
+    });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('E3 Helper: Gemini API 錯誤詳情', errorData);
-      throw new Error(`Gemini API 錯誤: ${errorData.error?.message || response.status}`);
+    if (!result.success) {
+      throw new Error(result.error || 'Gemini API 翻譯失敗');
     }
 
-    const data = await response.json();
-    console.log('E3 Helper: Gemini 翻譯 API 完整回應', data);
-
-    // 檢查回應結構
-    if (!data.candidates || data.candidates.length === 0) {
-      console.error('E3 Helper: Gemini API 無 candidates', data);
-      if (data.promptFeedback?.blockReason) {
-        throw new Error(`內容被過濾: ${data.promptFeedback.blockReason}`);
-      }
-      throw new Error('Gemini API 返回空結果');
-    }
-
-    const candidate = data.candidates[0];
-
-    if (!candidate.content || !candidate.content.parts || candidate.content.parts.length === 0) {
-      console.error('E3 Helper: Gemini API candidate 無內容', candidate);
-      if (candidate.finishReason) {
-        throw new Error(`生成終止: ${candidate.finishReason}`);
-      }
-      throw new Error('Gemini API 返回格式錯誤');
-    }
-
-    const translatedText = candidate.content.parts[0].text.trim();
     console.log('E3 Helper: Gemini AI 翻譯完成');
-    return translatedText;
+    return result.data;
 
   } catch (error) {
     console.error('E3 Helper: Gemini AI 翻譯失敗', error);
@@ -6671,60 +6670,31 @@ async function generateAISummary(text, apiKey, model = 'gemini-2.5-flash-lite') 
   const prompt = `Summarize in 100 words or less (no markdown):\n${text}`;
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: prompt
-            }]
-          }],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 512
-          }
-        })
-      }
-    );
+    const result = await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage({
+        action: 'callGeminiApi',
+        model: model,
+        apiKey: apiKey,
+        content: prompt,
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 512
+        }
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve(response);
+        }
+      });
+    });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('E3 Helper: Gemini API 錯誤詳情', errorData);
-      throw new Error(`Gemini API 錯誤: ${errorData.error?.message || response.status}`);
+    if (!result.success) {
+      throw new Error(result.error || 'Gemini API 摘要失敗');
     }
 
-    const data = await response.json();
-    console.log('E3 Helper: Gemini API 完整回應', data);
-
-    // 檢查回應結構
-    if (!data.candidates || data.candidates.length === 0) {
-      console.error('E3 Helper: Gemini API 無 candidates', data);
-      // 檢查是否被安全過濾
-      if (data.promptFeedback?.blockReason) {
-        throw new Error(`內容被過濾: ${data.promptFeedback.blockReason}`);
-      }
-      throw new Error('Gemini API 返回空結果');
-    }
-
-    const candidate = data.candidates[0];
-
-    // 檢查是否有內容
-    if (!candidate.content || !candidate.content.parts || candidate.content.parts.length === 0) {
-      console.error('E3 Helper: Gemini API candidate 無內容', candidate);
-      if (candidate.finishReason) {
-        throw new Error(`生成終止: ${candidate.finishReason}`);
-      }
-      throw new Error('Gemini API 返回格式錯誤');
-    }
-
-    const summary = candidate.content.parts[0].text.trim();
     console.log('E3 Helper: Gemini AI 摘要完成');
-    return summary;
+    return result.data;
 
   } catch (error) {
     console.error('E3 Helper: Gemini AI 摘要失敗', error);
@@ -6762,16 +6732,16 @@ async function showAnnouncementDetails(itemId, itemType) {
         </button>
       </div>
       <div style="color: rgba(255,255,255,0.9); font-size: 12px;">
-        ${item.courseName}
+        ${escapeHtml(item.courseName)}
       </div>
     </div>
     <div style="padding: 12px;">
       <div style="margin-bottom: 12px;">
         <div style="font-size: 15px; font-weight: 600; color: #2c3e50; margin-bottom: 8px;">
-          ${item.title}
+          ${escapeHtml(item.title)}
         </div>
         <div style="font-size: 12px; color: #6c757d;">
-          <span>👤 ${item.author}</span>
+          <span>👤 ${escapeHtml(item.author)}</span>
           <span style="margin-left: 12px;">⏰ ${new Date(item.timestamp).toLocaleString('zh-TW')}</span>
           ${!isRead ? '<span style="margin-left: 12px; color: #e74c3c;">● 未讀</span>' : ''}
         </div>
@@ -7085,10 +7055,10 @@ async function loadItemPreview(itemId, itemType, itemUrl, previewContainer) {
       }));
     }
 
-    // 清理內容：移除 script, style 等
+    // 清理內容：白名單式 HTML 清理
     const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = content;
-    tempDiv.querySelectorAll('script, style, iframe, form, button[type="submit"]').forEach(el => el.remove());
+    tempDiv.innerHTML = sanitizeHtml(content);
+    tempDiv.querySelectorAll('button[type="submit"]').forEach(el => el.remove());
 
     // 限制圖片大小
     tempDiv.querySelectorAll('img').forEach(img => {
@@ -7137,7 +7107,7 @@ async function loadItemPreview(itemId, itemType, itemUrl, previewContainer) {
     console.error('E3 Helper: 載入預覽失敗', error);
     previewContainer.innerHTML = `
       <div style="text-align: center; color: #e74c3c; padding: 20px;">
-        載入失敗：${error.message}<br>
+        載入失敗：${escapeHtml(error.message)}<br>
         <span style="font-size: 11px; color: #999; margin-top: 8px; display: block;">請點擊下方「開啟完整頁面」查看</span>
       </div>
     `;
@@ -7172,7 +7142,7 @@ async function scanSelectedCourses() {
       if (downloadStatus) {
         downloadStatus.textContent = `正在掃描課程 ${scannedCourses + 1}/${selectedCourseList.length}: ${course.fullname}`;
       }
-      pdfListContainer.innerHTML = `<div class="e3-helper-loading">正在掃描課程 ${scannedCourses + 1}/${selectedCourseList.length}<br><small style="color: #999; margin-top: 8px; display: block;">${course.fullname}</small><br><small style="color: #667eea; margin-top: 4px; display: block;">已找到 ${totalPDFs} 個檔案</small></div>`;
+      pdfListContainer.innerHTML = `<div class="e3-helper-loading">正在掃描課程 ${scannedCourses + 1}/${selectedCourseList.length}<br><small style="color: #999; margin-top: 8px; display: block;">${escapeHtml(course.fullname)}</small><br><small style="color: #667eea; margin-top: 4px; display: block;">已找到 ${totalPDFs} 個檔案</small></div>`;
 
       const coursePDFs = await scanCourseDeep(course.id, course.fullname);
       totalPDFs += coursePDFs.length;
@@ -7549,7 +7519,7 @@ async function scanAllCourses() {
       if (downloadStatus) {
         downloadStatus.textContent = `正在掃描課程 ${scannedCourses + 1}/${allCourses.length}: ${course.fullname}`;
       }
-      pdfListContainer.innerHTML = `<div class="e3-helper-loading">正在掃描課程 ${scannedCourses + 1}/${allCourses.length}<br><small style="color: #999; margin-top: 8px; display: block;">${course.fullname}</small><br><small style="color: #667eea; margin-top: 4px; display: block;">已找到 ${totalPDFs} 個檔案</small></div>`;
+      pdfListContainer.innerHTML = `<div class="e3-helper-loading">正在掃描課程 ${scannedCourses + 1}/${allCourses.length}<br><small style="color: #999; margin-top: 8px; display: block;">${escapeHtml(course.fullname)}</small><br><small style="color: #667eea; margin-top: 4px; display: block;">已找到 ${totalPDFs} 個檔案</small></div>`;
 
       const coursePDFs = await scanCourseDeep(course.id, course.fullname);
       totalPDFs += coursePDFs.length;
@@ -8404,8 +8374,8 @@ function updatePDFList() {
           <input type="checkbox" class="e3-helper-pdf-checkbox" data-index="${index}" ${isSelected ? 'checked' : ''}>
           <span class="e3-helper-pdf-icon">${fileType.icon}</span>
           <div class="e3-helper-pdf-info" style="flex: 1;">
-            <div class="e3-helper-pdf-name">${pdf.filename}${embeddedBadge}</div>
-            <div class="e3-helper-pdf-course">${pdf.course} • ${fileType.name}</div>
+            <div class="e3-helper-pdf-name">${escapeHtml(pdf.filename)}${embeddedBadge}</div>
+            <div class="e3-helper-pdf-course">${escapeHtml(pdf.course)} • ${fileType.name}</div>
           </div>
         </div>
         <div class="e3-helper-file-actions">
@@ -9515,16 +9485,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // 啟動
 init();
 
-// 暴露測試函數到 window 對象（方便在 Console 測試）
-try {
-  console.log('E3 Helper: 正在設置 window.E3Helper...');
-  window.E3Helper = {
-    checkParticipants: checkAllCoursesParticipants,
-    fetchCourseParticipants: fetchCourseParticipants,
-    loadNotifications: loadNotifications,
-    updateNotificationBadge: updateNotificationBadge
-  };
-  console.log('E3 Helper: window.E3Helper 已設置');
-} catch (error) {
-  console.error('E3 Helper: 設置 window.E3Helper 失敗', error);
+// 暴露測試函數到 window 對象（僅在 E3 網站，方便在 Console 測試）
+if (isE3Site) {
+  try {
+    console.log('E3 Helper: 正在設置 window.E3Helper...');
+    window.E3Helper = {
+      checkParticipants: checkAllCoursesParticipants,
+      fetchCourseParticipants: fetchCourseParticipants,
+      loadNotifications: loadNotifications,
+      updateNotificationBadge: updateNotificationBadge
+    };
+    console.log('E3 Helper: window.E3Helper 已設置');
+  } catch (error) {
+    console.error('E3 Helper: 設置 window.E3Helper 失敗', error);
+  }
 }
+
+})();
