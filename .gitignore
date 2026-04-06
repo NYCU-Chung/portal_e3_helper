@@ -9,3 +9,12 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.log
+
+# Internal development docs (not for public)
+DEBUG.md
+DEBUG_STATUS.md
+DIAGNOSTIC_LOG_GUIDE.md
+FINAL_SUMMARY.md
+
+# Build artifacts
+*.zip

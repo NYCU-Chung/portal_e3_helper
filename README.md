@@ -125,7 +125,7 @@
 
 1. **下載專案**
    ```bash
-   git clone https://github.com/CBJ0519/portal_e3_helper.git
+   git clone https://github.com/NYCU-Chung/portal_e3_helper.git
    cd portal_e3_helper
    ```
 
@@ -712,12 +712,12 @@
 ```
 e3_helper/
 ├── manifest.json      # Chrome Extension 配置（Manifest V3）
-├── background.js      # Service Worker（背景同步）
+├── background.js      # Service Worker（背景同步、API 代理）
 ├── content.js         # 內容腳本（核心功能）
 ├── jszip.min.js       # ZIP 打包函式庫
 ├── README.md          # 說明文件
-├── DEBUG.md           # 除錯指南
-├── INSTALL.md         # 安裝說明
+├── CHANGELOG.md       # 更新日誌
+├── STORE_DESCRIPTION.txt  # 商店說明文字
 └── .gitignore         # Git 忽略規則
 ```
 
@@ -787,6 +787,31 @@ POST https://e3p.nycu.edu.tw/lib/ajax/service.php?sesskey={sesskey}
   }
 }
 ```
+
+## 安全性
+
+v2.1.0 進行了全面安全審查與加固，修復 18 項安全問題：
+
+### XSS 防護
+- **HTML 消毒**：所有動態插入的 HTML 內容經過 `sanitizeHtml()` 白名單過濾，移除 `<script>`、`<iframe>`、`<svg>`、`<object>`、`<embed>` 等危險標籤
+- **事件屬性移除**：自動移除所有 `on*` 事件處理屬性（onclick、onerror 等）
+- **JavaScript URI 攔截**：封鎖 `javascript:` 協議的連結
+- **轉義輸出**：所有動態文字使用 `escapeHtml()` 轉義後才插入 DOM
+
+### API 金鑰保護
+- **Background Script 代理**：Gemini API 呼叫透過 background.js 代理，content script 無法直接存取 API 金鑰
+- **Console 遮蔽**：API 金鑰在日誌輸出中自動遮蔽（僅顯示前 10 字元）
+
+### 下載安全
+- **網域白名單**：下載 URL 限制為 E3 網域（`e3.nycu.edu.tw`、`e3p.nycu.edu.tw`）
+- **路徑穿越防護**：檔名中的 `..` 和 `/` 會被攔截
+- **URL 驗證**：所有下載請求先驗證 URL 格式與網域
+
+### 其他安全措施
+- **IIFE 封裝**：整個 content script 以立即執行函式封裝，避免全域命名空間污染
+- **條件初始化**：非 E3 網站不執行 console 攔截與 window.E3Helper 掛載
+- **遞迴深度限制**：renderValue 函式加入深度限制，防止堆疊溢位
+- **MutationObserver 清理**：加入 disconnect 機制，避免記憶體洩漏
 
 ## 隱私權
 
@@ -925,7 +950,7 @@ syncE3Data()
 
 ### 開發環境設定
 ```bash
-git clone https://github.com/CBJ0519/portal_e3_helper.git
+git clone https://github.com/NYCU-Chung/portal_e3_helper.git
 cd portal_e3_helper
 # 在 Chrome 中載入擴充功能
 ```
@@ -937,6 +962,18 @@ cd portal_e3_helper
 4. 提供清楚的 commit 訊息
 
 ## 更新日誌
+
+### v2.1.0 (2026-04-06)
+- 🔒 **全面安全加固**（18 項修復）
+  - XSS 防護：sanitizeHtml 白名單 + escapeHtml 轉義
+  - API 金鑰保護：透過 background.js 代理 Gemini API 呼叫
+  - 下載安全：網域白名單 + 路徑穿越防護
+  - IIFE 封裝、條件初始化、遞迴深度限制
+- ⚡ **效能優化**
+  - 日誌批次截斷改用 splice 替代逐條 shift
+  - MutationObserver disconnect 機制
+- 🏗️ **程式碼品質**
+  - 移除未使用的開發文件（DEBUG.md 等）
 
 ### v1.9 (2025-12-05)
 - 🐛 修復重複函數定義導致的時間顯示問題
@@ -1029,5 +1066,5 @@ MIT License
 
 ## 聯絡方式
 
-- GitHub: https://github.com/CBJ0519/portal_e3_helper
-- Issues: https://github.com/CBJ0519/portal_e3_helper/issues
+- GitHub: https://github.com/NYCU-Chung/portal_e3_helper
+- Issues: https://github.com/NYCU-Chung/portal_e3_helper/issues

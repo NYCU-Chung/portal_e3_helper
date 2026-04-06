@@ -5,6 +5,33 @@
 格式基於 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.0.0/)，
 版本號遵循 [語義化版本 2.0.0](https://semver.org/lang/zh-TW/)。
 
+## [2.1.0] - 2026-04-06
+
+### 🔒 安全強化 (Security)
+- **XSS 防護**：新增 `sanitizeHtml()` 白名單式 HTML 清理，移除所有危險標籤（script/iframe/svg/object 等）和事件屬性（on*）
+- **資料轉義**：14 處動態資料（作業名稱、課程名稱、公告標題等）全面使用 `escapeHtml()` 防止注入
+- **API 金鑰保護**：Gemini API 呼叫改由 background script 代理，金鑰不再暴露於頁面網路請求中；console log 中自動遮蔽金鑰
+- **條件式初始化**：console 攔截和 `window.E3Helper` 僅在 E3 網站啟用，不再影響所有網頁
+- **下載驗證**：下載前驗證 URL 是否來自 E3 域名，filename 防止路徑遍歷攻擊
+- **內容存取驗證**：`fetchContentFromE3` 新增 URL 域名白名單檢查
+
+### ⚡ 效能改善 (Performance)
+- `renderValue` 遞迴深度限制（最大 10 層），防止深層巢狀物件導致頁面卡死
+- 日誌陣列改用批次截斷取代逐筆 `shift()`，降低高頻 log 場景的 CPU 消耗
+- `MutationObserver` 新增 disconnect 機制，離開作業頁面時自動清理
+
+### 🛠️ 程式碼品質 (Code Quality)
+- content.js 整體包裝在 IIFE 中，避免全域變數衝突
+- sesskey 正則表達式改為更精確的匹配模式
+- 網路錯誤時 `checkLoginStatus` 改回傳 null（區分「未登入」和「網路異常」）
+- `function.toString()` 輸出加入 `escapeHtml()` 處理
+- 日誌廣播改為僅針對 E3 分頁，不再廣播到所有 tabs
+
+### 🗑️ 清理 (Housekeeping)
+- 移除內部開發除錯文件（DEBUG.md 等）
+
+---
+
 ## [2.0.0] - 2026-03-21
 
 ### ✨ 新增 (Added)
