@@ -228,24 +228,47 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 // ==================== 自動同步功能 ====================
 
-// 安裝時設定定時同步
+// 只在「不存在」或「週期跟目標不符」時才建立／覆蓋 alarm
+// 直接無條件 create 會讓每次瀏覽器啟動都重置計時相位（從啟動點重新數），
+// 頻繁開關瀏覽器的人可能永遠等不到第一次到期；用 get-then-create 避開
+async function ensureAlarm(name, periodInMinutes) {
+  const existing = await chrome.alarms.get(name);
+  if (existing && existing.periodInMinutes === periodInMinutes) return;
+  chrome.alarms.create(name, { periodInMinutes });
+}
+
+// 建立／刷新所有定時器
+// onInstalled（含更新）和 onStartup 都呼叫：舊用戶持久化的舊週期（公告原本 360）
+// 會在週期不符時被刷新成 30，週期已正確時則不動，不重置相位
+function setupAlarms() {
+  ensureAlarm('syncE3Data', 60);          // 作業、課程
+  ensureAlarm('checkParticipants', 60);   // 課程成員變動
+  ensureAlarm('syncAnnouncementsAndMessages', 30); // 公告、信件（無 E3 分頁時開隱藏背景分頁抓）
+}
+
+// 清掃殘留的隱藏背景同步分頁
+// MV3 service worker 隨時可能被殺，若在背景分頁建立後、收尾邏輯跑完前被終止，
+// 那個 active:false 分頁就沒人關會累積。建立時把 tab id 存進 storage，
+// 開機時把上次沒收乾淨的關掉
+async function sweepOrphanBgTab() {
+  try {
+    const { bgSyncTabId } = await chrome.storage.local.get('bgSyncTabId');
+    if (bgSyncTabId != null) {
+      console.log(`E3 Helper: 清掃殘留背景同步分頁 ${bgSyncTabId}`);
+      chrome.tabs.remove(bgSyncTabId).catch(() => {});
+      await chrome.storage.local.remove('bgSyncTabId');
+    }
+  } catch (error) {
+    console.warn('E3 Helper: 清掃殘留背景分頁失敗', error.message);
+  }
+}
+
+// 安裝／更新時設定定時同步
 chrome.runtime.onInstalled.addListener(() => {
   console.log('E3 Helper: 擴充功能已安裝/更新');
 
-  // 設定每小時同步一次（作業、課程）
-  chrome.alarms.create('syncE3Data', {
-    periodInMinutes: 60
-  });
-
-  // 設定每小時檢查課程成員變動
-  chrome.alarms.create('checkParticipants', {
-    periodInMinutes: 60
-  });
-
-  // 設定每 6 小時同步公告和信件
-  chrome.alarms.create('syncAnnouncementsAndMessages', {
-    periodInMinutes: 360  // 6 小時
-  });
+  setupAlarms();
+  sweepOrphanBgTab();
 
   // 立即執行一次同步
   syncE3Data();
@@ -254,9 +277,11 @@ chrome.runtime.onInstalled.addListener(() => {
   updateBadgeFromStorage();
 });
 
-// Service Worker 啟動時也更新 badge
+// Service Worker 啟動時刷新定時器、清殘留分頁並更新 badge
 chrome.runtime.onStartup.addListener(() => {
   console.log('E3 Helper: Service Worker 啟動');
+  setupAlarms();
+  sweepOrphanBgTab();
   updateBadgeFromStorage();
 });
 
@@ -1392,19 +1417,30 @@ async function fetchContentFromE3(url) {
 
 // ==================== 載入公告和信件功能 ====================
 
-// 定時靜默同步公告和信件（不打開新標籤頁，只在有 E3 標籤頁時同步）
+// 定時靜默同步公告和信件
+// 有 E3 標籤頁 → 直接請該分頁同步（最省，不另開分頁）
+// 沒有 E3 標籤頁 → 開隱藏背景分頁抓取，抓完即關（讓沒開 E3 時也能即時更新）
 async function syncAnnouncementsAndMessagesSilently() {
   console.log('E3 Helper: 開始靜默同步公告和信件...', new Date().toLocaleTimeString());
 
   try {
-    // 只查找已開啟的 E3 標籤頁，不主動開啟新的
+    // 查找已開啟的 E3 標籤頁
     const tabs = await chrome.tabs.query({
       url: ['https://e3.nycu.edu.tw/*', 'https://e3p.nycu.edu.tw/*']
     });
 
     if (tabs.length === 0) {
-      console.log('E3 Helper: 沒有開啟的 E3 標籤頁，跳過公告/信件同步');
-      return { success: false, reason: 'no_e3_tab' };
+      // 沒有開啟的 E3 標籤頁，改用隱藏背景分頁抓取（loadAnnouncementsAndMessagesInBackground
+      // 會開 active:false 分頁、跑完同步、再自動關閉）
+      console.log('E3 Helper: 無 E3 標籤頁，改用隱藏背景分頁同步');
+      try {
+        const result = await loadAnnouncementsAndMessagesInBackground();
+        updateBadgeFromStorage();
+        return result;
+      } catch (error) {
+        console.error('E3 Helper: 背景分頁同步失敗', error);
+        return { success: false, error: error.message };
+      }
     }
 
     // 使用第一個 E3 標籤頁
@@ -1435,9 +1471,19 @@ async function syncAnnouncementsAndMessagesSilently() {
   }
 }
 
+// in-flight 鎖：30 分鐘高頻週期下，前一次同步若還沒跑完（逐課程抓取可能 60-90s），
+// 或手動觸發與定時觸發撞在一起，會疊開多個隱藏背景分頁 + storage 寫入互蓋
+let bgSyncInFlight = false;
+
 // 在背景載入公告和信件（通過 E3 標籤頁）
 async function loadAnnouncementsAndMessagesInBackground() {
   console.log('E3 Helper: 開始在背景載入公告和信件...');
+
+  if (bgSyncInFlight) {
+    console.log('E3 Helper: 已有背景同步進行中，跳過本次');
+    return { success: false, reason: 'in_flight' };
+  }
+  bgSyncInFlight = true;
 
   try {
     // 查找所有 E3 網站的標籤頁
@@ -1450,8 +1496,8 @@ async function loadAnnouncementsAndMessagesInBackground() {
       const tab = tabs[0];
       console.log(`E3 Helper: 使用標籤頁 ${tab.id} 載入資料`);
 
-      // 向該標籤頁發送載入請求
-      return new Promise((resolve, reject) => {
+      // 向該標籤頁發送載入請求（return await 讓 finally 等 Promise settle 後才解鎖）
+      return await new Promise((resolve, reject) => {
         chrome.tabs.sendMessage(tab.id, {
           action: 'loadAnnouncementsAndMessagesInTab'
         }, (response) => {
@@ -1476,11 +1522,28 @@ async function loadAnnouncementsAndMessagesInBackground() {
         active: false // 在背景開啟
       });
 
+      // 記住背景分頁 id：萬一 SW 在收尾前被殺，下次開機 sweepOrphanBgTab 依此關掉
+      await chrome.storage.local.set({ bgSyncTabId: newTab.id });
+
       // 等待標籤頁載入完成
-      return new Promise((resolve, reject) => {
+      return await new Promise((resolve, reject) => {
+        let settled = false;
+
+        // 統一收尾：移除監聽 + 關閉背景分頁 + 清掉殘留標記
+        // 不論成功/失敗/超時都要關，否則每 30 分鐘失敗一次就洩漏一個隱藏分頁，會累積
+        const cleanup = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeoutId);
+          chrome.tabs.onUpdated.removeListener(listener);
+          chrome.tabs.remove(newTab.id).catch(() => {});
+          chrome.storage.local.remove('bgSyncTabId');
+        };
+
         const timeoutId = setTimeout(() => {
+          cleanup();
           reject(new Error('載入超時，請確認已登入 E3'));
-        }, 30000); // 30 秒超時
+        }, 90000); // 90 秒超時（公告/信件會逐課程抓取，課程多時 30 秒不夠）
 
         // 監聽標籤頁載入完成
         const listener = (tabId, changeInfo, tab) => {
@@ -1492,18 +1555,17 @@ async function loadAnnouncementsAndMessagesInBackground() {
               chrome.tabs.sendMessage(newTab.id, {
                 action: 'loadAnnouncementsAndMessagesInTab'
               }, (response) => {
-                clearTimeout(timeoutId);
-
                 if (chrome.runtime.lastError) {
                   console.error('E3 Helper: 無法與新標籤頁通訊', chrome.runtime.lastError);
+                  cleanup();
                   reject(new Error('無法與 E3 標籤頁通訊'));
                 } else if (response && response.success) {
                   console.log('E3 Helper: 資料載入完成（新標籤頁）');
-                  // 關閉新開的標籤頁
-                  chrome.tabs.remove(newTab.id);
+                  cleanup();
                   resolve({ success: true, message: '資料已在背景載入完成' });
                 } else {
                   console.error('E3 Helper: 載入失敗（新標籤頁）', response);
+                  cleanup();
                   reject(new Error(response?.error || '載入失敗'));
                 }
               });
@@ -1517,5 +1579,7 @@ async function loadAnnouncementsAndMessagesInBackground() {
   } catch (error) {
     console.error('E3 Helper: 載入公告和信件時發生錯誤', error);
     throw error;
+  } finally {
+    bgSyncInFlight = false;
   }
 }
