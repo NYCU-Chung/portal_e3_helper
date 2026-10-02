@@ -3551,6 +3551,10 @@ function createSettingsModal() {
             </select>
           </div>
           <div class="e3-helper-settings-section">
+            <h3 class="e3-helper-settings-title">${uiText('通知設定')}</h3>
+            <button id="e3-helper-notification-settings" class="e3-helper-log-btn">${uiText('設定通知與提醒時間')}</button>
+          </div>
+          <div class="e3-helper-settings-section">
             <h3 class="e3-helper-settings-title"> AI 摘要與今日總覽</h3>
             <div class="e3-helper-settings-description">
               選擇 Gemini 或 OpenAI 生成公告與信件摘要與今日總覽；翻譯則使用 Google Translate 免費服務。
@@ -3685,6 +3689,22 @@ function createSettingsModal() {
   // 關閉按鈕
   document.getElementById('e3-helper-close-settings').addEventListener('click', () => {
     settingsModal.classList.remove('show');
+  });
+
+  document.getElementById('e3-helper-notification-settings').addEventListener('click', async () => {
+    // A page left open across an extension reload can no longer reach the background script.
+    try {
+      await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({ action: 'openNotificationSettings' }, response => {
+          const error = chrome.runtime.lastError;
+          if (error) reject(new Error(error.message));
+          else if (!response?.success) reject(new Error(uiText('無法開啟通知設定。')));
+          else resolve();
+        });
+      });
+    } catch (error) {
+      showTemporaryMessage(formatExtensionError(error), 'error', 6000);
+    }
   });
 
   // 儲存設定按鈕
@@ -5839,13 +5859,7 @@ async function notifyNewAnnouncement(announcement) {
   try {
     const now = Date.now();
 
-    // 桌面通知（透過 background script）
-    chrome.runtime.sendMessage({
-      action: 'showNotification',
-      title: ui`📢 新公告：${announcement.courseName}`,
-      message: announcement.title
-    }).catch(() => {});
-
+    // Desktop updates are delivered by notification-engine.js from storage changes.
     // 存入通知中心
     const storage = await chrome.storage.local.get(['notifications']);
     const notifications = storage.notifications || [];

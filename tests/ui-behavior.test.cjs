@@ -27,27 +27,21 @@ test('countdown keeps the original one-hour and 24-hour status boundaries', () =
     assert.equal(context.formatCountdown(now + left).status, status, `${left} ms remaining`);
   }
 });
-for (const deliveryFails of [false, true]) {
-  test(`new announcements request a desktop alert before saving the center entry${deliveryFails ? ', even when delivery fails' : ''}`, async () => {
-    const events = [], data = {};
-    const context = vm.createContext({ Date: FixedDate, console, uiText: text, ui: template,
-      updateNotificationBadge: () => events.push('badge'),
-      chrome: { runtime: { sendMessage(message) {
-        events.push(message);
-        return deliveryFails ? Promise.reject(new Error('fixture delivery failure')) : Promise.resolve({ success: true });
-      } }, storage: { local: {
+test('the notification engine owns desktop updates while content saves the center entry', async () => {
+  const events = [], data = {};
+  const context = vm.createContext({ Date: FixedDate, console, uiText: text, ui: template,
+    updateNotificationBadge: () => events.push('badge'),
+    chrome: { runtime: { sendMessage() { throw new Error('Content must not duplicate engine delivery'); } },
+      storage: { local: {
         get: async () => { events.push('read'); return data; },
         set: async update => { events.push('save'); Object.assign(data, update); }
-      } } }
-    });
-    vm.runInContext(functionSource('notifyNewAnnouncement'), context);
-    await context.notifyNewAnnouncement({ id: 'a1', courseName: '原文課程', title: '公告原文', url: 'https://e3.nycu.edu.tw/source' });
-    assert.equal(events[0].action, 'showNotification');
-    assert.ok(events[0].title.includes('原文課程'));
-    assert.equal(events[0].message, '公告原文');
-    assert.deepEqual(events.slice(1), ['read', 'save', 'badge']);
-    assert.equal(data.notifications[0].title, '公告原文');
-    assert.equal(data.notifications[0].url, 'https://e3.nycu.edu.tw/source');
-    assert.equal(data.notifications[0].read, false);
+      } }
+    }
   });
-}
+  vm.runInContext(functionSource('notifyNewAnnouncement'), context);
+  await context.notifyNewAnnouncement({ id: 'a1', courseName: '原文課程', title: '公告原文', url: 'https://e3.nycu.edu.tw/source' });
+  assert.deepEqual(events, ['read', 'save', 'badge']);
+  assert.equal(data.notifications[0].title, '公告原文');
+  assert.equal(data.notifications[0].url, 'https://e3.nycu.edu.tw/source');
+  assert.equal(data.notifications[0].read, false);
+});
