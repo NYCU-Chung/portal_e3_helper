@@ -79,7 +79,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const downloadAllowedDomains = ['e3.nycu.edu.tw', 'e3p.nycu.edu.tw'];
     try {
       const urlObj = new URL(request.url);
-      if (!downloadAllowedDomains.some(d => urlObj.hostname.endsWith(d))) {
+      if (!['https:', 'http:'].includes(urlObj.protocol) || !downloadAllowedDomains.includes(urlObj.hostname)) {
         sendResponse({ success: false, error: 'Download URL not from allowed domain' });
         return true;
       }
@@ -163,41 +163,56 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     checkParticipantsInTabs();
     sendResponse({ success: true, message: '已觸發成員檢測' });
     return true;
-  } else if (request.action === 'callGeminiApi') {
-    // 代理 Gemini API 呼叫（避免 API key 暴露在 content script）
+  } else if (request.action === 'callOpenAIResponsesApi') {
+    // 在背景服務中呼叫 OpenAI，避免網頁直接存取使用者的 API key。
     (async () => {
       try {
-        const { model, apiKey, content, generationConfig } = request;
+        const { model, apiKey, content, maxOutputTokens = 512 } = request;
+        if (!apiKey) {
+          sendResponse({ success: false, error: '請輸入 OpenAI API Key' });
+          return;
+        }
+
         const requestBody = {
-          contents: [{ parts: [{ text: content }] }]
+          model,
+          input: content,
+          max_output_tokens: maxOutputTokens,
+          store: false
         };
-        if (generationConfig) {
-          requestBody.generationConfig = generationConfig;
+
+        // GPT-5 摘要使用最低推理強度，避免短摘要耗盡輸出 token 額度。
+        if (['gpt-5', 'gpt-5-mini', 'gpt-5-nano'].includes(model)) {
+          requestBody.reasoning = { effort: 'minimal' };
         }
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
-          }
-        );
-        if (!response.ok) {
-          const errorData = await response.json();
-          sendResponse({ success: false, error: errorData.error?.message || `HTTP ${response.status}` });
-          return;
-        }
+
+        const response = await fetch('https://api.openai.com/v1/responses', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify(requestBody)
+        });
+
         const data = await response.json();
-        if (!data.candidates || data.candidates.length === 0) {
-          sendResponse({ success: false, error: data.promptFeedback?.blockReason || 'Gemini API 返回空結果' });
+        if (!response.ok) {
+          sendResponse({ success: false, error: data.error?.message || `HTTP ${response.status}` });
           return;
         }
-        const candidate = data.candidates[0];
-        if (candidate.content?.parts?.[0]?.text) {
-          sendResponse({ success: true, data: candidate.content.parts[0].text.trim() });
-        } else {
-          sendResponse({ success: false, error: candidate.finishReason || 'Gemini API 返回格式錯誤' });
+
+        const outputText = data.output_text || data.output
+          ?.flatMap(item => item.content || [])
+          .filter(part => part.type === 'output_text' && part.text)
+          .map(part => part.text)
+          .join('')
+          .trim();
+
+        if (!outputText) {
+          sendResponse({ success: false, error: data.incomplete_details?.reason || 'OpenAI API 返回空結果' });
+          return;
         }
+
+        sendResponse({ success: true, data: outputText });
       } catch (error) {
         sendResponse({ success: false, error: error.message });
       }
@@ -468,7 +483,7 @@ async function syncE3Data() {
     return syncResult;
 
   } catch (error) {
-    console.error('E3 Helper: 同步失敗', error);
+    console.error('E3 Helper: 同步失敗', error.message);
     syncResult.error = error.message;
 
     // 檢查是否是登入問題
@@ -1282,8 +1297,6 @@ async function handleAIRequest(request) {
       return await callOllamaAPI(config, prompt);
     case 'openai':
       return await callOpenAIAPI(config, prompt);
-    case 'gemini':
-      return await callGeminiAPI(config, prompt);
     case 'custom':
       return await callCustomAPI(config, prompt);
     default:
@@ -1359,70 +1372,6 @@ async function callOpenAIAPI(config, prompt) {
 
     const data = await response.json();
     return data.choices[0].message.content.trim();
-  } catch (error) {
-    throw error;
-  }
-}
-
-// 調用 Gemini API
-async function callGeminiAPI(config, prompt) {
-  const { key, model, temperature, thinkingBudget } = config;
-
-  try {
-    const generationConfig = {
-      temperature: temperature !== undefined ? temperature : 0.3,
-      candidateCount: 1
-    };
-
-    if (thinkingBudget !== undefined) {
-      generationConfig.thinkingConfig = {
-        thinkingBudget: thinkingBudget
-      };
-    }
-
-    const requestBody = {
-      contents: [{
-        parts: [{
-          text: prompt
-        }]
-      }],
-      generationConfig: generationConfig
-    };
-
-    const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Gemini API 請求失敗: ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json();
-
-    // 檢查響應結構
-    if (!data.candidates || data.candidates.length === 0) {
-      throw new Error('Gemini API 沒有返回候選結果');
-    }
-
-    const candidate = data.candidates[0];
-
-    if (candidate.content && candidate.content.parts && candidate.content.parts[0] && candidate.content.parts[0].text) {
-      return candidate.content.parts[0].text.trim();
-    } else if (candidate.text) {
-      return candidate.text.trim();
-    } else if (candidate.output) {
-      return candidate.output.trim();
-    } else {
-      if (candidate.finishReason === 'MAX_TOKENS') {
-        throw new Error('Gemini MAX_TOKENS 錯誤且未返回任何文本，可能是輸入 prompt 太長。');
-      }
-      throw new Error('無法解析 Gemini 響應結構: ' + JSON.stringify(candidate));
-    }
   } catch (error) {
     throw error;
   }

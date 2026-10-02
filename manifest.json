@@ -15,7 +15,6 @@
     "https://e3p.nycu.edu.tw/*",
     "http://localhost:11434/*",
     "https://api.openai.com/*",
-    "https://generativelanguage.googleapis.com/*",
     "https://translate.googleapis.com/*"
   ],
   "content_scripts": [
@@ -23,7 +22,10 @@
       "matches": [
         "<all_urls>"
       ],
-      "js": ["jszip.min.js", "content.js"],
+      "js": [
+        "jszip.min.js",
+        "content.js"
+      ],
       "run_at": "document_end"
     }
   ],
