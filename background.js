@@ -307,7 +307,8 @@ async function notifyVersionUpdate(version) {
 // 支援 ### 子標題、`- 條列`、`**粗體**`、普通段落
 function parseChangelogForVersion(markdown, version) {
   const escaped = version.replace(/[.]/g, '\\.');
-  const re = new RegExp(`^## \\[${escaped}\\][^\\n]*\\n([\\s\\S]*?)(?=\\n## \\[|\\n---\\s*\\n|$)`, 'm');
+  // The block ends at the next version, a --- rule, or the end of the file ($ alone would match every line end under the m flag).
+  const re = new RegExp(`^## \\[${escaped}\\][^\\n]*\\n([\\s\\S]*?)(?=\\n## \\[|\\n---\\s*\\n|$(?![\\s\\S]))`, 'm');
   const m = markdown.match(re);
   if (!m) return '';
 
@@ -324,7 +325,7 @@ function parseChangelogForVersion(markdown, version) {
     if (!line) { flushList(); continue; }
     if (line.startsWith('### ')) {
       flushList();
-      html += `<h4 style="margin: 12px 0 6px; font-size: 14px; color: #7c4dff;">${inlineFmt(line.slice(4))}</h4>`;
+      html += `<h4 style="margin: 12px 0 6px; font-size: 14px;">${inlineFmt(line.slice(4))}</h4>`;
     } else if (line.startsWith('- ')) {
       if (!inList) { html += '<ul style="margin: 0 0 8px; padding-left: 20px;">'; inList = true; }
       html += `<li style="margin-bottom: 4px;">${inlineFmt(line.slice(2))}</li>`;
