@@ -18,3 +18,11 @@ FINAL_SUMMARY.md
 
 # Build artifacts
 *.zip
+dist/
+
+# Safari / Xcode local build and signing state
+safari/build/
+DerivedData/
+*.xcarchive/
+*.xcuserstate
+xcuserdata/
