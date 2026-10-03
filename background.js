@@ -79,7 +79,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const downloadAllowedDomains = ['e3.nycu.edu.tw', 'e3p.nycu.edu.tw'];
     try {
       const urlObj = new URL(request.url);
-      if (!['https:', 'http:'].includes(urlObj.protocol) || !downloadAllowedDomains.includes(urlObj.hostname)) {
+      if (!downloadAllowedDomains.some(d => urlObj.hostname.endsWith(d))) {
         sendResponse({ success: false, error: 'Download URL not from allowed domain' });
         return true;
       }
@@ -483,7 +483,7 @@ async function syncE3Data() {
     return syncResult;
 
   } catch (error) {
-    console.error('E3 Helper: 同步失敗', error.message);
+    console.error('E3 Helper: 同步失敗', error);
     syncResult.error = error.message;
 
     // 檢查是否是登入問題
