@@ -1562,7 +1562,6 @@ style.textContent += `
   .e3-helper-assignment-countdown b { font-size: 22px; letter-spacing: -0.01em; margin-right: 2px; }
   .e3-helper-assignment-countdown.urgent { color: var(--e3-danger); }
   .e3-helper-assignment-countdown.warning { color: var(--e3-warning); }
-  .e3-helper-assignment-countdown.upcoming { color: var(--e3-info); }
   .e3-helper-assignment-countdown.normal { color: var(--e3-success); }
   .e3-helper-assignment-countdown.overdue { color: var(--e3-muted); }
   .e3-helper-status-toggle, .e3-helper-status-toggle.completed, .e3-helper-status-toggle.pending { margin: 0; padding: 0; min-height: 32px; background: transparent; border: 0; border-radius: 0; color: var(--e3-text); font-size: 12.5px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
@@ -2064,15 +2063,12 @@ function formatCountdown(deadline) {
     text = `${seconds}秒`;
   }
 
-  // Use remaining milliseconds, so exact day boundaries stay in their band.
-  const day = 24 * 60 * 60 * 1000;
+  // 判斷狀態
   let status = 'normal';
-  if (timeLeft <= day) {
+  if (timeLeft < 60 * 60 * 1000) { // < 1小時
     status = 'urgent';
-  } else if (timeLeft <= 3 * day) {
+  } else if (timeLeft < 24 * 60 * 60 * 1000) { // < 24小時
     status = 'warning';
-  } else if (timeLeft <= 7 * day) {
-    status = 'upcoming';
   }
 
   return { text, status };
@@ -2421,7 +2417,7 @@ function createSidebar() {
             <li>點作業卡片開啟作業頁面；倒數與截止日期使用本地時區。</li>
             <li>點「標記為已繳交」切換狀態，再點「已繳交」可改回待處理。</li>
             <li>用「新增作業」加入自訂作業；卡片上的「編輯、刪除」可管理作業。</li>
-            <li>倒數顏色：一天內紅色、超過一天至三天琥珀色、超過三天至七天藍色、超過七天綠色；已截止則顯示灰色。</li>
+            <li>倒數顏色：剩餘時間少於一小時為紅色、少於二十四小時為琥珀色；其他為一般顏色，已截止則顯示灰色。</li>
             <li>已繳交且過期的作業會從列表隱藏。刪除同步作業後，後續同步仍可能重新載入。</li>
           </ul>
         </section>
@@ -2453,7 +2449,7 @@ function createSidebar() {
         <section>
           <h3>資料與外部服務</h3>
           <p>課程資料、閱讀狀態及設定儲存在瀏覽器本地。使用翻譯時，待翻譯內容會傳送至 Google Translate；使用 AI 翻譯或摘要時，內文會傳送至 Gemini。API Key 儲存在本地設定中。</p>
-          <p><a href="https://github.com/Yoyo1112/portal_e3_helper" target="_blank" rel="noopener noreferrer">GitHub 專案</a> · <a href="https://forms.gle/SbPcqgVRuNSdVyqK9" target="_blank" rel="noopener noreferrer">問題回報 / 功能建議</a></p>
+          <p><a href="https://github.com/NYCU-Chung/portal_e3_helper" target="_blank" rel="noopener noreferrer">GitHub 專案</a> · <a href="https://forms.gle/SbPcqgVRuNSdVyqK9" target="_blank" rel="noopener noreferrer">問題回報 / 功能建議</a></p>
         </section>
       </div>
     `;
@@ -5758,6 +5754,13 @@ async function loadAnnouncements() {
 async function notifyNewAnnouncement(announcement) {
   try {
     const now = Date.now();
+
+    // 桌面通知（透過 background script）
+    chrome.runtime.sendMessage({
+      action: 'showNotification',
+      title: `📢 新公告：${announcement.courseName}`,
+      message: announcement.title
+    }).catch(() => {});
 
     // 存入通知中心
     const storage = await chrome.storage.local.get(['notifications']);

@@ -33,6 +33,7 @@ const fs = require('node:fs');
         await page.locator(`[data-tab="${tab}"]`).click();
         assert.ok((await page.locator(`[data-content="${tab}"]`).innerText()).trim(),`${tab} renders`);
       }
+      assert.equal(await page.locator('.e3-helper-help a').filter({hasText:'GitHub'}).getAttribute('href'),'https://github.com/NYCU-Chung/portal_e3_helper');
       await page.locator('[data-tab="assignments"]').click();
       assert.ok((await page.locator('[data-content="assignments"]').innerText()).includes('作業中文原文'));
       await page.locator('#e3-helper-more-btn').click();
@@ -41,6 +42,7 @@ const fs = require('node:fs');
       await page.locator('#e3-helper-theme').selectOption('dark');
       await page.locator('#e3-helper-save-settings').click();
       assert.equal(await page.locator('html').getAttribute('data-e3-helper-theme'),'dark');
+      assert.equal(await page.evaluate(async () => (await chrome.storage.local.get(['themePreference'])).themePreference),'dark');
       assert.deepEqual(errors,[]);
       await page.close();
     }
