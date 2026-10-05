@@ -1747,8 +1747,12 @@ style.textContent += `
   :is(#e3-helper-add-assignment-modal, #e3-helper-changelog-modal) > div { max-height: 90dvh; overflow-y: auto; background: var(--e3-bg) !important; color: var(--e3-text); border: 1px solid var(--e3-border); border-radius: 16px !important; }
   .e3-helper-log-btn:not(.e3-helper-log-btn-primary, .e3-helper-log-btn-secondary) { background: transparent; color: var(--e3-text); border: 1px solid var(--e3-border-strong); }
   .e3-helper-log-btn:not(.e3-helper-log-btn-primary, .e3-helper-log-btn-secondary):hover { background: var(--e3-surface); opacity: 1; }
-  .e3-helper-toast { z-index: 100001 !important; background: var(--e3-bg) !important; color: var(--e3-text) !important; border: 1px solid var(--e3-border-strong); border-radius: 12px !important; box-shadow: 0 6px 24px rgb(var(--e3-shadow) / 14%) !important; max-width: min(350px, calc(100vw - 40px)) !important; display: flex; align-items: center; gap: 8px; }
-  .e3-helper-toast-icon { display: flex; }
+  .e3-helper-toast { z-index: 100001 !important; background: var(--e3-toast-bg, var(--e3-bg)) !important; color: var(--e3-text) !important; border: 1px solid var(--e3-border-strong); border-left: 4px solid var(--e3-toast-status); border-radius: 12px !important; box-shadow: 0 6px 24px rgb(var(--e3-shadow) / 14%) !important; max-width: min(350px, calc(100vw - 40px)) !important; display: flex; align-items: center; gap: 8px; }
+  .e3-helper-toast[data-type="success"] { --e3-toast-status: var(--e3-success); --e3-toast-bg: var(--e3-success-soft); }
+  .e3-helper-toast[data-type="error"] { --e3-toast-status: var(--e3-danger); --e3-toast-bg: var(--e3-danger-soft); }
+  .e3-helper-toast[data-type="warning"] { --e3-toast-status: var(--e3-warning); --e3-toast-bg: var(--e3-warning-soft); }
+  .e3-helper-toast[data-type="info"] { --e3-toast-status: var(--e3-info); }
+  .e3-helper-toast-icon { display: flex; color: var(--e3-toast-status); }
   @media (prefers-reduced-motion: reduce) {
     :is(${E3_THEME_ROOTS}), ${E3_PANELS} * { transition: none !important; animation: none !important; }
   }
@@ -3863,6 +3867,7 @@ function showTemporaryMessage(message, type = 'success', duration = 3000) {
 
   const messageEl = document.createElement('div');
   messageEl.className = 'e3-helper-toast';
+  messageEl.dataset.type = Object.hasOwn(colors, type) ? type : 'success';
   messageEl.setAttribute('role', type === 'error' ? 'alert' : 'status');
   messageEl.style.cssText = `
     position: fixed;
@@ -3880,7 +3885,7 @@ function showTemporaryMessage(message, type = 'success', duration = 3000) {
     max-width: 350px;
     word-wrap: break-word;
   `;
-  messageEl.innerHTML = `<span class="e3-helper-toast-icon" style="color: ${colors[type] || colors.success}">${helperIcon(type === 'success' ? 'check' : type === 'error' ? 'close' : type === 'warning' ? 'warning' : 'info')}</span>${escapeHtml(message)}`;
+  messageEl.innerHTML = `<span class="e3-helper-toast-icon">${helperIcon(type === 'success' ? 'check' : type === 'error' ? 'close' : type === 'warning' ? 'warning' : 'info')}</span>${escapeHtml(message)}`;
   document.body.appendChild(messageEl);
 
   setTimeout(() => {
