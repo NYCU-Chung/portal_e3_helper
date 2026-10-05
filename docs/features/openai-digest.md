@@ -1,9 +1,13 @@
-# OpenAI summaries and daily digest
+# Gemini / OpenAI summaries and daily digest
 
-Depends on the sidebar appearance change. Enable AI summaries in More → Settings, enter an OpenAI API key, select a model, and test the connection. This replaces the active Gemini summary workflow; the existing key is not converted into an OpenAI key. Translation uses Google Translate without an AI key.
+Depends on the sidebar appearance change. Enable AI summaries in More → Settings, choose Gemini or OpenAI, enter that provider's API key, select a model, and test the connection. Both providers support single-item summaries and daily digests. Existing Gemini keys/model preferences are preserved; existing OpenAI-only settings continue to select OpenAI. Switching providers retains both sets of credentials. Translation uses Google Translate without an AI key.
 
-Single-item summaries send the item's content to OpenAI through the background worker. Generate overview in Announcements summarizes today's latest 40 announcement/message titles, courses, senders, and timestamps. Only recognized source numbers become links. Successful output is cached locally for the day and interface language; failed regeneration preserves the previous successful output. Requests use the Responses endpoint with `store: false`.
+Gemini model choices come from the paginated models endpoint, filtered to models supporting `generateContent`. Opening Settings or changing the Gemini key refreshes the list; a refresh button is also available. The last successful list is cached locally, and a manual model-ID field remains available when discovery fails. There is no fixed Gemini model list.
+
+Single-item summaries send the item's content through the background worker to the selected provider. Generate overview in Announcements summarizes today's latest 40 announcement/message titles, courses, senders, and timestamps. Source fields are serialized as JSON and explicitly treated as untrusted data. Only recognized source numbers become links. Successful output is cached locally for the day; failed regeneration preserves the previous successful output. OpenAI requests use the Responses endpoint with `store: false`; Gemini uses `generateContent`. Both providers preserve useful API error messages and report HTTP status when error bodies are not JSON.
 
 ## Validation
 
-Run `node --test tests/*.test.cjs` and the fixture UI smoke test. Digest tests cover reopening, a fresh content-script session, date/language invalidation, asynchronous completion, and failed regeneration. For a live check, enter your own key, test the connection, generate a summary and an overview, and reopen the sidebar. Live API and authenticated E3 requests are not exercised by fixtures.
+Run `node --test tests/*.test.cjs` and the fixture UI smoke test. Tests cover provider selection, legacy settings, Gemini model discovery/pagination/filtering, API errors, JSON source boundaries, digest reopening, fresh content-script sessions, date/language invalidation, asynchronous completion, and failed regeneration. For a live check, enter your own key, test the connection, generate a summary and an overview with each provider, and reopen the sidebar. Live API and authenticated E3 requests are not exercised by fixtures.
+
+API references: [Gemini models](https://ai.google.dev/api/models), [Gemini content generation](https://ai.google.dev/api/generate-content), [OpenAI error handling](https://developers.openai.com/api/docs/guides/error-codes).

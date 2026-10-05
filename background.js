@@ -194,11 +194,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           body: JSON.stringify(requestBody)
         });
 
-        const data = await response.json();
-        if (!response.ok) {
-          sendResponse({ success: false, error: data.error?.message || `HTTP ${response.status}` });
-          return;
-        }
+        const data = await readAIResponse(response, 'OpenAI');
 
         const outputText = data.output_text || data.output
           ?.flatMap(item => item.content || [])
@@ -213,6 +209,56 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
 
         sendResponse({ success: true, data: outputText });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true;
+  } else if (request.action === 'listGeminiModels' || request.action === 'callGeminiApi') {
+    (async () => {
+      try {
+        const { apiKey, content, generationConfig } = request;
+        if (!apiKey) throw new Error('請輸入 Gemini API Key');
+        const headers = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey };
+        if (request.action === 'listGeminiModels') {
+          const models = new Map();
+          let pageToken = '';
+          const seenTokens = new Set();
+          do {
+            const url = new URL('https://generativelanguage.googleapis.com/v1beta/models');
+            url.searchParams.set('pageSize', '1000');
+            if (pageToken) url.searchParams.set('pageToken', pageToken);
+            const response = await fetch(url.href, { headers });
+            const data = await readAIResponse(response, 'Gemini');
+            if (!Array.isArray(data.models)) throw new Error('Gemini 模型清單格式錯誤');
+            for (const model of data.models) {
+              if (model.supportedGenerationMethods?.includes('generateContent') &&
+                  /^models\/[a-zA-Z0-9._-]+$/.test(model.name)) {
+                const id = model.name.slice('models/'.length);
+                models.set(id, { id, name: model.displayName || id });
+              }
+            }
+            pageToken = data.nextPageToken || '';
+            if (pageToken && seenTokens.has(pageToken)) throw new Error('Gemini 模型清單分頁錯誤');
+            seenTokens.add(pageToken);
+          } while (pageToken);
+          if (!models.size) throw new Error('沒有支援文字生成的 Gemini 模型');
+          sendResponse({ success: true, data: [...models.values()] });
+        } else {
+          const model = String(request.model || '').replace(/^models\//, '');
+          if (!/^[a-zA-Z0-9._-]+$/.test(model)) throw new Error('請選擇或輸入 Gemini 模型 ID');
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+            method: 'POST', headers,
+            body: JSON.stringify({ contents: [{ parts: [{ text: content }] }],
+              generationConfig: generationConfig || { maxOutputTokens: request.maxOutputTokens || 4096 } })
+          });
+          const data = await readAIResponse(response, 'Gemini');
+          const candidate = data.candidates?.[0];
+          const text = candidate?.content?.parts?.filter(part => !part.thought && typeof part.text === 'string')
+            .map(part => part.text).join('').trim();
+          if (!text) throw new Error(data.promptFeedback?.blockReason || candidate?.finishReason || 'Gemini API 返回空結果');
+          sendResponse({ success: true, data: text });
+        }
       } catch (error) {
         sendResponse({ success: false, error: error.message });
       }
@@ -240,6 +286,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 });
+
+// 網關可能回傳 HTML；解析失敗不能遮蔽 HTTP 狀態。
+async function readAIResponse(response, provider) {
+  let data;
+  try { data = await response.json(); } catch { data = null; }
+  if (!response.ok) {
+    const message = data?.error?.message;
+    throw new Error(typeof message === 'string' && message.trim() ? message : `HTTP ${response.status}`);
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error(`${provider} API 返回無效結果`);
+  }
+  return data;
+}
 
 // ==================== 自動同步功能 ====================
 

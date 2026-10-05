@@ -9,7 +9,7 @@ const rendering = source.slice(source.indexOf('// 只接受既有來源編號'),
 const fixture = () => ({ aiSettings: { enabled: true, openaiSummaryApiKey: 'fixture' } });
 function load(storage) {
   let elements = {};
-  let calls = 0;
+  let calls = 0, lastConfig;
   const makeElement = () => ({ dataset: {}, style: {}, innerHTML: '', addEventListener(type, fn) { this[type] = fn; } });
   const list = { set innerHTML(html) {
     elements = {};
@@ -28,11 +28,12 @@ function load(storage) {
     allAnnouncements: [item], allMessages: [], readAnnouncements: new Set(), readMessages: new Set(),
     document: { querySelector: selector => selector.includes('assignment-list') ? list : null, querySelectorAll: () => [], getElementById: id => elements[id] || null },
     chrome: { storage: { local: { get: async () => structuredClone(storage), set: async update => Object.assign(storage, structuredClone(update)) } } },
-    generateDailyDigest: async () => { calls++; return '{"highlights":[{"source":1,"summary":"保留下來的重點"}],"priority":[]}'; },
+    generateDailyDigest: async (items, config) => { lastConfig = config; calls++; return '{"highlights":[{"source":1,"summary":"保留下來的重點"}],"priority":[]}'; },
     showTemporaryMessage() {}
   });
-  vm.runInContext(digestCode + rendering, context);
-  return { context, display: () => context.displayAnnouncements(), generate: () => elements['e3-helper-generate-daily-digest'].click(), container: () => elements['e3-helper-daily-digest'], calls: () => calls };
+  const configCode = source.slice(source.indexOf('function getAISummaryConfig('), source.indexOf('function updateAIProviderFields('));
+  vm.runInContext(configCode + digestCode + rendering, context);
+  return { context, display: () => context.displayAnnouncements(), generate: () => elements['e3-helper-generate-daily-digest'].click(), container: () => elements['e3-helper-daily-digest'], calls: () => calls, config: () => lastConfig };
 }
 test('generated digest survives helper reopening and a fresh content-script session without another AI call', async () => {
   const storage = fixture();
@@ -96,4 +97,16 @@ test('failed regeneration preserves the previous successful digest', async () =>
   assert.equal(app.container().style.display, 'block');
   assert.match(app.container().innerHTML, /保留下來的重點/);
   assert.deepEqual(storage.dailyDigestCache, previous);
+});
+
+
+test('digest generation uses the chosen Gemini provider and preserves cached output', async () => {
+  const storage = { aiSettings: { enabled: true, summaryProvider: 'gemini', geminiApiKey: 'gemini-fixture', geminiModel: 'future-model', openaiSummaryApiKey: 'other-provider' } };
+  const app = load(storage);
+  await app.display();
+  await app.generate();
+  assert.equal(app.config().provider, 'gemini');
+  assert.equal(app.config().apiKey, 'gemini-fixture');
+  assert.equal(app.config().model, 'future-model');
+  assert.match(storage.dailyDigestCache.text, /保留下來的重點/);
 });
