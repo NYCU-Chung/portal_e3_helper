@@ -76,6 +76,35 @@ const fs = require('node:fs');
       assert.equal(savedAI.geminiModel,'manual-future-model');
       assert.equal(savedAI.openaiSummaryApiKey,'fixture-openai');
 
+      const discoveryCount = await page.evaluate(() => window.fixtureRequests.filter(request => request.action === 'listGeminiModels').length);
+      await page.locator('#e3-helper-more-btn').click();
+      await page.locator('#e3-helper-settings-btn').click();
+      assert.equal(await page.locator('#e3-helper-ai-provider').inputValue(),'openai');
+      assert.equal(await page.evaluate(() => window.fixtureRequests.filter(request => request.action === 'listGeminiModels').length),discoveryCount);
+      await page.locator('#e3-helper-save-settings').click();
+      await page.evaluate(async () => {
+        const {aiSettings} = await chrome.storage.local.get(['aiSettings']);
+        await chrome.storage.local.set({aiSettings:{...aiSettings,geminiModel:''}});
+        window.fixtureModelFailure=false;
+      });
+      await page.locator('#e3-helper-more-btn').click();
+      await page.locator('#e3-helper-settings-btn').click();
+      assert.equal(await page.evaluate(() => window.fixtureRequests.filter(request => request.action === 'listGeminiModels').length),discoveryCount);
+      assert.equal(await page.locator('#e3-helper-gemini-model').inputValue(),'');
+      assert.equal(await page.locator('#e3-helper-gemini-model-id').inputValue(),'');
+      await page.locator('#e3-helper-ai-provider').selectOption('gemini');
+      await page.waitForFunction(() => document.querySelector('#e3-helper-gemini-model-status').textContent === '模型清單已更新。');
+      assert.equal(await page.evaluate(() => window.fixtureRequests.filter(request => request.action === 'listGeminiModels').length),discoveryCount+1);
+      assert.equal(await page.locator('#e3-helper-gemini-model').inputValue(),'');
+      assert.equal(await page.locator('#e3-helper-gemini-model-id').inputValue(),'');
+      const requestCount = await page.evaluate(() => window.fixtureRequests.length);
+      await page.locator('#e3-helper-test-ai-btn').click();
+      assert.equal(await page.evaluate(() => window.fixtureRequests.length),requestCount);
+      assert.ok((await page.locator('#e3-helper-ai-status').innerText()).includes('請輸入 API Key 並選擇模型'));
+      await page.locator('#e3-helper-gemini-model').selectOption('future-flash');
+      assert.equal(await page.locator('#e3-helper-gemini-model-id').inputValue(),'future-flash');
+      await page.locator('#e3-helper-save-settings').click();
+
       assert.equal(await page.evaluate(async () => (await chrome.storage.local.get(['themePreference'])).themePreference),'dark');
       await page.reload();
       if(localized) await page.addScriptTag({path:path.join(root,'i18n.js')});
@@ -110,6 +139,6 @@ const fs = require('node:fs');
       assert.deepEqual(errors,[]);
       await page.close();
     }
-    console.log('Passed: six tabs, responsive layout, original course text, settings, restored dark theme, toast status colors, provider switching and Gemini model discovery/fallback.');
+    console.log('Passed: six tabs, responsive layout, original course text, settings, restored dark theme, toast status colors, provider switching, OpenAI settings without Gemini requests, and explicit Gemini model selection/discovery/fallback.');
   } finally {await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

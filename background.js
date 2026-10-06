@@ -250,7 +250,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
             method: 'POST', headers,
             body: JSON.stringify({ contents: [{ parts: [{ text: content }] }],
-              generationConfig: generationConfig || { maxOutputTokens: request.maxOutputTokens || 4096 } })
+              ...(generationConfig ? { generationConfig } : {}) })
           });
           const data = await readAIResponse(response, 'Gemini');
           const candidate = data.candidates?.[0];

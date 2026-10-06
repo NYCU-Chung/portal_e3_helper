@@ -3738,6 +3738,10 @@ function populateGeminiModels(models) {
   const input = document.getElementById('e3-helper-gemini-model-id');
   const selected = input.value.trim().replace(/^models\//, '');
   select.replaceChildren();
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = '請選擇模型或手動輸入模型 ID';
+  select.appendChild(placeholder);
   for (const model of models) {
     const option = document.createElement('option');
     option.value = model.id;
@@ -3751,8 +3755,7 @@ function populateGeminiModels(models) {
     option.textContent = `${selected}（已儲存／手動）`;
     select.appendChild(option);
   }
-  if (selected) select.value = selected;
-  else if (models.length) input.value = select.value;
+  select.value = selected;
 }
 
 let geminiModelRequest = 0;
@@ -3793,7 +3796,7 @@ async function loadAISettings() {
   populateGeminiModels(Array.isArray(storage.geminiModelsCache) ? storage.geminiModelsCache : []);
   document.getElementById('e3-helper-ai-settings').style.display = settings.enabled ? 'block' : 'none';
   updateAIProviderFields();
-  await refreshGeminiModels();
+  if (getAISummaryConfig(settings).provider === 'gemini') await refreshGeminiModels();
 }
 
 // 儲存兩個供應商的設定，切換供應商不刪除另一組金鑰。
@@ -7111,7 +7114,8 @@ async function callSummaryProvider(content, config, maxOutputTokens = 4096) {
   const result = await new Promise((resolve, reject) => {
     chrome.runtime.sendMessage({
       action: config.provider === 'gemini' ? 'callGeminiApi' : 'callOpenAIResponsesApi',
-      apiKey: config.apiKey, model: config.model, content, maxOutputTokens
+      apiKey: config.apiKey, model: config.model, content,
+      ...(config.provider === 'openai' ? { maxOutputTokens } : {})
     }, response => {
       if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
       else resolve(response);
