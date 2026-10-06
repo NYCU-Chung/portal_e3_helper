@@ -6697,6 +6697,17 @@ function getDailyDigestSourceKey(items) {
     [id, type, timestamp, title, courseName, author, url]));
 }
 
+// Each source snapshot has its own storage slot, so a delayed old-source write
+// cannot overwrite a refreshed source's overview or the legacy cache.
+function getDailyDigestCacheKey(items = getCurrentDailyDigestItems(), day, language = 'zh-TW') {
+  if (day === undefined) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    day = today.getTime();
+  }
+  return `dailyDigestCache:${JSON.stringify([day, language, getDailyDigestSourceKey(items)])}`;
+}
+
 function getSavedDailyDigestHTML() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -6734,8 +6745,9 @@ async function displayAnnouncements() {
   }
 
   // 載入已讀狀態
-  const storage = await chrome.storage.local.get(['readAnnouncements', 'readMessages', 'dailyDigestCache']);
-  dailyDigestCache = storage.dailyDigestCache || null;
+  const cacheKey = getDailyDigestCacheKey();
+  const storage = await chrome.storage.local.get(['readAnnouncements', 'readMessages', 'dailyDigestCache', cacheKey]);
+  dailyDigestCache = storage[cacheKey] || storage.dailyDigestCache || null;
   if (storage.readAnnouncements) {
     readAnnouncements = new Set(storage.readAnnouncements);
   }
@@ -6919,7 +6931,13 @@ function bindAnnouncementEvents(renderCallback) {
           text: digest,
           items: todayItems
         };
-        await chrome.storage.local.set({ dailyDigestCache: cache });
+        const cacheKey = getDailyDigestCacheKey(todayItems, cache.day, cache.language);
+        await chrome.storage.local.set({ [cacheKey]: cache });
+        // Source refresh or midnight may happen while the storage write awaits.
+        // The write is isolated; discard its completion instead of promoting it.
+        if (cacheKey !== getDailyDigestCacheKey()) {
+          throw new Error('來源資料或日期已變更，請重新產生總覽');
+        }
         dailyDigestCache = cache;
         // 產生期間可能已關閉、重開或切換篩選，更新目前的容器。
         const currentContainer = document.getElementById('e3-helper-daily-digest');
