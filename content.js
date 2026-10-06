@@ -7057,20 +7057,24 @@ async function translateHTMLContent(container, sourceLang, targetLang) {
 
   console.log(`E3 Helper: 找到 ${textContents.length} 個文字節點需要翻譯`);
 
-  // 合併所有文字內容，用特殊分隔符分隔
-  const delimiter = '\n<<<SEPARATOR>>>\n';
-  const combinedText = textContents.join(delimiter);
-
   try {
-    // 一次性翻譯所有文字
-    const translatedCombined = await translateText(combinedText, sourceLang, targetLang);
+    // 分別翻譯文字節點，避免翻譯服務改寫分隔符號而破壞段落對應。
+    // 重複文字只請求一次，每批最多四個請求。
+    const uniqueTexts = [...new Set(textContents)];
+    const translations = new Map();
+    for (let start = 0; start < uniqueTexts.length; start += 4) {
+      await Promise.all(uniqueTexts.slice(start, start + 4).map(async text => {
+        const translated = await translateText(text, sourceLang, targetLang);
+        if (!translated.trim()) throw new Error('翻譯 API 返回空結果');
+        translations.set(text, translated.trim());
+      }));
+    }
 
-    // 分割翻譯結果
-    const translatedTexts = translatedCombined.split(delimiter);
-
-    // 將翻譯結果放回對應的文字節點
-    for (let i = 0; i < textNodes.length && i < translatedTexts.length; i++) {
-      textNodes[i].textContent = translatedTexts[i].trim();
+    // 全部成功後才套用，保留連結前後與行內元素間原有空白。
+    for (let i = 0; i < textNodes.length; i++) {
+      const original = textNodes[i].textContent;
+      textNodes[i].textContent = original.match(/^\s*/)[0] +
+        translations.get(textContents[i]) + original.match(/\s*$/)[0];
     }
 
     console.log('E3 Helper: 翻譯完成，HTML結構完整保留');
