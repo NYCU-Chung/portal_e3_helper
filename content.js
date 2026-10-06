@@ -3,6 +3,21 @@
 (function() {
 'use strict';
 
+// Local, decorative icons. Labels stay on their owning controls.
+function helperIcon(name) {
+  const paths = {
+    book: '<path d="M4 5h6a2 2 0 0 1 2 2v14a3 3 0 0 0-3-3H4z"/><path d="M20 5h-6a2 2 0 0 0-2 2v14a3 3 0 0 1 3-3h5z"/>',
+    close: '<path d="m6 6 12 12M6 18 18 6"/>',
+    more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+    file: '<path d="M14 3H6v18h12V7zM14 3v5h4M9 12h6M9 16h6"/>',
+    check: '<path d="m5 12 4 4L19 6"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v1"/>',
+    warning: '<path d="m12 3 10 18H2zM12 9v5M12 17v1"/>'
+  };
+  return '<svg class="e3-helper-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + (paths[name] || paths.file) + '</svg>';
+}
+
+
 // 判斷是否為 E3 網站
 const isE3Site = location.hostname.endsWith('nycu.edu.tw');
 
@@ -132,16 +147,16 @@ function getLogsHTML() {
 function renderLogEntry(log) {
   const typeClass = `e3-helper-log-${log.type}`;
   const icon = {
-    'log': '📝',
-    'info': 'ℹ️',
-    'warn': '⚠️',
-    'error': '❌',
-    'debug': '🐛'
-  }[log.type] || '📝';
+    'log': helperIcon('file'),
+    'info': helperIcon('info'),
+    'warn': helperIcon('warning'),
+    'error': helperIcon('close'),
+    'debug': helperIcon('info')
+  }[log.type] || helperIcon('file');
 
   // 來源標記
   const sourceTag = log.source === 'background'
-    ? '<span class="e3-helper-log-source" style="background: #667eea; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-right: 4px;">BG</span>'
+    ? '<span class="e3-helper-surface e3-helper-on-accent e3-helper-small-text e3-helper-log-source" style="padding: 2px 6px; border-radius: 3px; margin-right: 4px;">BG</span>'
     : '';
 
   // 如果是來自 background 的日誌，參數已經是字串，直接顯示
@@ -349,8 +364,8 @@ style.textContent = `
     min-width: 280px;
     max-width: 800px;
     height: 100vh;
-    background: white;
-    border-left: 3px solid #667eea;
+    background: var(--e3-bg);
+    border-left: 3px solid var(--e3-accent);
     box-shadow: -2px 0 10px rgba(0,0,0,0.1);
     z-index: 10001;
     transition: transform 0.3s ease;
@@ -376,11 +391,11 @@ style.textContent = `
   }
 
   .e3-helper-resize-handle:hover {
-    background: rgba(102, 126, 234, 0.3);
+    background: var(--e3-border-strong);
   }
 
   .e3-helper-resize-handle:active {
-    background: rgba(102, 126, 234, 0.5);
+    background: var(--e3-border-strong);
   }
 
   .e3-helper-sidebar-toggle {
@@ -388,10 +403,10 @@ style.textContent = `
     right: 0;
     top: 100px;
     padding: 10px 16px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--e3-ink);
     border: none;
     border-radius: 10px 0 0 10px;
-    color: white;
+    color: var(--e3-on-ink);
     cursor: grab;
     display: flex;
     flex-direction: row;
@@ -415,7 +430,7 @@ style.textContent = `
   }
 
   .e3-helper-sidebar-toggle:hover {
-    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    background: var(--e3-ink);
     transform: translateX(-3px);
     box-shadow: -4px 4px 16px rgba(0,0,0,0.3);
   }
@@ -437,8 +452,8 @@ style.textContent = `
     position: absolute;
     top: -5px;
     right: -5px;
-    background: #ff4444;
-    color: white;
+    background: var(--e3-danger);
+    color: var(--e3-on-ink);
     border-radius: 10px;
     padding: 2px 6px;
     font-size: 11px;
@@ -449,14 +464,14 @@ style.textContent = `
     align-items: center;
     justify-content: center;
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-    border: 2px solid white;
+    border: 2px solid var(--e3-bg);
     z-index: 10001;
     pointer-events: none;
   }
 
   .e3-helper-sidebar-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: var(--e3-ink);
+    color: var(--e3-on-ink);
     border-bottom: 2px solid rgba(255,255,255,0.2);
   }
 
@@ -478,7 +493,7 @@ style.textContent = `
   .e3-helper-sync-btn {
     background: rgba(255,255,255,0.2);
     border: 1px solid rgba(255,255,255,0.3);
-    color: white;
+    color: var(--e3-on-ink);
     padding: 3px 8px;
     border-radius: 3px;
     font-size: 10px;
@@ -497,26 +512,26 @@ style.textContent = `
 
   .e3-helper-login-warning {
     padding: 10px 12px;
-    background: #fff3cd;
-    border-left: 4px solid #ffc107;
+    background: var(--e3-warning-soft);
+    border-left: 4px solid var(--e3-warning);
     margin: 12px;
     border-radius: 4px;
     font-size: 12px;
-    color: #856404;
+    color: var(--e3-warning);
   }
 
   .e3-helper-login-warning a {
-    color: #856404;
+    color: var(--e3-warning);
     font-weight: 600;
     text-decoration: underline;
   }
 
   .e3-helper-welcome-message {
     padding: 16px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--e3-ink);
     border-radius: 8px;
     margin: 12px;
-    color: white;
+    color: var(--e3-on-ink);
     font-size: 13px;
     line-height: 1.6;
   }
@@ -571,12 +586,12 @@ style.textContent = `
   }
 
   .e3-helper-tab:hover {
-    color: white;
+    color: var(--e3-on-ink);
     background: rgba(255,255,255,0.1);
   }
 
   .e3-helper-tab.active {
-    color: white;
+    color: var(--e3-on-ink);
     border-bottom-color: white;
     background: rgba(255,255,255,0.15);
   }
@@ -588,47 +603,47 @@ style.textContent = `
   .e3-helper-assignment-item {
     padding: 12px;
     margin-bottom: 10px;
-    background: #f8f9fa;
+    background: var(--e3-surface);
     border-radius: 8px;
-    border-left: 4px solid #667eea;
+    border-left: 4px solid var(--e3-accent);
     transition: all 0.2s ease;
   }
 
   .e3-helper-assignment-item:hover {
-    background: #e9ecef;
+    background: var(--e3-surface-2);
     transform: translateX(-2px);
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   }
 
   .e3-helper-assignment-item.urgent {
-    border-left-color: #ff6b6b;
-    background: #fff5f5;
+    border-left-color: var(--e3-danger);
+    background: var(--e3-danger-soft);
   }
 
   .e3-helper-assignment-item.warning {
-    border-left-color: #ffa500;
-    background: #fff9f0;
+    border-left-color: var(--e3-warning);
+    background: var(--e3-warning-soft);
   }
 
   .e3-helper-assignment-item.overdue {
-    border-left-color: #999;
-    background: #f5f5f5;
+    border-left-color: var(--e3-muted);
+    background: var(--e3-surface);
     opacity: 0.7;
   }
 
   /* 已繳交樣式 - 只改背景色，文字保持原樣 */
   a.e3-helper-assignment-item.completed,
   .e3-helper-assignment-item.completed {
-    border-left-color: #6ee7b7 !important;
-    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%) !important;
-    background-color: #f0fdf4 !important;
+    border-left-color: var(--e3-success) !important;
+    background: var(--e3-success-soft) !important;
+    background-color: var(--e3-success-soft) !important;
     opacity: 1 !important;
   }
 
   a.e3-helper-assignment-item.completed:hover,
   .e3-helper-assignment-item.completed:hover {
-    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%) !important;
-    background-color: #ecfdf5 !important;
+    background: var(--e3-success-soft) !important;
+    background-color: var(--e3-success-soft) !important;
     box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15) !important;
     transform: translateX(-2px);
   }
@@ -636,7 +651,7 @@ style.textContent = `
   .e3-helper-assignment-name {
     font-weight: 600;
     font-size: 14px;
-    color: #2c3e50;
+    color: var(--e3-text);
     margin-bottom: 6px;
     display: block;
     text-decoration: none;
@@ -644,46 +659,46 @@ style.textContent = `
   }
 
   .e3-helper-assignment-name:hover {
-    color: #667eea;
+    color: var(--e3-accent);
   }
 
   .e3-helper-assignment-course {
     font-size: 11px;
-    color: #6c757d;
+    color: var(--e3-muted);
     margin-bottom: 6px;
   }
 
   .e3-helper-assignment-deadline {
     font-size: 12px;
-    color: #495057;
+    color: var(--e3-text);
     margin-bottom: 6px;
   }
 
   .e3-helper-assignment-countdown {
     font-size: 13px;
     font-weight: 600;
-    color: #667eea;
+    color: var(--e3-accent);
     font-family: 'Courier New', monospace;
   }
 
   .e3-helper-assignment-countdown.urgent {
-    color: #ff6b6b;
+    color: var(--e3-danger);
   }
 
   .e3-helper-assignment-countdown.warning {
-    color: #ffa500;
+    color: var(--e3-warning);
   }
 
   .e3-helper-assignment-countdown.overdue {
-    color: #999;
+    color: var(--e3-muted);
   }
 
   .e3-helper-status-toggle {
     display: inline-block;
     margin-left: 8px;
     padding: 2px 8px;
-    background: #e9ecef;
-    border: 1px solid #dee2e6;
+    background: var(--e3-surface-2);
+    border: 1px solid var(--e3-border);
     border-radius: 4px;
     font-size: 11px;
     cursor: pointer;
@@ -692,26 +707,26 @@ style.textContent = `
   }
 
   .e3-helper-status-toggle:hover {
-    background: #dee2e6;
+    background: var(--e3-surface-2);
     transform: scale(1.05);
   }
 
   .e3-helper-status-toggle.submitted {
-    background: #d1fae5;
-    border-color: #6ee7b7;
-    color: #047857;
+    background: var(--e3-success-soft);
+    border-color: var(--e3-success);
+    color: var(--e3-success);
     font-weight: 600;
   }
 
   .e3-helper-status-toggle.submitted:hover {
-    background: #a7f3d0;
-    border-color: #34d399;
+    background: var(--e3-success-soft);
+    border-color: var(--e3-success);
   }
 
   .e3-helper-no-assignments {
     padding: 20px;
     text-align: center;
-    color: #6c757d;
+    color: var(--e3-muted);
     font-size: 14px;
   }
 
@@ -725,16 +740,16 @@ style.textContent = `
 
   .e3-helper-grade-selector {
     padding: 12px;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--e3-border);
   }
 
   .e3-helper-grade-selector select {
     width: 100%;
     padding: 8px 12px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--e3-border);
     border-radius: 4px;
     font-size: 13px;
-    background: white;
+    background: var(--e3-bg);
     cursor: pointer;
   }
 
@@ -743,43 +758,43 @@ style.textContent = `
   }
 
   .e3-helper-stat-card {
-    background: #f8f9fa;
+    background: var(--e3-surface);
     border-radius: 8px;
     padding: 12px;
     margin-bottom: 10px;
-    border-left: 4px solid #667eea;
+    border-left: 4px solid var(--e3-accent);
   }
 
   .e3-helper-stat-title {
     font-size: 12px;
-    color: #6c757d;
+    color: var(--e3-muted);
     margin-bottom: 6px;
   }
 
   .e3-helper-stat-value {
     font-size: 20px;
     font-weight: 600;
-    color: #2c3e50;
+    color: var(--e3-text);
   }
 
   .e3-helper-stat-sub {
     font-size: 11px;
-    color: #6c757d;
+    color: var(--e3-muted);
     margin-top: 4px;
   }
 
   .e3-helper-stat-card.optimistic {
-    border-left-color: #51cf66;
+    border-left-color: var(--e3-success);
   }
 
   .e3-helper-stat-card.pessimistic {
-    border-left-color: #ff6b6b;
+    border-left-color: var(--e3-danger);
   }
 
   .e3-helper-loading {
     padding: 20px;
     text-align: center;
-    color: #6c757d;
+    color: var(--e3-muted);
     font-size: 14px;
   }
 
@@ -789,7 +804,7 @@ style.textContent = `
 
   .e3-helper-download-actions {
     padding: 12px;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--e3-border);
     display: flex;
     gap: 8px;
   }
@@ -797,8 +812,8 @@ style.textContent = `
   .e3-helper-download-btn {
     flex: 1;
     padding: 8px 16px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: var(--e3-ink);
+    color: var(--e3-on-ink);
     border: none;
     border-radius: 4px;
     cursor: pointer;
@@ -808,9 +823,9 @@ style.textContent = `
   }
 
   .e3-helper-download-btn:hover {
-    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    background: var(--e3-ink);
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 2px 8px var(--e3-border-strong);
   }
 
   .e3-helper-download-btn:disabled {
@@ -820,12 +835,12 @@ style.textContent = `
   }
 
   .e3-helper-download-btn.secondary {
-    background: #e9ecef;
-    color: #495057;
+    background: var(--e3-surface-2);
+    color: var(--e3-text);
   }
 
   .e3-helper-download-btn.secondary:hover {
-    background: #dee2e6;
+    background: var(--e3-surface-2);
   }
 
   .e3-helper-pdf-list {
@@ -836,7 +851,7 @@ style.textContent = `
   .e3-helper-pdf-item {
     padding: 10px 12px;
     margin-bottom: 8px;
-    background: #f8f9fa;
+    background: var(--e3-surface);
     border-radius: 6px;
     display: flex;
     flex-direction: column;
@@ -845,7 +860,7 @@ style.textContent = `
   }
 
   .e3-helper-pdf-item:hover {
-    background: #e9ecef;
+    background: var(--e3-surface-2);
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   }
 
@@ -867,23 +882,23 @@ style.textContent = `
   }
 
   .e3-helper-view-page {
-    background: #667eea;
-    color: white;
+    background: var(--e3-accent);
+    color: var(--e3-on-ink);
   }
 
   .e3-helper-view-page:hover {
-    background: #5568d3;
+    background: var(--e3-accent);
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 2px 4px var(--e3-border-strong);
   }
 
   .e3-helper-download-file {
-    background: #28a745;
-    color: white;
+    background: var(--e3-success);
+    color: var(--e3-on-ink);
   }
 
   .e3-helper-download-file:hover {
-    background: #218838;
+    background: var(--e3-success);
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(40, 167, 69, 0.4);
   }
@@ -913,7 +928,7 @@ style.textContent = `
 
   .e3-helper-pdf-name {
     font-size: 13px;
-    color: #2c3e50;
+    color: var(--e3-text);
     font-weight: 500;
     word-break: break-word;
     margin-bottom: 2px;
@@ -921,27 +936,27 @@ style.textContent = `
 
   .e3-helper-pdf-course {
     font-size: 11px;
-    color: #6c757d;
+    color: var(--e3-muted);
   }
 
   .e3-helper-download-status {
     padding: 12px;
-    background: #f8f9fa;
-    border-top: 1px solid #e9ecef;
+    background: var(--e3-surface);
+    border-top: 1px solid var(--e3-border);
     font-size: 12px;
-    color: #6c757d;
+    color: var(--e3-muted);
   }
 
   .e3-helper-progress-container {
     padding: 12px;
-    background: #fff;
-    border-top: 1px solid #e9ecef;
+    background: var(--e3-bg);
+    border-top: 1px solid var(--e3-border);
   }
 
   .e3-helper-progress-bar {
     width: 100%;
     height: 20px;
-    background: #e9ecef;
+    background: var(--e3-surface-2);
     border-radius: 10px;
     overflow: hidden;
     margin-bottom: 8px;
@@ -950,7 +965,7 @@ style.textContent = `
 
   .e3-helper-progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    background: var(--e3-ink);
     border-radius: 10px;
     transition: width 0.3s ease;
     position: relative;
@@ -964,34 +979,20 @@ style.textContent = `
     left: 0;
     bottom: 0;
     right: 0;
-    background: linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0) 0%,
-      rgba(255, 255, 255, 0.3) 50%,
-      rgba(255, 255, 255, 0) 100%
-    );
-    animation: shimmer 2s infinite;
+    background: rgba(255, 255, 255, 0.12);
   }
 
-  @keyframes shimmer {
-    0% {
-      transform: translateX(-100%);
-    }
-    100% {
-      transform: translateX(100%);
-    }
-  }
 
   .e3-helper-progress-text {
     font-size: 12px;
-    color: #6c757d;
+    color: var(--e3-muted);
     text-align: center;
   }
 
   .e3-helper-course-item {
     padding: 8px;
     margin-bottom: 6px;
-    background: white;
+    background: var(--e3-bg);
     border-radius: 4px;
     display: flex;
     align-items: center;
@@ -1001,7 +1002,7 @@ style.textContent = `
   }
 
   .e3-helper-course-item:hover {
-    background: #e9ecef;
+    background: var(--e3-surface-2);
     transform: translateX(-2px);
   }
 
@@ -1014,38 +1015,38 @@ style.textContent = `
 
   .e3-helper-course-name {
     font-size: 12px;
-    color: #2c3e50;
+    color: var(--e3-text);
     flex: 1;
   }
 
   .e3-helper-announcement-item {
     padding: 12px;
     margin-bottom: 10px;
-    background: #f8f9fa;
+    background: var(--e3-surface);
     border-radius: 8px;
-    border-left: 4px solid #667eea;
+    border-left: 4px solid var(--e3-accent);
     transition: all 0.2s ease;
     position: relative;
   }
 
   .e3-helper-announcement-item:hover {
-    background: #e9ecef;
+    background: var(--e3-surface-2);
     transform: translateX(-2px);
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   }
 
   .e3-helper-announcement-item.unread {
-    border-left-color: #e74c3c;
-    background: #fff5f5;
+    border-left-color: var(--e3-danger);
+    background: var(--e3-danger-soft);
   }
 
   .e3-helper-announcement-item.read {
     opacity: 0.75;
-    background: #f1f3f5;
+    background: var(--e3-surface);
   }
 
   .e3-helper-announcement-title {
-    color: #2c3e50;
+    color: var(--e3-text);
     font-weight: 600;
     text-decoration: none;
     transition: color 0.2s ease;
@@ -1058,25 +1059,25 @@ style.textContent = `
     transform: translateY(-50%);
     width: 8px;
     height: 8px;
-    background: #e74c3c;
+    background: var(--e3-danger);
     border-radius: 50%;
-    border: 2px solid white;
+    border: 2px solid var(--e3-bg);
     box-shadow: 0 0 4px rgba(231, 76, 60, 0.5);
     z-index: 1;
   }
 
   .e3-helper-announcement-title:hover {
-    color: #667eea;
+    color: var(--e3-accent);
   }
 
   .e3-helper-announcement-item.read .e3-helper-announcement-title {
-    color: #6c757d;
+    color: var(--e3-muted);
     font-weight: normal;
   }
 
   .e3-helper-announcement-meta {
     font-size: 12px;
-    color: #6c757d;
+    color: var(--e3-muted);
   }
 
   /* 日誌 Modal 樣式 */
@@ -1098,7 +1099,7 @@ style.textContent = `
   }
 
   .e3-helper-log-modal-content {
-    background: white;
+    background: var(--e3-bg);
     border-radius: 12px;
     width: 90%;
     max-width: 900px;
@@ -1110,12 +1111,12 @@ style.textContent = `
 
   .e3-helper-log-modal-header {
     padding: 16px 20px;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--e3-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: var(--e3-ink);
+    color: var(--e3-on-ink);
     border-radius: 12px 12px 0 0;
   }
 
@@ -1127,7 +1128,7 @@ style.textContent = `
   .e3-helper-log-modal-close {
     background: none;
     border: none;
-    color: white;
+    color: var(--e3-on-ink);
     font-size: 28px;
     cursor: pointer;
     padding: 0;
@@ -1153,7 +1154,7 @@ style.textContent = `
   .e3-helper-log-container {
     height: 100%;
     overflow-y: auto;
-    background: #f8f9fa;
+    background: var(--e3-surface);
     border-radius: 8px;
     padding: 12px;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
@@ -1165,7 +1166,7 @@ style.textContent = `
   }
 
   .e3-helper-log-placeholder {
-    color: #999;
+    color: var(--e3-muted);
     text-align: center;
     padding: 40px 20px;
     font-size: 14px;
@@ -1184,7 +1185,7 @@ style.textContent = `
   }
 
   .e3-helper-log-time {
-    color: #999;
+    color: var(--e3-muted);
     margin-right: 8px;
     font-size: 11px;
   }
@@ -1199,22 +1200,22 @@ style.textContent = `
 
   /* 不同類型日誌的顏色 */
   .e3-helper-log-log .e3-helper-log-icon { opacity: 0.8; }
-  .e3-helper-log-info { color: #0066cc; }
-  .e3-helper-log-warn { color: #ff8800; background: #fff3cd; }
-  .e3-helper-log-error { color: #cc0000; background: #f8d7da; }
-  .e3-helper-log-debug { color: #6c757d; }
+  .e3-helper-log-info { color: var(--e3-info); }
+  .e3-helper-log-warn { color: var(--e3-warning); background: var(--e3-warning-soft); }
+  .e3-helper-log-error { color: var(--e3-danger); background: var(--e3-danger-soft); }
+  .e3-helper-log-debug { color: var(--e3-muted); }
 
   /* 值的樣式 */
-  .e3-helper-log-null { color: #808080; }
-  .e3-helper-log-undefined { color: #808080; }
-  .e3-helper-log-string { color: #c41a16; }
-  .e3-helper-log-number { color: #1c00cf; }
-  .e3-helper-log-boolean { color: #1c00cf; }
-  .e3-helper-log-function { color: #666; font-style: italic; }
-  .e3-helper-log-array-label, .e3-helper-log-object-label { color: #666; font-weight: 500; }
-  .e3-helper-log-preview { color: #999; margin-left: 4px; }
-  .e3-helper-log-key { color: #881391; margin-right: 4px; }
-  .e3-helper-log-other { color: #000; }
+  .e3-helper-log-null { color: var(--e3-muted); }
+  .e3-helper-log-undefined { color: var(--e3-muted); }
+  .e3-helper-log-string { color: var(--e3-danger); }
+  .e3-helper-log-number { color: var(--e3-info); }
+  .e3-helper-log-boolean { color: var(--e3-info); }
+  .e3-helper-log-function { color: var(--e3-muted); font-style: italic; }
+  .e3-helper-log-array-label, .e3-helper-log-object-label { color: var(--e3-muted); font-weight: 500; }
+  .e3-helper-log-preview { color: var(--e3-muted); margin-left: 4px; }
+  .e3-helper-log-key { color: var(--e3-accent); margin-right: 4px; }
+  .e3-helper-log-other { color: var(--e3-text); }
 
   .e3-helper-log-expandable {
     display: inline-block;
@@ -1224,7 +1225,7 @@ style.textContent = `
   .e3-helper-log-toggle {
     cursor: pointer;
     user-select: none;
-    color: #666;
+    color: var(--e3-muted);
     margin-right: 4px;
     display: inline-block;
     width: 12px;
@@ -1232,12 +1233,12 @@ style.textContent = `
   }
 
   .e3-helper-log-toggle:hover {
-    color: #000;
+    color: var(--e3-text);
   }
 
   .e3-helper-log-expanded-content {
     margin-left: 16px;
-    border-left: 1px solid #e0e0e0;
+    border-left: 1px solid var(--e3-border);
     padding-left: 8px;
     margin-top: 4px;
   }
@@ -1248,7 +1249,7 @@ style.textContent = `
 
   .e3-helper-log-modal-footer {
     padding: 12px 20px;
-    border-top: 1px solid #e9ecef;
+    border-top: 1px solid var(--e3-border);
     display: flex;
     justify-content: flex-end;
     gap: 8px;
@@ -1265,17 +1266,17 @@ style.textContent = `
   }
 
   .e3-helper-log-btn-secondary {
-    background: #6c757d;
-    color: white;
+    background: var(--e3-muted);
+    color: var(--e3-on-ink);
   }
 
   .e3-helper-log-btn-secondary:hover {
-    background: #5a6268;
+    background: var(--e3-surface-2);
   }
 
   .e3-helper-log-btn-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: var(--e3-ink);
+    color: var(--e3-on-ink);
   }
 
   .e3-helper-log-btn-primary:hover {
@@ -1291,7 +1292,7 @@ style.textContent = `
   .e3-helper-settings-section {
     margin-bottom: 24px;
     padding-bottom: 24px;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--e3-border);
   }
 
   .e3-helper-settings-section:last-child {
@@ -1302,12 +1303,12 @@ style.textContent = `
     font-size: 16px;
     font-weight: 600;
     margin: 0 0 12px 0;
-    color: #333;
+    color: var(--e3-text);
   }
 
   .e3-helper-settings-description {
     font-size: 13px;
-    color: #666;
+    color: var(--e3-muted);
     line-height: 1.6;
     margin-bottom: 16px;
   }
@@ -1321,7 +1322,7 @@ style.textContent = `
     align-items: center;
     cursor: pointer;
     font-size: 14px;
-    color: #333;
+    color: var(--e3-text);
   }
 
   .e3-helper-setting-label input[type="checkbox"] {
@@ -1334,7 +1335,7 @@ style.textContent = `
   .e3-helper-setting-label-block {
     display: block;
     font-size: 14px;
-    color: #333;
+    color: var(--e3-text);
     font-weight: 500;
   }
 
@@ -1346,7 +1347,7 @@ style.textContent = `
   .e3-helper-setting-input {
     width: 100%;
     padding: 10px 12px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--e3-border);
     border-radius: 6px;
     font-size: 14px;
     transition: border-color 0.2s;
@@ -1355,28 +1356,28 @@ style.textContent = `
 
   .e3-helper-setting-input:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--e3-accent);
   }
 
   .e3-helper-setting-tip {
-    background: #f0f4ff;
-    border-left: 3px solid #667eea;
+    background: var(--e3-surface);
+    border-left: 3px solid var(--e3-accent);
     padding: 12px 16px;
     border-radius: 4px;
     font-size: 13px;
     line-height: 1.6;
-    color: #333;
+    color: var(--e3-text);
     margin-top: 16px;
   }
 
   .e3-helper-setting-tip strong {
     display: block;
     margin-bottom: 8px;
-    color: #667eea;
+    color: var(--e3-accent);
   }
 
   .e3-helper-setting-tip a {
-    color: #667eea;
+    color: var(--e3-accent);
     text-decoration: none;
     font-weight: 500;
   }
@@ -1402,8 +1403,8 @@ style.textContent = `
 
   .e3-helper-test-btn {
     padding: 8px 16px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: var(--e3-ink);
+    color: var(--e3-on-ink);
     border: none;
     border-radius: 6px;
     cursor: pointer;
@@ -1421,7 +1422,389 @@ style.textContent = `
     cursor: not-allowed;
   }
 `;
+// Theme tokens. Variables live on extension roots, never on the host page.
+const E3_THEME_ROOTS = ':is(.e3-helper-sidebar, .e3-helper-sidebar-toggle, .e3-helper-log-modal, #e3-helper-add-assignment-modal, #e3-helper-changelog-modal, .e3-helper-toast)';
+const E3_PANELS = ':is(.e3-helper-sidebar, .e3-helper-log-modal, #e3-helper-add-assignment-modal, #e3-helper-changelog-modal)';
+const E3_LIGHT_TOKENS = `
+    --e3-bg: #ffffff;
+    --e3-surface: #f6f5f2;
+    --e3-surface-2: #eceae6;
+    --e3-text: #141312;
+    --e3-text-2: #45423d;
+    --e3-muted: #66635d;
+    --e3-border: #e6e3dd;
+    --e3-border-strong: #cfcac1;
+    --e3-accent: #c2410c;
+    --e3-ink: #141312;
+    --e3-on-ink: #ffffff;
+    --e3-danger: #b3261e;
+    --e3-danger-soft: #fbeae7;
+    --e3-on-danger: #ffffff;
+    --e3-warning: #8a5a00;
+    --e3-warning-soft: #fbf1d9;
+    --e3-info: #2b4fb8;
+    --e3-success: #1f6f4a;
+    --e3-success-soft: #e6f2ec;
+    --e3-shadow: 24 22 20;
+    color-scheme: light;
+`;
+const E3_DARK_TOKENS = `
+    --e3-bg: #121110;
+    --e3-surface: #1c1a18;
+    --e3-surface-2: #262321;
+    --e3-text: #f2f0eb;
+    --e3-text-2: #c9c5bd;
+    --e3-muted: #a39f97;
+    --e3-border: #383531;
+    --e3-border-strong: #56514a;
+    --e3-accent: #f0733a;
+    --e3-ink: #f2f0eb;
+    --e3-on-ink: #121110;
+    --e3-danger: #ff8f7a;
+    --e3-danger-soft: #3a1d18;
+    --e3-on-danger: #2a0d08;
+    --e3-warning: #edb458;
+    --e3-warning-soft: #33280f;
+    --e3-info: #93b4ff;
+    --e3-success: #74d3a4;
+    --e3-success-soft: #1b2a23;
+    --e3-shadow: 0 0 0;
+    color-scheme: dark;
+`;
+style.textContent += `
+  /* Shared theme. Light by default; settings can switch to dark or follow the system. */
+  ${E3_THEME_ROOTS} {
+    ${E3_LIGHT_TOKENS}
+    --e3-launcher-bg: #b3261e;
+    --e3-on-launcher: #ffffff;
+    --e3-radius: 8px;
+    --e3-space-1: 4px;
+    --e3-space-2: 8px;
+    --e3-space-3: 12px;
+    --e3-space-4: 16px;
+    --e3-gutter: 20px;
+    --e3-font-body: 14px;
+    --e3-font-small: 12px;
+    --e3-font-heading: 16px;
+    --e3-font-display: 30px;
+    --e3-weight-body: 400;
+    --e3-weight-control: 500;
+    --e3-weight-heading: 600;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+    color: var(--e3-text);
+    font-size: var(--e3-font-body);
+    font-weight: var(--e3-weight-body);
+    letter-spacing: 0.02em;
+    line-height: 1.6;
+    text-align: left;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root[data-e3-helper-theme="system"] ${E3_THEME_ROOTS} { ${E3_DARK_TOKENS} }
+  }
+  :root[data-e3-helper-theme="dark"] ${E3_THEME_ROOTS} { ${E3_DARK_TOKENS} }
+  /* Announcement and mail bodies are authored on E3 with their own colors: keep them on paper. */
+  #e3-helper-item-content { ${E3_LIGHT_TOKENS} background: var(--e3-bg); color: var(--e3-text); padding: 12px; border-radius: var(--e3-radius); }
+  ${E3_PANELS} *, .e3-helper-sidebar-toggle * { box-sizing: border-box; }
+  /* Host pages often color bare text elements; keep ours on the theme without outranking our own classes. */
+  :where(.e3-helper-sidebar, .e3-helper-log-modal, #e3-helper-add-assignment-modal, #e3-helper-changelog-modal) :is(p, li, h1, h2, h3, h4, h5, td, th, label, small, strong, em, b):not(html) { color: inherit; }
+  .e3-helper-icon { display: inline-block; flex: none; vertical-align: middle; }
+  .e3-helper-sidebar { background: var(--e3-bg); border-left: 1px solid var(--e3-border); box-shadow: -8px 0 32px rgb(var(--e3-shadow) / 8%); height: 100dvh; max-width: min(800px, 100vw); }
+  .e3-helper-resize-handle:hover, .e3-helper-resize-handle:active { background: var(--e3-border-strong); }
+
+  /* Header */
+  .e3-helper-sidebar-header { background: var(--e3-bg); color: var(--e3-text); border-bottom: 1px solid var(--e3-border); }
+  .e3-helper-title-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 14px 12px 0 var(--e3-gutter); }
+  .e3-helper-brand { font-size: 15px; font-weight: 600; letter-spacing: 0.01em; white-space: nowrap; }
+  .e3-helper-header-actions { display: flex; gap: 2px; align-items: center; }
+  .e3-helper-sync-status { background: transparent; border: 0; padding: 0 var(--e3-gutter) 6px; font-size: 12px; color: var(--e3-muted); }
+  .e3-helper-sync-btn, .e3-helper-icon-btn { border: 0; border-radius: 18px; background: transparent; color: var(--e3-text); min-height: 36px; padding: 0 10px; font-size: 13px; cursor: pointer; }
+  .e3-helper-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 36px; padding: 0; }
+  .e3-helper-sync-btn:hover, .e3-helper-icon-btn:hover { background: var(--e3-surface); color: var(--e3-text); }
+  .e3-helper-more-container { position: relative; }
+  .e3-helper-more-menu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 144px; padding: 4px; background: var(--e3-bg); border: 1px solid var(--e3-border-strong); border-radius: 12px; box-shadow: 0 6px 24px rgb(var(--e3-shadow) / 14%); z-index: 2; }
+  .e3-helper-more-menu[hidden] { display: none; }
+  .e3-helper-more-menu button { display: block; width: 100%; padding: 8px 12px; text-align: left; border: 0; background: transparent; border-radius: 8px; color: var(--e3-text); font-size: 13px; cursor: pointer; }
+  .e3-helper-more-menu button:hover { background: var(--e3-surface); }
+  .e3-helper-tabs { flex-wrap: wrap; gap: 0 22px; padding: 0 var(--e3-gutter); }
+  .e3-helper-tab { flex: 0 0 auto; flex-direction: row; justify-content: center; gap: 5px; font-size: 13px; white-space: nowrap; padding: 0; min-height: 40px; color: var(--e3-muted); background: transparent; border-bottom: 2px solid transparent; }
+  .e3-helper-tab:hover { color: var(--e3-text); background: transparent; }
+  .e3-helper-tab.active { color: var(--e3-text); border-bottom-color: var(--e3-accent); background: transparent; }
+  .e3-helper-tab-badge { background: var(--e3-danger); color: var(--e3-on-danger); border-radius: 8px; padding: 0 4px; min-width: 16px; font-size: 10px; font-weight: 600; line-height: 16px; }
+
+  /* Assignments */
+  .e3-helper-content[data-content="assignments"].active { display: flex; flex-direction: column; }
+  .e3-helper-section-toolbar { order: 1; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; padding: 22px var(--e3-gutter) 0; gap: 8px; }
+  .e3-helper-timezone { order: 2; margin: 6px var(--e3-gutter) 0; display: flex; flex-wrap: wrap; gap: 0 8px; font-size: 11.5px; color: var(--e3-muted); }
+  .e3-helper-timezone span:last-child { font-size: 11.5px !important; opacity: 1 !important; }
+  .e3-helper-content[data-content="assignments"] .e3-helper-assignment-list { order: 3; }
+  .e3-helper-add-assignment-btn, #e3-helper-refresh-announcements, #e3-helper-refresh-courses { white-space: nowrap; }
+  .e3-helper-add-assignment-btn { min-height: 34px; padding: 0 14px; background: transparent; color: var(--e3-text); border: 1px solid var(--e3-ink); border-radius: 17px; font-size: 12.5px; cursor: pointer; }
+  .e3-helper-add-assignment-btn:hover { background: var(--e3-surface); }
+  .e3-helper-assignment-list { padding: 10px var(--e3-gutter) 20px; }
+  .e3-helper-assignment-item, .e3-helper-announcement-item, .e3-helper-pdf-item {
+    background: transparent !important; border: 0 !important; border-bottom: 1px solid var(--e3-border) !important; border-radius: 0; padding: 16px 0; margin: 0; box-shadow: none !important; transform: none !important; opacity: 1 !important;
+  }
+  :is(.e3-helper-assignment-item, .e3-helper-announcement-item, .e3-helper-pdf-item):last-child { border-bottom: 0 !important; }
+  .e3-helper-assignment-item:hover, .e3-helper-announcement-item:hover, .e3-helper-pdf-item:hover { background: transparent !important; transform: none !important; box-shadow: none !important; }
+  a.e3-helper-assignment-item.completed, .e3-helper-assignment-item.completed, a.e3-helper-assignment-item.completed:hover, .e3-helper-assignment-item.completed:hover { background: transparent !important; box-shadow: none !important; transform: none; }
+  a.e3-helper-assignment-item { display: flex !important; flex-direction: column; gap: 8px; }
+  a.e3-helper-assignment-item:hover .e3-helper-assignment-name { text-decoration: underline; text-underline-offset: 3px; }
+  .e3-helper-assignment-name, .e3-helper-announcement-title, .e3-helper-pdf-name { font-size: 15px; line-height: 1.4; color: var(--e3-text); margin: 0; overflow-wrap: anywhere; }
+  .e3-helper-assignment-name:hover, .e3-helper-announcement-title:hover { color: var(--e3-text); }
+  .e3-helper-assignment-course, .e3-helper-assignment-deadline, .e3-helper-announcement-meta, .e3-helper-pdf-course { font-size: 12px; color: var(--e3-muted); margin: 0; overflow-wrap: anywhere; }
+  .e3-helper-assignment-heading { display: flex; flex-direction: column; gap: 2px; }
+  .e3-helper-assignment-name { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; }
+  .e3-helper-urgent-badge { display: inline-flex; align-items: center; gap: 5px; color: var(--e3-danger); font-size: 11.5px; white-space: nowrap; vertical-align: middle; }
+  .e3-helper-urgent-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .e3-helper-assignment-deadline { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; font-variant-numeric: tabular-nums; }
+  .e3-helper-assignment-actions { display: flex; align-items: center; gap: 14px; margin-left: auto; }
+  .e3-helper-assignment-countdown { font-family: inherit; font-size: 12px; line-height: 1.2; font-variant-numeric: tabular-nums; color: var(--e3-text); }
+  .e3-helper-assignment-countdown b { font-size: 22px; letter-spacing: -0.01em; margin-right: 2px; }
+  .e3-helper-assignment-countdown.urgent { color: var(--e3-danger); }
+  .e3-helper-assignment-countdown.warning { color: var(--e3-warning); }
+  .e3-helper-assignment-countdown.normal { color: var(--e3-success); }
+  .e3-helper-assignment-countdown.overdue { color: var(--e3-muted); }
+  .e3-helper-status-toggle, .e3-helper-status-toggle.completed, .e3-helper-status-toggle.pending { margin: 0; padding: 0; min-height: 32px; background: transparent; border: 0; border-radius: 0; color: var(--e3-text); font-size: 12.5px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .e3-helper-status-toggle:hover { background: transparent; transform: none; color: var(--e3-accent); }
+  .e3-helper-status-toggle.submitted, .e3-helper-status-toggle.submitted:hover { color: var(--e3-success); background: transparent; border: 0; text-decoration: none; }
+  .e3-helper-edit-assignment.e3-helper-secondary,
+  .e3-helper-delete-assignment.e3-helper-secondary { flex: 0 0 auto !important; padding: 0 !important; min-height: 32px; background: transparent !important; border: 0 !important; border-radius: 0 !important; color: var(--e3-muted) !important; font-size: 12.5px !important; box-shadow: none; }
+  .e3-helper-edit-assignment.e3-helper-secondary:hover { color: var(--e3-text) !important; }
+  .e3-helper-delete-assignment.e3-helper-secondary:hover { color: var(--e3-danger) !important; }
+
+  /* Floating entry */
+  .e3-helper-sidebar-toggle { background: var(--e3-launcher-bg); color: var(--e3-on-launcher); border: 1px solid var(--e3-border-strong); border-right: 0; border-radius: 12px 0 0 12px; box-shadow: -2px 2px 12px rgb(var(--e3-shadow) / 12%); padding: 10px 12px; min-height: 44px; }
+  .e3-helper-sidebar-toggle:hover, .e3-helper-sidebar-toggle:active { background: var(--e3-launcher-bg); transform: none; box-shadow: -2px 2px 12px rgb(var(--e3-shadow) / 12%); }
+  .e3-helper-sidebar-toggle,
+  .e3-helper-sidebar-toggle .e3-helper-toggle-text,
+  .e3-helper-sidebar-toggle .e3-helper-toggle-icon,
+  .e3-helper-sidebar-toggle .e3-helper-icon { color: var(--e3-on-launcher) !important; }
+  .e3-helper-sidebar-toggle .e3-helper-icon { stroke: var(--e3-on-launcher) !important; }
+  .e3-helper-toggle-icon { display: flex; align-items: center; }
+  .e3-helper-toggle-text { font-size: 13px; font-weight: 600; }
+  .e3-helper-toggle-badge { background: var(--e3-danger); color: var(--e3-on-danger); border-color: var(--e3-bg); box-shadow: none; }
+
+  /* Messages, modals */
+  .e3-helper-welcome-message, .e3-helper-setting-tip, .e3-helper-login-warning { background: var(--e3-surface); color: var(--e3-text); border: 0; border-radius: 12px; box-shadow: none; }
+  .e3-helper-welcome-message { margin: 12px 0; }
+  .e3-helper-welcome-message .highlight { background: var(--e3-surface-2); }
+  .e3-helper-setting-tip strong { color: var(--e3-text); }
+  .e3-helper-setting-tip a, .e3-helper-login-warning a { color: var(--e3-accent); }
+  .e3-helper-setting-section h3 { color: var(--e3-text); font-size: 16px; }
+  .e3-helper-log-modal-content { background: var(--e3-bg); color: var(--e3-text); border: 1px solid var(--e3-border); border-radius: 16px; box-shadow: 0 12px 48px rgb(var(--e3-shadow) / 20%); }
+  .e3-helper-log-modal-header { background: var(--e3-bg); color: var(--e3-text); border-bottom: 1px solid var(--e3-border); border-radius: 16px 16px 0 0; }
+  .e3-helper-log-modal-close { color: var(--e3-muted); }
+  .e3-helper-log-modal-footer { background: var(--e3-bg); border-radius: 0 0 16px 16px; }
+  .e3-helper-log-warn { color: var(--e3-warning); background: transparent; }
+  .e3-helper-log-error { color: var(--e3-danger); background: transparent; }
+  .e3-helper-log-entry:hover { background: var(--e3-surface-2); }
+  .e3-helper-log-container { background: var(--e3-surface); }
+  .e3-helper-loading, .e3-helper-no-assignments { color: var(--e3-muted); font-size: 14px; padding: 32px 0; }
+  .e3-helper-unread-dot { background: var(--e3-danger); border: 0; box-shadow: none; width: 7px; height: 7px; left: -13px; top: 23px; transform: none; }
+
+  /* Presentation classes only apply to extension-authored markup. */
+  .e3-helper-surface { background: var(--e3-surface, #f6f5f2); }
+  .e3-helper-body-text { color: var(--e3-text, #141312); }
+  .e3-helper-muted-text { color: var(--e3-muted, #66635d); }
+  .e3-helper-danger-text { color: var(--e3-danger, #b3261e); }
+  .e3-helper-warning-text { color: var(--e3-warning, #8a5a00); }
+  .e3-helper-success-text { color: var(--e3-success, #1f6f4a); }
+  .e3-helper-on-accent { color: inherit; }
+  .e3-helper-surface.e3-helper-on-accent { color: var(--e3-text, #141312); }
+  .e3-helper-heading-text { font-size: var(--e3-font-heading, 16px); }
+  .e3-helper-small-text { font-size: var(--e3-font-small, 12px); }
+  .e3-helper-regular-text { font-size: var(--e3-font-body, 14px); }
+  .e3-helper-flat { box-shadow: none; }
+  .e3-helper-divider { border: 0; border-bottom: 1px solid var(--e3-border, #eceae6); }
+  .e3-helper-primary, .e3-helper-log-btn-primary { background: var(--e3-ink, #141312) !important; color: var(--e3-on-ink, #ffffff) !important; border: 1px solid var(--e3-ink, #141312) !important; }
+  .e3-helper-secondary, .e3-helper-log-btn-secondary { background: transparent !important; color: var(--e3-text, #141312) !important; border: 1px solid var(--e3-border-strong, #d8d4cc) !important; }
+  ${E3_PANELS} :is(button, a):is(.e3-helper-primary, .e3-helper-secondary, .e3-helper-log-btn) { border-radius: 999px !important; }
+  .e3-helper-sidebar :is(button, a):is(.e3-helper-primary, .e3-helper-secondary):not(.e3-helper-edit-assignment, .e3-helper-delete-assignment) { min-height: 34px; padding-inline: 14px !important; display: inline-flex; align-items: center; justify-content: center; }
+  ${E3_PANELS} button.e3-helper-secondary:hover:not(:disabled), .e3-helper-log-btn-secondary:hover { background: var(--e3-surface) !important; }
+
+  /* Courses */
+  .e3-helper-page-title { margin: 0; font-size: var(--e3-font-display); letter-spacing: -0.01em; line-height: 1.15; color: var(--e3-text); }
+  .e3-helper-course-list-head { padding: 22px var(--e3-gutter) 14px; display: flex; flex-direction: column; gap: 14px; }
+  .e3-helper-course-list-head-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 8px; }
+  #e3-helper-refresh-courses { min-height: 34px; padding: 0 14px; border-color: var(--e3-ink) !important; cursor: pointer; }
+  #e3-helper-check-participants-btn { width: 100%; min-height: 44px; cursor: pointer; }
+  #e3-helper-last-check-time { text-align: center; color: var(--e3-muted); margin-top: -6px; }
+  #e3-helper-course-list-container { padding: 0 var(--e3-gutter); }
+  #e3-helper-course-list-container .e3-helper-course-item { display: block; position: relative; margin: 0; padding: 16px 0; background: transparent; border-radius: 0; cursor: pointer; transform: none; }
+  #e3-helper-course-list-container .e3-helper-course-item:last-child { border-bottom: 0; }
+  #e3-helper-course-list-container .e3-helper-course-item:hover { background: transparent; transform: none; }
+  #e3-helper-course-list-container .e3-helper-course-item:hover .e3-helper-course-title { text-decoration: underline; text-underline-offset: 3px; }
+  .e3-helper-course-title { font-size: 14.5px !important; line-height: 1.4; padding-right: 56px; overflow-wrap: anywhere; }
+  .e3-helper-course-count { position: absolute; right: 0; top: 15px; font-size: 20px; line-height: 1.1; color: var(--e3-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .e3-helper-course-item:hover, .e3-helper-course-item { background: transparent; }
+  .e3-helper-course-name { color: var(--e3-text); }
+  .e3-helper-detail-head { padding: 16px var(--e3-gutter) 12px; }
+  .e3-helper-detail-title { margin: 10px 0 4px; font-size: 18px; line-height: 1.35; color: var(--e3-text); overflow-wrap: anywhere; }
+  .e3-helper-assignment-list .e3-helper-detail-title { margin: 0 0 6px; }
+  .e3-helper-function-tabs { display: flex; gap: 22px; padding: 0 var(--e3-gutter); }
+  .e3-helper-sidebar .e3-helper-course-function-tab { flex: 0 0 auto; min-height: 40px; padding: 0; background: transparent; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--e3-muted); font-size: 13px; cursor: pointer; }
+  #e3-helper-course-stats-content, #e3-helper-course-grades-content { padding: 4px 8px 0; }
+  .e3-helper-course-select-container > div { padding: 12px var(--e3-gutter) !important; }
+  #e3-helper-item-content { border: 1px solid var(--e3-border); }
+  .e3-helper-sidebar .e3-helper-course-function-tab.active { border-bottom-color: var(--e3-accent); color: var(--e3-text); }
+  .e3-helper-stat-card { background: var(--e3-surface); border-left: 0; border-radius: 12px; }
+
+  /* Downloads */
+  .e3-helper-download-actions { flex-wrap: wrap; gap: 8px; padding: 20px var(--e3-gutter) 0; background: transparent; border: 0; }
+  .e3-helper-download-actions + .e3-helper-download-actions, .e3-helper-course-select-container + .e3-helper-download-actions { padding-top: 12px; padding-bottom: 12px; margin: 0; border-bottom: 1px solid var(--e3-border); align-items: center; }
+  .e3-helper-download-actions button { white-space: nowrap; flex: 1 1 auto; }
+  .e3-helper-download-btn, .e3-helper-test-btn { min-height: 44px; padding: 0 14px; background: transparent; color: var(--e3-text); border: 1px solid var(--e3-ink); font-size: 13px; border-radius: 22px; box-shadow: none; transform: none; }
+  .e3-helper-download-btn:hover, .e3-helper-test-btn:hover { background: var(--e3-surface); color: var(--e3-text); transform: none; box-shadow: none; opacity: 1; }
+  .e3-helper-download-btn.secondary { flex: 0 0 auto !important; min-height: 36px; padding: 0 !important; margin-right: 6px; background: transparent; border: 0; border-radius: 0; color: var(--e3-muted); font-size: 12.5px; }
+  .e3-helper-download-btn.secondary:hover { background: transparent; color: var(--e3-text); }
+  #e3-helper-download-separate, #e3-helper-download-zip, #e3-helper-start-scan, .e3-helper-download-btn.primary { min-height: 34px; background: var(--e3-ink); color: var(--e3-on-ink); border-color: var(--e3-ink); font-size: 12.5px; border-radius: 17px; }
+  #e3-helper-download-separate, #e3-helper-download-zip { flex: 0 0 auto; }
+  #e3-helper-download-separate { margin-left: auto; }
+  #e3-helper-start-scan { min-height: 40px; border-radius: 20px; }
+  :is(#e3-helper-download-separate, #e3-helper-download-zip, #e3-helper-start-scan):hover { background: var(--e3-ink); color: var(--e3-on-ink); opacity: .86; }
+  .e3-helper-pdf-list { padding: 0 var(--e3-gutter); }
+  .e3-helper-pdf-item { gap: 4px; }
+  .e3-helper-pdf-item > div:first-child { align-items: flex-start !important; gap: 12px !important; }
+  .e3-helper-pdf-icon { display: none; }
+  .e3-helper-pdf-checkbox, .e3-helper-course-checkbox { accent-color: var(--e3-accent); margin: 2px 0 0; }
+  .e3-helper-pdf-name .e3-helper-surface { background: transparent; border: 1px solid var(--e3-border-strong); color: var(--e3-text-2); font-size: 11px; padding: 1px 7px !important; border-radius: 8px !important; }
+  .e3-helper-file-actions { gap: 16px; margin-left: 30px; }
+  .e3-helper-file-btn, .e3-helper-view-page, .e3-helper-download-file { flex: 0 0 auto; min-height: 30px; padding: 0; background: transparent; border: 0; border-radius: 0; color: var(--e3-muted); font-size: 12.5px; box-shadow: none; transform: none; }
+  .e3-helper-download-file { color: var(--e3-text); text-decoration: underline; text-underline-offset: 3px; }
+  .e3-helper-file-btn:hover, .e3-helper-view-page:hover, .e3-helper-download-file:hover { background: transparent; color: var(--e3-accent); transform: none; box-shadow: none; }
+  .e3-helper-download-status { padding: 14px var(--e3-gutter); background: transparent; border-top: 1px solid var(--e3-border); color: var(--e3-muted); }
+  .e3-helper-progress-container { background: transparent; border-top: 0; padding: 0 var(--e3-gutter) 14px; }
+  .e3-helper-progress-bar { height: 4px; background: var(--e3-surface-2); border-radius: 2px; }
+  .e3-helper-progress-fill { background: var(--e3-accent); border-radius: 2px; }
+  .e3-helper-progress-fill::after { display: none; }
+  .e3-helper-course-select-container .e3-helper-course-item { background: transparent; }
+  .e3-helper-course-select-container .e3-helper-course-item:hover { background: var(--e3-surface-2); transform: none; }
+
+  /* Announcements */
+  .e3-helper-digest-entry { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; padding: 12px 0 20px; margin: 0; background: transparent; border: 0; border-bottom: 1px solid var(--e3-border); border-radius: 0; }
+  .e3-helper-digest-prompt { flex: 1; min-width: 110px; }
+  .e3-helper-sidebar .e3-helper-digest-prompt h3 { margin: 0 0 4px; font-size: var(--e3-font-display); letter-spacing: -0.01em; line-height: 1.15; color: var(--e3-text); }
+  .e3-helper-digest-prompt p { margin: 0; font-size: 12px; color: var(--e3-muted); line-height: 1.5; }
+  .e3-helper-digest-result { background: var(--e3-surface); border: 1px solid var(--e3-border-strong); }
+  .e3-helper-digest-card { background: var(--e3-bg); border: 1px solid var(--e3-border-strong); }
+  /* Host pages style :visited links; keep ours on the theme. */
+  ${E3_PANELS} a.e3-helper-body-text:is(:link, :visited) { color: var(--e3-text); }
+  .e3-helper-announcement-stats { padding: 16px 0; border-bottom: 1px solid var(--e3-border); display: flex; flex-direction: column; gap: 12px; }
+  .e3-helper-announcement-stats-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .e3-helper-announcement-count { font-size: 15px; line-height: 1.4; color: var(--e3-text); white-space: nowrap; }
+  .e3-helper-unread-count { display: inline-flex; align-items: center; gap: 6px; color: var(--e3-danger); font-size: 12px; }
+  .e3-helper-unread-count::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .e3-helper-announcement-tools { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+  #e3-helper-mark-all-read { min-height: 34px; padding: 0; background: transparent; border: 0; color: var(--e3-muted); font-size: 12.5px; cursor: pointer; }
+  #e3-helper-mark-all-read:hover { color: var(--e3-text); }
+  #e3-helper-refresh-announcements { min-height: 34px; padding: 0 14px; background: transparent; border: 1px solid var(--e3-ink); border-radius: 17px; color: var(--e3-text); font-size: 12.5px; cursor: pointer; }
+  #e3-helper-refresh-announcements:hover { background: var(--e3-surface); }
+  .e3-helper-filter-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0 18px; }
+  .e3-helper-filter-label { min-width: 40px; font-size: 12px; color: var(--e3-muted); }
+  .e3-helper-type-btn, .e3-helper-filter-btn { min-height: 32px; padding: 0; background: transparent; border: 0; border-bottom: 1.5px solid transparent; border-radius: 0; color: var(--e3-muted); font-size: 12.5px; cursor: pointer; }
+  .e3-helper-type-btn:hover, .e3-helper-filter-btn:hover { color: var(--e3-text); }
+  .e3-helper-type-btn.active, .e3-helper-filter-btn.active { color: var(--e3-text); border-bottom-color: var(--e3-accent); }
+  .e3-helper-announcement-item { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+  .e3-helper-announcement-item.unread, .e3-helper-announcement-item.read { background: transparent !important; opacity: 1 !important; }
+  .e3-helper-announcement-item.read .e3-helper-announcement-title { color: var(--e3-text-2); }
+  .e3-helper-announcement-item.read .e3-helper-status-toggle { color: var(--e3-text-2); }
+  .e3-helper-announcement-meta { display: flex; flex-wrap: wrap; gap: 0 12px; }
+  .e3-helper-announcement-meta span { margin: 0 !important; }
+
+  /* Notifications reuse the assignment row. */
+  #e3-helper-notification-list .e3-helper-assignment-item { display: block; cursor: pointer; }
+  #e3-helper-notification-list .e3-helper-assignment-item:not(.unread) { color: var(--e3-text-2); }
+  .e3-helper-notification-dot { display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--e3-danger); }
+  .e3-helper-notification-title { font-size: 15px; line-height: 1.45; margin-bottom: 3px; overflow-wrap: anywhere; }
+
+  /* Help */
+  .e3-helper-help { padding: 22px var(--e3-gutter) 20px; font-size: 13.5px; line-height: 1.7; }
+  .e3-helper-sidebar .e3-helper-help h2 { margin: 0 0 4px; font-size: var(--e3-font-display); letter-spacing: -0.01em; line-height: 1.15; }
+  .e3-helper-help-intro { color: var(--e3-muted); font-size: 13px; margin: 0 0 18px; }
+  .e3-helper-help section { padding: 16px 0; border-top: 1px solid var(--e3-border); }
+  .e3-helper-help h3 { margin: 0 0 8px; font-size: 15px; }
+  .e3-helper-help section p { margin: 8px 0 0; }
+  .e3-helper-help :is(ul, ol) { margin: 0; padding-left: 20px; }
+  .e3-helper-help li { margin-bottom: 5px; }
+  .e3-helper-help a { color: var(--e3-accent); text-decoration: underline; text-underline-offset: 2px; }
+  .e3-helper-help-note { color: var(--e3-muted); font-size: 12px; }
+
+  /* Shared controls */
+  .e3-helper-course-name, .e3-helper-setting-label, .e3-helper-pdf-name { overflow-wrap: anywhere; }
+  .e3-helper-settings-title, .e3-helper-setting-label, .e3-helper-setting-label-block { color: var(--e3-text); }
+  .e3-helper-settings-description { color: var(--e3-muted); }
+  .e3-helper-settings-section { border-bottom-color: var(--e3-border); }
+  .e3-helper-sidebar :is(h2, h3) { font-size: var(--e3-font-heading); line-height: 1.4; }
+  .e3-helper-sidebar :is(table) { width: 100%; }
+  ${E3_PANELS} :is(td, th) { overflow-wrap: anywhere; border-color: var(--e3-border-strong) !important; }
+  ${E3_PANELS} :is(button, input, select, textarea) { font-family: inherit; }
+  ${E3_PANELS} :is(button, a, input, select, textarea, [tabindex]):focus-visible, .e3-helper-sidebar-toggle:focus-visible { outline: 2px solid var(--e3-accent); outline-offset: 3px; }
+  ${E3_PANELS} :is(input:not([type=checkbox]):not([type=hidden]), select, textarea) { border: 1px solid var(--e3-border-strong) !important; border-radius: 8px; color: var(--e3-text); background: var(--e3-bg); min-height: 36px; max-width: 100%; }
+  ${E3_PANELS} :is(input:not([type=checkbox]):not([type=hidden]), select, textarea):focus { border-color: var(--e3-ink) !important; }
+  ${E3_PANELS} input[type=checkbox] { accent-color: var(--e3-accent); }
+  ${E3_PANELS} button { min-height: 32px; }
+  ${E3_PANELS} button:disabled { opacity: .5; cursor: not-allowed; }
+  :is(#e3-helper-add-assignment-modal, #e3-helper-changelog-modal) > div { max-height: 90dvh; overflow-y: auto; background: var(--e3-bg) !important; color: var(--e3-text); border: 1px solid var(--e3-border); border-radius: 16px !important; }
+  .e3-helper-log-btn:not(.e3-helper-log-btn-primary, .e3-helper-log-btn-secondary) { background: transparent; color: var(--e3-text); border: 1px solid var(--e3-border-strong); }
+  .e3-helper-log-btn:not(.e3-helper-log-btn-primary, .e3-helper-log-btn-secondary):hover { background: var(--e3-surface); opacity: 1; }
+  .e3-helper-toast { z-index: 100001 !important; background: var(--e3-toast-bg, var(--e3-bg)) !important; color: var(--e3-text) !important; border: 1px solid var(--e3-border-strong); border-left: 4px solid var(--e3-toast-status); border-radius: 12px !important; box-shadow: 0 6px 24px rgb(var(--e3-shadow) / 14%) !important; max-width: min(350px, calc(100vw - 40px)) !important; display: flex; align-items: center; gap: 8px; }
+  .e3-helper-toast[data-type="success"] { --e3-toast-status: var(--e3-success); --e3-toast-bg: var(--e3-success-soft); }
+  .e3-helper-toast[data-type="error"] { --e3-toast-status: var(--e3-danger); --e3-toast-bg: var(--e3-danger-soft); }
+  .e3-helper-toast[data-type="warning"] { --e3-toast-status: var(--e3-warning); --e3-toast-bg: var(--e3-warning-soft); }
+  .e3-helper-toast[data-type="info"] { --e3-toast-status: var(--e3-info); }
+  .e3-helper-toast-icon { display: flex; color: var(--e3-toast-status); }
+  @media (prefers-reduced-motion: reduce) {
+    :is(${E3_THEME_ROOTS}), ${E3_PANELS} * { transition: none !important; animation: none !important; }
+  }
+  @media (pointer: coarse) {
+    ${E3_PANELS} button { min-height: 44px; }
+    .e3-helper-icon-btn { width: 44px; }
+  }
+`;
+style.textContent += `
+  /* Typography hierarchy for extension-authored interface text. */
+  .e3-helper-small-text { font-size: var(--e3-font-small, 12px) !important; font-weight: var(--e3-weight-body, 400) !important; }
+  .e3-helper-regular-text { font-size: var(--e3-font-body, 14px) !important; font-weight: var(--e3-weight-body, 400) !important; }
+  ${E3_PANELS} :is(h2, h3, h4),
+  .e3-helper-heading-text { font-weight: var(--e3-weight-heading, 600) !important; letter-spacing: 0.02em; }
+  ${E3_PANELS} :is(button, label, summary),
+  .e3-helper-sidebar a.e3-helper-primary,
+  .e3-helper-sidebar-toggle .e3-helper-toggle-text { font-weight: var(--e3-weight-control, 500) !important; letter-spacing: 0.02em; }
+  /* Display headings are large and medium weight. */
+  .e3-helper-sidebar :is(.e3-helper-section-toolbar h2, .e3-helper-help h2, .e3-helper-digest-prompt h3, .e3-helper-page-title) { font-size: var(--e3-font-display) !important; font-weight: var(--e3-weight-control) !important; letter-spacing: -0.01em; }
+  .e3-helper-sidebar .e3-helper-section-toolbar h2 { margin: 0; line-height: 1.15; }
+  .e3-helper-sidebar .e3-helper-tab { font-weight: var(--e3-weight-body) !important; }
+  .e3-helper-sidebar .e3-helper-tab.active,
+  .e3-helper-sidebar :is(.e3-helper-type-btn, .e3-helper-filter-btn, .e3-helper-course-function-tab).active { font-weight: var(--e3-weight-heading) !important; }
+  .e3-helper-sidebar :is(.e3-helper-edit-assignment, .e3-helper-delete-assignment, .e3-helper-download-btn.secondary, .e3-helper-type-btn, .e3-helper-filter-btn, .e3-helper-view-page, #e3-helper-mark-all-read) { font-weight: var(--e3-weight-body) !important; }
+  .e3-helper-assignment-countdown, .e3-helper-assignment-countdown b { font-weight: var(--e3-weight-control); }
+  .e3-helper-assignment-name, .e3-helper-announcement-title, .e3-helper-pdf-name { font-weight: var(--e3-weight-heading); letter-spacing: 0.02em; }
+  .e3-helper-announcement-item.read .e3-helper-announcement-title { font-weight: var(--e3-weight-body); }
+  .e3-helper-sidebar .e3-helper-course-title, .e3-helper-detail-title { font-weight: var(--e3-weight-heading) !important; }
+  .e3-helper-sidebar .e3-helper-course-function-tab { font-weight: var(--e3-weight-body) !important; }
+  .e3-helper-course-count { font-weight: var(--e3-weight-control); }
+  .e3-helper-announcement-count { font-weight: var(--e3-weight-heading); }
+  .e3-helper-unread-count, .e3-helper-urgent-badge { font-weight: var(--e3-weight-control); }
+  .e3-helper-sidebar .e3-helper-digest-title { font-weight: var(--e3-weight-heading) !important; }
+  .e3-helper-help strong { font-weight: var(--e3-weight-control); }
+  #e3-helper-item-content { font-size: var(--e3-font-body) !important; font-weight: var(--e3-weight-body); }
+  .e3-helper-toast { font-weight: var(--e3-weight-body) !important; }
+`;
 document.head.appendChild(style);
+
+// Appearance: light unless settings saved dark or follow-the-system.
+function applyThemePreference(value) {
+  if (value === 'system' || value === 'dark') document.documentElement.dataset.e3HelperTheme = value;
+  else delete document.documentElement.dataset.e3HelperTheme;
+}
+try {
+  chrome.storage.local.get(['themePreference']).then(storage => applyThemePreference(storage.themePreference));
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.themePreference) applyThemePreference(changes.themePreference.newValue);
+  });
+} catch (error) {
+  console.warn('E3 Helper: 無法讀取外觀設定', error.message);
+}
 
 // 儲存所有作業資訊
 let allAssignments = [];
@@ -1446,76 +1829,76 @@ let readMessages = new Set(); // 已讀信件 ID
 // 支援的檔案類型
 const SUPPORTED_FILE_TYPES = [
   // 文件
-  { ext: '.pdf', icon: '📄', name: 'PDF' },
-  { ext: '.txt', icon: '📄', name: 'TXT' },
-  { ext: '.md', icon: '📄', name: 'Markdown' },
+  { ext: '.pdf', icon: helperIcon('file'), name: 'PDF' },
+  { ext: '.txt', icon: helperIcon('file'), name: 'TXT' },
+  { ext: '.md', icon: helperIcon('file'), name: 'Markdown' },
 
   // 簡報
-  { ext: '.ppt', icon: '📊', name: 'PPT' },
-  { ext: '.pptx', icon: '📊', name: 'PPTX' },
-  { ext: '.odp', icon: '📊', name: 'ODP' },
+  { ext: '.ppt', icon: helperIcon('file'), name: 'PPT' },
+  { ext: '.pptx', icon: helperIcon('file'), name: 'PPTX' },
+  { ext: '.odp', icon: helperIcon('file'), name: 'ODP' },
 
   // 文書
-  { ext: '.doc', icon: '📝', name: 'DOC' },
-  { ext: '.docx', icon: '📝', name: 'DOCX' },
-  { ext: '.odt', icon: '📝', name: 'ODT' },
-  { ext: '.rtf', icon: '📝', name: 'RTF' },
+  { ext: '.doc', icon: helperIcon('file'), name: 'DOC' },
+  { ext: '.docx', icon: helperIcon('file'), name: 'DOCX' },
+  { ext: '.odt', icon: helperIcon('file'), name: 'ODT' },
+  { ext: '.rtf', icon: helperIcon('file'), name: 'RTF' },
 
   // 試算表
-  { ext: '.xls', icon: '📈', name: 'XLS' },
-  { ext: '.xlsx', icon: '📈', name: 'XLSX' },
-  { ext: '.ods', icon: '📈', name: 'ODS' },
-  { ext: '.csv', icon: '📈', name: 'CSV' },
+  { ext: '.xls', icon: helperIcon('file'), name: 'XLS' },
+  { ext: '.xlsx', icon: helperIcon('file'), name: 'XLSX' },
+  { ext: '.ods', icon: helperIcon('file'), name: 'ODS' },
+  { ext: '.csv', icon: helperIcon('file'), name: 'CSV' },
 
   // 壓縮檔
-  { ext: '.zip', icon: '📦', name: 'ZIP' },
-  { ext: '.rar', icon: '📦', name: 'RAR' },
-  { ext: '.7z', icon: '📦', name: '7Z' },
-  { ext: '.tar', icon: '📦', name: 'TAR' },
-  { ext: '.gz', icon: '📦', name: 'GZ' },
+  { ext: '.zip', icon: helperIcon('file'), name: 'ZIP' },
+  { ext: '.rar', icon: helperIcon('file'), name: 'RAR' },
+  { ext: '.7z', icon: helperIcon('file'), name: '7Z' },
+  { ext: '.tar', icon: helperIcon('file'), name: 'TAR' },
+  { ext: '.gz', icon: helperIcon('file'), name: 'GZ' },
 
   // 影片
-  { ext: '.mp4', icon: '🎬', name: 'MP4' },
-  { ext: '.avi', icon: '🎬', name: 'AVI' },
-  { ext: '.mov', icon: '🎬', name: 'MOV' },
-  { ext: '.wmv', icon: '🎬', name: 'WMV' },
-  { ext: '.flv', icon: '🎬', name: 'FLV' },
-  { ext: '.mkv', icon: '🎬', name: 'MKV' },
-  { ext: '.webm', icon: '🎬', name: 'WEBM' },
-  { ext: '.m4v', icon: '🎬', name: 'M4V' },
+  { ext: '.mp4', icon: helperIcon('file'), name: 'MP4' },
+  { ext: '.avi', icon: helperIcon('file'), name: 'AVI' },
+  { ext: '.mov', icon: helperIcon('file'), name: 'MOV' },
+  { ext: '.wmv', icon: helperIcon('file'), name: 'WMV' },
+  { ext: '.flv', icon: helperIcon('file'), name: 'FLV' },
+  { ext: '.mkv', icon: helperIcon('file'), name: 'MKV' },
+  { ext: '.webm', icon: helperIcon('file'), name: 'WEBM' },
+  { ext: '.m4v', icon: helperIcon('file'), name: 'M4V' },
 
   // 音訊
-  { ext: '.mp3', icon: '🎵', name: 'MP3' },
-  { ext: '.wav', icon: '🎵', name: 'WAV' },
-  { ext: '.flac', icon: '🎵', name: 'FLAC' },
-  { ext: '.aac', icon: '🎵', name: 'AAC' },
-  { ext: '.m4a', icon: '🎵', name: 'M4A' },
-  { ext: '.ogg', icon: '🎵', name: 'OGG' },
+  { ext: '.mp3', icon: helperIcon('file'), name: 'MP3' },
+  { ext: '.wav', icon: helperIcon('file'), name: 'WAV' },
+  { ext: '.flac', icon: helperIcon('file'), name: 'FLAC' },
+  { ext: '.aac', icon: helperIcon('file'), name: 'AAC' },
+  { ext: '.m4a', icon: helperIcon('file'), name: 'M4A' },
+  { ext: '.ogg', icon: helperIcon('file'), name: 'OGG' },
 
   // 圖片
-  { ext: '.jpg', icon: '🖼️', name: 'JPG' },
-  { ext: '.jpeg', icon: '🖼️', name: 'JPEG' },
-  { ext: '.png', icon: '🖼️', name: 'PNG' },
-  { ext: '.gif', icon: '🖼️', name: 'GIF' },
-  { ext: '.bmp', icon: '🖼️', name: 'BMP' },
-  { ext: '.svg', icon: '🖼️', name: 'SVG' },
-  { ext: '.webp', icon: '🖼️', name: 'WEBP' },
+  { ext: '.jpg', icon: helperIcon('file'), name: 'JPG' },
+  { ext: '.jpeg', icon: helperIcon('file'), name: 'JPEG' },
+  { ext: '.png', icon: helperIcon('file'), name: 'PNG' },
+  { ext: '.gif', icon: helperIcon('file'), name: 'GIF' },
+  { ext: '.bmp', icon: helperIcon('file'), name: 'BMP' },
+  { ext: '.svg', icon: helperIcon('file'), name: 'SVG' },
+  { ext: '.webp', icon: helperIcon('file'), name: 'WEBP' },
 
   // 程式碼
-  { ext: '.c', icon: '💻', name: 'C' },
-  { ext: '.cpp', icon: '💻', name: 'C++' },
-  { ext: '.java', icon: '💻', name: 'Java' },
-  { ext: '.py', icon: '💻', name: 'Python' },
-  { ext: '.js', icon: '💻', name: 'JavaScript' },
-  { ext: '.html', icon: '💻', name: 'HTML' },
-  { ext: '.css', icon: '💻', name: 'CSS' },
-  { ext: '.json', icon: '💻', name: 'JSON' },
-  { ext: '.xml', icon: '💻', name: 'XML' },
+  { ext: '.c', icon: helperIcon('file'), name: 'C' },
+  { ext: '.cpp', icon: helperIcon('file'), name: 'C++' },
+  { ext: '.java', icon: helperIcon('file'), name: 'Java' },
+  { ext: '.py', icon: helperIcon('file'), name: 'Python' },
+  { ext: '.js', icon: helperIcon('file'), name: 'JavaScript' },
+  { ext: '.html', icon: helperIcon('file'), name: 'HTML' },
+  { ext: '.css', icon: helperIcon('file'), name: 'CSS' },
+  { ext: '.json', icon: helperIcon('file'), name: 'JSON' },
+  { ext: '.xml', icon: helperIcon('file'), name: 'XML' },
 
   // 其他
-  { ext: '.exe', icon: '⚙️', name: 'EXE' },
-  { ext: '.apk', icon: '📱', name: 'APK' },
-  { ext: '.iso', icon: '💿', name: 'ISO' }
+  { ext: '.exe', icon: helperIcon('file'), name: 'EXE' },
+  { ext: '.apk', icon: helperIcon('file'), name: 'APK' },
+  { ext: '.iso', icon: helperIcon('file'), name: 'ISO' }
 ];
 
 // 取得檔案類型資訊
@@ -1526,7 +1909,7 @@ function getFileTypeInfo(url) {
       return type;
     }
   }
-  return { ext: '', icon: '📎', name: 'FILE' };
+  return { ext: '', icon: helperIcon('file'), name: 'FILE' };
 }
 
 // 標準化 URL（用於去重比較）
@@ -1664,7 +2047,7 @@ function formatCountdown(deadline) {
   const now = new Date().getTime();
   const timeLeft = deadline - now;
 
-  if (timeLeft < 0) {
+  if (timeLeft <= 0) {
     return { text: '已截止', status: 'overdue' };
   }
 
@@ -1695,6 +2078,11 @@ function formatCountdown(deadline) {
   return { text, status };
 }
 
+// Countdown text is generated by formatCountdown; emphasize its numbers.
+function countdownMarkup(text) {
+  return escapeHtml(text).replace(/\d+/g, '<b>$&</b>');
+}
+
 // 創建並更新側欄
 function createSidebar() {
   // 檢查是否已經有側欄
@@ -1705,24 +2093,53 @@ function createSidebar() {
     // 創建側欄
     sidebar = document.createElement('div');
     sidebar.className = 'e3-helper-sidebar';
+    sidebar.lang = 'zh-TW';
 
     // 創建標題和標籤
     const header = document.createElement('div');
     header.className = 'e3-helper-sidebar-header';
 
-    // 添加同步狀態區域
-    const syncStatus = document.createElement('div');
-    syncStatus.className = 'e3-helper-sync-status';
-    syncStatus.innerHTML = `
-      <div class="e3-helper-sync-time" id="e3-helper-sync-time">載入中...</div>
-      <div style="display: flex; gap: 4px;">
-        <button class="e3-helper-sync-btn" id="e3-helper-settings-btn" title="設定">⚙️</button>
-        <button class="e3-helper-sync-btn" id="e3-helper-log-btn" title="查看日誌">📋</button>
-        <button class="e3-helper-sync-btn" id="e3-helper-report-btn" title="問題回報">🐛</button>
-        <button class="e3-helper-sync-btn" id="e3-helper-sync-btn">🔄 同步</button>
-        <button class="e3-helper-sync-btn" id="e3-helper-close-btn">✕</button>
+    const titleRow = document.createElement('div');
+    titleRow.className = 'e3-helper-title-row';
+    titleRow.innerHTML = `
+      <div class="e3-helper-brand">E3 Helper</div>
+      <div class="e3-helper-header-actions">
+        <button class="e3-helper-sync-btn" id="e3-helper-sync-btn">同步</button>
+        <div class="e3-helper-more-container">
+          <button class="e3-helper-icon-btn" id="e3-helper-more-btn" aria-label="更多操作" aria-expanded="false" aria-controls="e3-helper-more-menu">${helperIcon('more')}</button>
+          <div class="e3-helper-more-menu" id="e3-helper-more-menu" hidden>
+            <button id="e3-helper-settings-btn">設定</button>
+            <button id="e3-helper-log-btn">查看日誌</button>
+            <button id="e3-helper-report-btn">問題回報</button>
+          </div>
+        </div>
+        <button class="e3-helper-icon-btn" id="e3-helper-close-btn" aria-label="關閉側欄">${helperIcon('close')}</button>
       </div>
     `;
+    header.appendChild(titleRow);
+    const moreBtn = titleRow.querySelector('#e3-helper-more-btn');
+    const moreMenu = titleRow.querySelector('#e3-helper-more-menu');
+    const closeMoreMenu = () => {
+      moreMenu.hidden = true;
+      moreBtn.setAttribute('aria-expanded', 'false');
+    };
+    moreBtn.addEventListener('click', () => {
+      moreMenu.hidden = !moreMenu.hidden;
+      moreBtn.setAttribute('aria-expanded', String(!moreMenu.hidden));
+    });
+    moreMenu.addEventListener('click', closeMoreMenu);
+    document.addEventListener('click', (event) => {
+      if (!titleRow.querySelector('.e3-helper-more-container').contains(event.target)) closeMoreMenu();
+    });
+    titleRow.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !moreMenu.hidden) {
+        closeMoreMenu();
+        moreBtn.focus();
+      }
+    });
+    const syncStatus = document.createElement('div');
+    syncStatus.className = 'e3-helper-sync-status';
+    syncStatus.innerHTML = '<div class="e3-helper-sync-time" id="e3-helper-sync-time" role="status" aria-live="polite">載入中...</div>';
     header.appendChild(syncStatus);
 
     const tabs = document.createElement('div');
@@ -1734,41 +2151,41 @@ function createSidebar() {
     // 作業倒數 tab
     const assignmentTab = document.createElement('button');
     assignmentTab.className = 'e3-helper-tab active';
-    assignmentTab.innerHTML = '<span style="font-size: 16px;">📝</span><br><span style="font-size: 10px; line-height: 1.3;">作業<br>倒數</span>';
+    assignmentTab.innerHTML = '作業';
     assignmentTab.dataset.tab = 'assignments';
     assignmentTab.title = '作業倒數';
 
 
     const gradeTab = document.createElement('button');
     gradeTab.className = 'e3-helper-tab';
-    gradeTab.innerHTML = '<span style="font-size: 16px;">🎓</span><br><span style="font-size: 10px; line-height: 1.3;">課程<br>列表</span>';
+    gradeTab.innerHTML = '課程';
     gradeTab.dataset.tab = 'grades';
     gradeTab.title = '課程列表（成員統計、成績分析）';
 
     const downloadTab = document.createElement('button');
     downloadTab.className = 'e3-helper-tab';
-    downloadTab.innerHTML = '<span style="font-size: 16px;">📥</span><br><span style="font-size: 10px; line-height: 1.3;">檔案<br>下載</span>';
+    downloadTab.innerHTML = '下載';
     downloadTab.dataset.tab = 'downloads';
     downloadTab.title = '檔案下載（教材、影片、公告）';
 
     // 公告與信件 tab
     const announcementTab = document.createElement('button');
     announcementTab.className = 'e3-helper-tab';
-    announcementTab.innerHTML = '<span style="font-size: 16px;">📢</span><br><span style="font-size: 10px; line-height: 1.3;">公告<br>信件</span>';
+    announcementTab.innerHTML = '公告';
     announcementTab.dataset.tab = 'announcements';
     announcementTab.title = '公告與信件';
 
     // 通知中心 tab
     const notificationTab = document.createElement('button');
     notificationTab.className = 'e3-helper-tab';
-    notificationTab.innerHTML = '<span style="font-size: 16px; position: relative;">🔔<span id="e3-helper-notification-badge" style="display: none; position: absolute; top: -5px; right: -8px; background: #dc3545; color: white; border-radius: 10px; padding: 2px 5px; font-size: 9px; font-weight: bold; min-width: 16px; text-align: center;"></span></span><br><span style="font-size: 10px; line-height: 1.3;">通知<br>中心</span>';
+    notificationTab.innerHTML = '通知<span class="e3-helper-tab-badge" id="e3-helper-notification-badge" style="display: none;"></span>';
     notificationTab.dataset.tab = 'notifications';
     notificationTab.title = '通知中心';
 
     // 使用說明 tab
     const helpTab = document.createElement('button');
     helpTab.className = 'e3-helper-tab';
-    helpTab.innerHTML = '<span style="font-size: 16px;">📖</span><br><span style="font-size: 10px; line-height: 1.3;">使用<br>說明</span>';
+    helpTab.innerHTML = '說明';
     helpTab.dataset.tab = 'help';
     helpTab.title = '使用說明';
 
@@ -1779,6 +2196,20 @@ function createSidebar() {
     tabs.appendChild(notificationTab);
     tabs.appendChild(helpTab);
     header.appendChild(tabs);
+    // Keep all six tabs and their panels in sync, including async loaders.
+    tabs.addEventListener('click', (event) => {
+      const selected = event.target.closest('.e3-helper-tab');
+      if (!selected) return;
+      tabs.querySelectorAll('.e3-helper-tab').forEach(tab => {
+        const active = tab === selected;
+        tab.classList.toggle('active', active);
+        tab.setAttribute('aria-pressed', String(active));
+      });
+      sidebar.querySelectorAll('.e3-helper-content').forEach(panel => {
+        panel.classList.toggle('active', panel.dataset.content === selected.dataset.tab);
+      });
+    });
+    tabs.querySelectorAll('.e3-helper-tab').forEach(tab => tab.setAttribute('aria-pressed', String(tab.classList.contains('active'))));
     sidebar.appendChild(header);
 
     // 創建作業列表容器
@@ -1788,13 +2219,13 @@ function createSidebar() {
 
     // 添加時區信息欄
     const timezoneInfo = document.createElement('div');
-    timezoneInfo.style.cssText = 'padding: 8px 12px; background: #e3f2fd; border-bottom: 1px solid #bbdefb; font-size: 11px; color: #1976d2; display: flex; align-items: center; justify-content: space-between;';
+    timezoneInfo.className = 'e3-helper-timezone';
     const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const timezoneOffset = -(new Date().getTimezoneOffset() / 60);
     const offsetStr = timezoneOffset >= 0 ? `+${timezoneOffset}` : timezoneOffset;
     timezoneInfo.innerHTML = `
-      <span>🌍 時區: ${userTimezone} (UTC${offsetStr})</span>
-      <span style="font-size: 10px; opacity: 0.8;">所有時間已自動轉換為本地時間</span>
+      <span> 時區：${userTimezone}（UTC${offsetStr}）</span>
+      <span style="opacity: 0.8;" class="e3-helper-small-text">所有時間已自動轉換為本地時間</span>
     `;
     assignmentContent.appendChild(timezoneInfo);
 
@@ -1802,22 +2233,13 @@ function createSidebar() {
     const addAssignmentBtn = document.createElement('button');
     addAssignmentBtn.id = 'e3-helper-add-assignment-btn';
     addAssignmentBtn.className = 'e3-helper-add-assignment-btn';
-    addAssignmentBtn.innerHTML = '➕ 手動新增作業';
-    addAssignmentBtn.style.cssText = `
-      width: calc(100% - 24px);
-      margin: 12px 12px 0 12px;
-      padding: 10px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 600;
-      transition: all 0.3s;
-      box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
-    `;
-    assignmentContent.appendChild(addAssignmentBtn);
+    addAssignmentBtn.innerHTML = ' 手動新增作業';
+    const assignmentToolbar = document.createElement('div');
+    assignmentToolbar.className = 'e3-helper-section-toolbar';
+    assignmentToolbar.innerHTML = '<h2>作業</h2>';
+    addAssignmentBtn.textContent = '新增作業';
+    assignmentToolbar.appendChild(addAssignmentBtn);
+    assignmentContent.appendChild(assignmentToolbar);
 
     const listContainer = document.createElement('div');
     listContainer.className = 'e3-helper-assignment-list';
@@ -1836,15 +2258,15 @@ function createSidebar() {
       const courseListArea = document.createElement('div');
       courseListArea.className = 'e3-helper-course-list-area';
       courseListArea.innerHTML = `
-        <div style="padding: 12px; border-bottom: 1px solid #e9ecef; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <span style="font-size: 14px; font-weight: 600;">📚 我的課程</span>
-            <button id="e3-helper-refresh-courses" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 11px;">🔄 重新載入</button>
+        <div class="e3-helper-course-list-head">
+          <div class="e3-helper-course-list-head-row">
+            <h2 class="e3-helper-page-title">我的課程</h2>
+            <button id="e3-helper-refresh-courses" class="e3-helper-secondary e3-helper-small-text"> 重新載入</button>
           </div>
-          <button id="e3-helper-check-participants-btn" style="width: 100%; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; margin-bottom: 6px;">👥 檢查成員變動</button>
-          <div id="e3-helper-last-check-time" style="font-size: 10px; opacity: 0.8; text-align: center;">尚未檢測</div>
+          <button id="e3-helper-check-participants-btn" class="e3-helper-primary e3-helper-regular-text"> 檢查成員變動</button>
+          <div id="e3-helper-last-check-time" class="e3-helper-small-text">尚未檢測</div>
         </div>
-        <div id="e3-helper-course-list-container" style="overflow-y: auto; max-height: calc(100vh - 200px);">
+        <div id="e3-helper-course-list-container" style="overflow-y: auto; max-height: calc(100vh - 260px);">
           <div class="e3-helper-loading">載入課程中...</div>
         </div>
       `;
@@ -1855,16 +2277,16 @@ function createSidebar() {
       courseDetailArea.className = 'e3-helper-course-detail-area';
       courseDetailArea.style.display = 'none';
       courseDetailArea.innerHTML = `
-        <div style="padding: 12px; border-bottom: 1px solid #e9ecef; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-          <button id="e3-helper-back-to-list" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; margin-bottom: 8px;">← 返回列表</button>
-          <div id="e3-helper-course-title" style="font-size: 14px; font-weight: 600; margin-bottom: 4px;"></div>
-          <div id="e3-helper-course-teacher" style="font-size: 11px; opacity: 0.9;"></div>
+        <div class="e3-helper-detail-head">
+          <button id="e3-helper-back-to-list" style="padding: 4px 12px; cursor: pointer;" class="e3-helper-secondary e3-helper-small-text">← 返回列表</button>
+          <div id="e3-helper-course-title" class="e3-helper-detail-title"></div>
+          <div id="e3-helper-course-teacher" class="e3-helper-small-text e3-helper-muted-text"></div>
         </div>
 
         <!-- 功能選擇 tabs -->
-        <div style="display: flex; border-bottom: 1px solid #e9ecef; background: #f8f9fa;">
-          <button class="e3-helper-course-function-tab active" data-function="stats" style="flex: 1; padding: 10px; border: none; background: transparent; cursor: pointer; font-size: 12px; border-bottom: 2px solid #667eea;">📊 統計</button>
-          <button class="e3-helper-course-function-tab" data-function="grades" style="flex: 1; padding: 10px; border: none; background: transparent; cursor: pointer; font-size: 12px; border-bottom: 2px solid transparent;">📈 成績</button>
+        <div class="e3-helper-divider e3-helper-function-tabs">
+          <button class="e3-helper-course-function-tab active" data-function="stats"> 統計</button>
+          <button class="e3-helper-course-function-tab" data-function="grades"> 成績</button>
         </div>
 
         <!-- 統計內容 -->
@@ -1890,8 +2312,8 @@ function createSidebar() {
       const scanOptions = document.createElement('div');
       scanOptions.className = 'e3-helper-download-actions';
       scanOptions.innerHTML = `
-        <button class="e3-helper-download-btn" id="e3-helper-scan-current" style="flex: 1;">📄 掃描此頁</button>
-        <button class="e3-helper-download-btn" id="e3-helper-show-course-select" style="flex: 1;">🔍 選擇課程</button>
+        <button class="e3-helper-download-btn" id="e3-helper-scan-current" style="flex: 1;">掃描此頁</button>
+        <button class="e3-helper-download-btn" id="e3-helper-show-course-select" style="flex: 1;"> 選擇課程</button>
       `;
       downloadContent.appendChild(scanOptions);
 
@@ -1900,16 +2322,16 @@ function createSidebar() {
       courseSelectContainer.className = 'e3-helper-course-select-container';
       courseSelectContainer.style.display = 'none';
       courseSelectContainer.innerHTML = `
-        <div style="padding: 12px; border-bottom: 1px solid #e9ecef;">
+        <div style="padding: 12px;" class="e3-helper-divider">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <span style="font-size: 13px; font-weight: 600; color: #495057;">選擇要掃描的課程</span>
+            <span style="font-weight: 600;" class="e3-helper-small-text e3-helper-body-text">選擇要掃描的課程</span>
             <div style="display: flex; gap: 4px;">
-              <button class="e3-helper-download-btn secondary" id="e3-helper-load-past-courses" style="padding: 4px 8px; font-size: 11px;" title="載入歷年課程">📚 歷年</button>
-              <button class="e3-helper-download-btn secondary" id="e3-helper-select-all-courses" style="padding: 4px 8px; font-size: 11px;">全選</button>
-              <button class="e3-helper-download-btn secondary" id="e3-helper-deselect-all-courses" style="padding: 4px 8px; font-size: 11px;">取消</button>
+              <button class="e3-helper-small-text e3-helper-download-btn secondary" id="e3-helper-load-past-courses" style="padding: 4px 8px;" title="載入歷年課程"> 歷年</button>
+              <button class="e3-helper-small-text e3-helper-download-btn secondary" id="e3-helper-select-all-courses" style="padding: 4px 8px;">全選</button>
+              <button class="e3-helper-small-text e3-helper-download-btn secondary" id="e3-helper-deselect-all-courses" style="padding: 4px 8px;">取消</button>
             </div>
           </div>
-          <div id="e3-helper-course-list" style="max-height: 200px; overflow-y: auto; background: #f8f9fa; border-radius: 4px; padding: 8px;">
+          <div id="e3-helper-course-list" style="max-height: 200px; overflow-y: auto; border-radius: 4px; padding: 8px;" class="e3-helper-surface">
             <div class="e3-helper-loading">載入課程中...</div>
           </div>
           <button class="e3-helper-download-btn" id="e3-helper-start-scan" style="width: 100%; margin-top: 8px;">開始掃描</button>
@@ -1980,157 +2402,58 @@ function createSidebar() {
     helpContent.className = 'e3-helper-content';
     helpContent.dataset.content = 'help';
     helpContent.innerHTML = `
-      <div style="padding: 20px; overflow-y: auto; height: 100%; background: #f8f9fa; font-size: 13px; line-height: 1.6;">
-        <h2 style="margin: 0 0 16px; font-size: 18px; color: #333; border-bottom: 2px solid #7c4dff; padding-bottom: 8px;">📖 使用說明</h2>
-
-        <section style="background: white; padding: 16px; margin-bottom: 16px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="margin: 0 0 12px; font-size: 15px; color: #7c4dff;">🎯 主要功能</h3>
-          <ul style="margin: 0; padding-left: 20px;">
-            <li style="margin-bottom: 8px;"><strong>作業倒數</strong>：即時顯示作業截止時間，手動標記已繳交</li>
-            <li style="margin-bottom: 8px;"><strong>公告信件</strong>：整合所有課程的公告與 dcpcmail 信件，支援 AI 翻譯與摘要</li>
-            <li style="margin-bottom: 8px;"><strong>智能通知</strong>：浮動按鈕顯示未讀徽章，24 小時內到期作業自動提醒</li>
-            <li style="margin-bottom: 8px;"><strong>成績查詢</strong>：快速查看課程成績與評分細節（E3 網站）</li>
-            <li style="margin-bottom: 8px;"><strong>檔案下載</strong>：批次下載課程教材、影片（E3 網站）</li>
-            <li style="margin-bottom: 8px;"><strong>跨網頁使用</strong>：在任何網站都能開啟側邊欄查看資訊</li>
-          </ul>
-        </section>
-
-        <section style="background: white; padding: 16px; margin-bottom: 16px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="margin: 0 0 12px; font-size: 15px; color: #7c4dff;">🚀 首次使用</h3>
-          <ol style="margin: 0; padding-left: 20px;">
-            <li style="margin-bottom: 8px;">登入 <a href="https://e3p.nycu.edu.tw/" target="_blank" style="color: #7c4dff; text-decoration: underline;">E3 平台</a></li>
-            <li style="margin-bottom: 8px;">點擊側邊欄中的「🔄 同步」按鈕</li>
-            <li style="margin-bottom: 8px;">等待同步完成（約 10-30 秒）</li>
-            <li style="margin-bottom: 8px;">開始使用各項功能！</li>
+      <div class="e3-helper-help">
+        <h2>使用說明</h2>
+        <p class="e3-helper-help-intro">從作業到公告，把課程資訊集中在同一個側欄。</p>
+        <section>
+          <h3>快速開始</h3>
+          <ol>
+            <li>先登入 <a href="https://e3p.nycu.edu.tw/" target="_blank" rel="noopener noreferrer">E3 平台</a>，再點右側的「E3 Helper」開啟側欄。</li>
+            <li>點頂欄「同步」更新作業與課程；同步時間會顯示在標題下方。</li>
+            <li>切換「作業、課程、下載、公告、通知、說明」查看對應資訊。</li>
           </ol>
+          <p>浮動入口可上下拖曳，側欄左緣可拖曳調整寬度。「更多」選單提供設定、查看日誌與問題回報。</p>
+          <p>外觀預設為淺色；到「更多 → 設定 → 外觀」可改為深色或跟隨系統。</p>
         </section>
-
-        <section style="background: white; padding: 16px; margin-bottom: 16px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="margin: 0 0 12px; font-size: 15px; color: #7c4dff;">📝 作業倒數</h3>
-          <p style="margin: 0 0 8px;"><strong>視覺化提示：</strong></p>
-          <ul style="margin: 0 0 12px; padding-left: 20px;">
-            <li style="margin-bottom: 6px;">🔴 紅色：已逾期</li>
-            <li style="margin-bottom: 6px;">🟡 黃色：3天內到期</li>
-            <li style="margin-bottom: 6px;">🟢 綠色：充裕時間</li>
-          </ul>
-          <p style="margin: 0 0 8px;"><strong>操作方式：</strong></p>
-          <ul style="margin: 0; padding-left: 20px;">
-            <li style="margin-bottom: 6px;">點擊「前往」進入作業頁面</li>
-            <li style="margin-bottom: 6px;">完成後點擊「已繳交」標記</li>
-            <li style="margin-bottom: 6px;">已繳交的作業不會被自動刪除</li>
+        <section>
+          <h3>作業管理</h3>
+          <ul>
+            <li>點作業卡片開啟作業頁面；倒數與截止日期使用本地時區。</li>
+            <li>點「標記為已繳交」切換狀態，再點「已繳交」可改回待處理。</li>
+            <li>用「新增作業」加入自訂作業；卡片上的「編輯、刪除」可管理作業。</li>
+            <li>倒數顏色：剩餘時間少於一小時為紅色、少於二十四小時為琥珀色；其他為一般顏色，已截止則顯示灰色。</li>
+            <li>已繳交且過期的作業會從列表隱藏。刪除同步作業後，後續同步仍可能重新載入。</li>
           </ul>
         </section>
-
-        <section style="background: white; padding: 16px; margin-bottom: 16px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="margin: 0 0 12px; font-size: 15px; color: #7c4dff;">📢 公告與信件</h3>
-          <p style="margin: 0 0 8px;"><strong>載入資料：</strong></p>
-          <ul style="margin: 0 0 12px; padding-left: 20px;">
-            <li style="margin-bottom: 6px;">點擊「🔄 載入公告與信件」按鈕</li>
-            <li style="margin-bottom: 6px;">在非 E3 網站也能載入（自動連接到 E3）</li>
-            <li style="margin-bottom: 6px;">資料載入後會儲存在本地</li>
-          </ul>
-          <p style="margin: 0 0 8px;"><strong>查看與管理：</strong></p>
-          <ul style="margin: 0 0 12px; padding-left: 20px;">
-            <li style="margin-bottom: 6px;">🔴 <strong>未讀項目</strong>會在左側顯示紅點標記</li>
-            <li style="margin-bottom: 6px;">按類型篩選：全部 / 公告 / 信件</li>
-            <li style="margin-bottom: 6px;">按狀態篩選：全部 / 未讀 / 已讀</li>
-            <li style="margin-bottom: 6px;">點擊「✓ 全部已讀」一鍵標記所有為已讀</li>
-            <li style="margin-bottom: 6px;">點擊「👁️ 查看內容」查看詳細資訊</li>
-          </ul>
-          <p style="margin: 0 0 8px;"><strong>🤖 AI 翻譯與摘要（選配）：</strong></p>
-          <ul style="margin: 0; padding-left: 20px;">
-            <li style="margin-bottom: 6px;">點擊齒輪 ⚙️ 設定 Gemini API（<a href="https://ai.google.dev/" target="_blank" style="color: #7c4dff;">免費申請</a>）</li>
-            <li style="margin-bottom: 6px;"><strong>🌐 中→英</strong> / <strong>🌐 英→中</strong>：翻譯為繁體中文，保留完整格式</li>
-            <li style="margin-bottom: 6px;"><strong>🤖 AI摘要</strong>：快速生成內容摘要（需 Gemini API）</li>
-            <li style="margin-bottom: 6px;">未設定 API 時使用 Google Translate 免費服務</li>
+        <section>
+          <h3>公告、信件與通知</h3>
+          <ul>
+            <li>依「類型」篩選公告或信件，依「狀態」篩選已讀或未讀；紅點表示未讀項目。</li>
+            <li>點「查看內容」預覽全文，可切換已讀狀態或「開啟完整頁面」；「全部已讀」可一次標記。</li>
+            <li>內容頁的「中→英、英→中」使用既有翻譯服務；「顯示原文」可還原內容。</li>
+            <li>「AI摘要」整理單篇內容，需要先啟用 AI 摘要並設定 Gemini API Key。</li>
+            <li>「通知」集中顯示作業、評分、公告與成員變動提醒；24 小時內到期作業也會列入提醒。</li>
           </ul>
         </section>
-
-        <section style="background: white; padding: 16px; margin-bottom: 16px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="margin: 0 0 12px; font-size: 15px; color: #7c4dff;">🎓 成績查詢（E3 網站）</h3>
-          <ul style="margin: 0; padding-left: 20px;">
-            <li style="margin-bottom: 8px;">選擇要查詢的課程</li>
-            <li style="margin-bottom: 8px;">點擊「查詢成績」</li>
-            <li style="margin-bottom: 8px;">查看作業、考試、總成績與評分細節</li>
+        <section>
+          <h3>課程與下載</h3>
+          <p>「課程」提供課程列表、成員統計與成績資訊。先同步課程資料，再選課程查看「統計」或「成績」。資料載入仍需有效的 E3 登入狀態。</p>
+          <p>「下載」提供兩種掃描方式：「掃描此頁」檢查目前頁面；「選擇課程」掃描所選課程。勾選檔案後，可「分開下載」或「打包下載」。支援教材文件、影片及壓縮檔等格式。</p>
+          <p>一般網站也能開啟助手、查看已儲存資料與透過背景載入 E3 資料；掃描目前頁面的教材時，請切換到對應 E3 課程頁面。</p>
+        </section>
+        <section>
+          <h3>同步與問題排除</h3>
+          <ul>
+            <li>頂欄「同步」更新作業與課程；公告與信件可在公告分頁用「重新載入」更新。</li>
+            <li>登入過期或載入失敗時，先重新登入 E3，再重試。AI 摘要失敗時，可到設定檢查金鑰並測試連線。</li>
+            <li>擴充功能更新後，若提示失效，重新整理目前網頁即可。</li>
+            <li>需要進一步排查時，可用「更多 → 查看日誌」；回報問題請用「更多 → 問題回報」。</li>
           </ul>
         </section>
-
-        <section style="background: white; padding: 16px; margin-bottom: 16px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="margin: 0 0 12px; font-size: 15px; color: #7c4dff;">📥 檔案下載（E3 網站）</h3>
-          <p style="margin: 0 0 8px;"><strong>兩種模式：</strong></p>
-          <ul style="margin: 0; padding-left: 20px;">
-            <li style="margin-bottom: 8px;"><strong>掃描此頁</strong>：快速掃描當前課程頁面的所有檔案</li>
-            <li style="margin-bottom: 8px;"><strong>選擇課程</strong>：選擇要掃描的課程進行完整掃描</li>
-          </ul>
-          <p style="margin: 8px 0;"><strong>支援格式：</strong>PDF、PPT、Word、Excel、影片、ZIP 等</p>
-        </section>
-
-        <section style="background: white; padding: 16px; margin-bottom: 16px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="margin: 0 0 12px; font-size: 15px; color: #7c4dff;">🔄 自動同步</h3>
-          <ul style="margin: 0; padding-left: 20px;">
-            <li style="margin-bottom: 8px;">每小時自動同步作業與課程資料</li>
-            <li style="margin-bottom: 8px;">手動點擊「🔄 同步」立即更新</li>
-            <li style="margin-bottom: 8px;">側邊欄底部顯示最後同步時間</li>
-          </ul>
-        </section>
-
-        <section style="background: white; padding: 16px; margin-bottom: 16px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="margin: 0 0 12px; font-size: 15px; color: #7c4dff;">🔔 通知徽章</h3>
-          <ul style="margin: 0; padding-left: 20px;">
-            <li style="margin-bottom: 8px;"><strong>浮動按鈕徽章</strong>：右側「📚 E3小助手」按鈕右上角顯示紅色徽章</li>
-            <li style="margin-bottom: 8px;"><strong>擴充功能圖示</strong>：瀏覽器工具列圖示顯示未讀總數</li>
-            <li style="margin-bottom: 8px;"><strong>包含內容</strong>：未讀公告、未讀信件、24小時內到期作業</li>
-            <li style="margin-bottom: 8px;">點擊徽章可直接查看通知詳情</li>
-          </ul>
-        </section>
-
-        <section style="background: white; padding: 16px; margin-bottom: 16px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="margin: 0 0 12px; font-size: 15px; color: #e74c3c;">🐛 問題回報 / 功能建議</h3>
-          <p style="margin: 0 0 12px; color: #666; font-size: 13px; line-height: 1.6;">
-            遇到問題或有功能建議？歡迎透過以下方式回報：
-          </p>
-          <ul style="margin: 0 0 12px; padding-left: 20px; color: #666; font-size: 13px;">
-            <li style="margin-bottom: 6px;">點擊側邊欄標題區的 <strong>🐛 按鈕</strong></li>
-            <li style="margin-bottom: 6px;">或點擊下方「<a href="https://forms.gle/SbPcqgVRuNSdVyqK9" target="_blank" style="color: #e74c3c; font-weight: 600;">問題回報 / 功能建議</a>」連結</li>
-          </ul>
-          <div style="background: #fff3e0; padding: 12px; border-radius: 6px; border-left: 4px solid #ff9800;">
-            <p style="margin: 0; color: #e65100; font-size: 12px; line-height: 1.5;">
-              <strong>💡 提示：</strong>回報問題時，請詳細描述遇到的情況、操作步驟，並提供 Console 日誌（按 F12 查看）或截圖，這將幫助我們更快解決問題！
-            </p>
-          </div>
-        </section>
-
-        <section style="background: white; padding: 16px; margin-bottom: 16px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="margin: 0 0 12px; font-size: 15px; color: #7c4dff;">❓ 常見問題</h3>
-          <div style="margin-bottom: 12px;">
-            <p style="margin: 0 0 4px; font-weight: bold;">Q: 同步失敗怎麼辦？</p>
-            <p style="margin: 0; color: #666; font-size: 12px;">A: 確認已登入 E3，重新登入後再次同步。按 F12 查看 Console 了解詳細錯誤。</p>
-          </div>
-          <div style="margin-bottom: 12px;">
-            <p style="margin: 0 0 4px; font-weight: bold;">Q: 非 E3 網站能用嗎？</p>
-            <p style="margin: 0; color: #666; font-size: 12px;">A: 可以！作業倒數、公告信件、通知中心都能在任何網站使用。成績查詢和檔案下載需要在 E3 網站。</p>
-          </div>
-          <div style="margin-bottom: 12px;">
-            <p style="margin: 0 0 4px; font-weight: bold;">Q: 翻譯功能怎麼用？</p>
-            <p style="margin: 0; color: #666; font-size: 12px;">A: 查看公告/信件詳細內容後，點擊「🌐 中→英」或「🌐 英→中」按鈕即可翻譯。未設定 Gemini API 時會使用 Google Translate 免費服務。翻譯會保留完整的段落格式、連結和附件。</p>
-          </div>
-          <div style="margin-bottom: 12px;">
-            <p style="margin: 0 0 4px; font-weight: bold;">Q: 徽章數字是什麼意思？</p>
-            <p style="margin: 0; color: #666; font-size: 12px;">A: 浮動按鈕和擴充功能圖示的紅色徽章顯示未讀通知總數，包含：未讀公告、未讀信件、24小時內到期的作業。</p>
-          </div>
-          <div style="margin-bottom: 12px;">
-            <p style="margin: 0 0 4px; font-weight: bold;">Q: 資料會被上傳嗎？</p>
-            <p style="margin: 0; color: #666; font-size: 12px;">A: 不會！所有資料僅儲存在本地瀏覽器。使用 AI 翻譯時，內容會傳送至 Google AI 或 Google Translate 進行翻譯。</p>
-          </div>
-        </section>
-
-        <section style="background: white; padding: 16px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="margin: 0 0 12px; font-size: 15px; color: #7c4dff;">🔗 相關連結</h3>
-          <ul style="margin: 0; padding-left: 20px;">
-            <li style="margin-bottom: 8px;"><a href="https://e3p.nycu.edu.tw/" target="_blank" style="color: #7c4dff; text-decoration: underline;">NYCU E3 平台</a></li>
-            <li style="margin-bottom: 8px;"><a href="https://github.com/CBJ0519/portal_e3_helper" target="_blank" style="color: #7c4dff; text-decoration: underline;">GitHub 專案</a></li>
-            <li style="margin-bottom: 8px;"><a href="https://forms.gle/SbPcqgVRuNSdVyqK9" target="_blank" style="color: #e74c3c; text-decoration: underline; font-weight: 600;">🐛 問題回報 / 功能建議</a></li>
-          </ul>
+        <section>
+          <h3>資料與外部服務</h3>
+          <p>課程資料、閱讀狀態及設定儲存在瀏覽器本地。使用翻譯時，待翻譯內容會傳送至 Google Translate；使用 AI 翻譯或摘要時，內文會傳送至 Gemini。API Key 儲存在本地設定中。</p>
+          <p><a href="https://github.com/NYCU-Chung/portal_e3_helper" target="_blank" rel="noopener noreferrer">GitHub 專案</a> · <a href="https://forms.gle/SbPcqgVRuNSdVyqK9" target="_blank" rel="noopener noreferrer">問題回報 / 功能建議</a></p>
         </section>
       </div>
     `;
@@ -2202,17 +2525,17 @@ function createSidebar() {
           const isOnE3 = window.location.hostname.includes('e3.nycu.edu.tw') || window.location.hostname.includes('e3p.nycu.edu.tw');
           pdfListContainer.innerHTML = `
             <div class="e3-helper-welcome-message">
-              <h3>👋 歡迎使用檔案下載</h3>
+              <h3> 歡迎使用檔案下載</h3>
               ${isOnE3 ? `
-                <p>請先點擊上方的 <span class="highlight">🔄 同步</span> 按鈕來載入課程資料。</p>
+                <p>請先點擊上方的 <span class="highlight">同步</span> 按鈕來載入課程資料。</p>
                 <p>同步完成後，您可以：</p>
                 <ul>
-                  <li>📄 掃描此頁的教材</li>
-                  <li>🔍 選擇課程進行掃描</li>
-                  <li>📦 批次下載為 ZIP</li>
+                  <li>掃描此頁的教材</li>
+                  <li> 選擇課程進行掃描</li>
+                  <li> 批次下載為 ZIP</li>
                 </ul>
               ` : `
-                <p>請先訪問 <a href="https://e3p.nycu.edu.tw/" target="_blank" style="color: white; text-decoration: underline; font-weight: 600;">NYCU E3</a>，然後點擊 <span class="highlight">🔄 同步</span> 按鈕。</p>
+                <p>請先訪問 <a href="https://e3p.nycu.edu.tw/" target="_blank" style="text-decoration: underline; font-weight: 600;" class="e3-helper-on-accent">NYCU E3</a>，然後點擊 <span class="highlight">同步</span> 按鈕。</p>
                 <p>同步完成後，您就可以在 E3 網站上掃描和下載教材了。</p>
               `}
             </div>
@@ -2360,7 +2683,7 @@ function createSidebar() {
       if (allPDFs.length === 0) {
         const pdfListContainer = document.querySelector('.e3-helper-pdf-list');
         if (pdfListContainer) {
-          pdfListContainer.innerHTML = '<div class="e3-helper-loading">請選擇掃描模式<br><small style="color: #999; margin-top: 8px; display: block;">📄 掃描此頁：快速掃描當前頁面<br>🔍 選擇課程：選擇要掃描的課程<br><br>支援：PDF、PPT、Word、Excel、影片、ZIP 等</small></div>';
+          pdfListContainer.innerHTML = '<div class="e3-helper-loading">請選擇掃描模式<br><small style="margin-top: 8px; display: block;" class="e3-helper-muted-text">掃描此頁：快速掃描當前頁面<br> 選擇課程：選擇要掃描的課程<br><br>支援：PDF、PPT、Word、Excel、影片、ZIP 等</small></div>';
         }
       }
     });
@@ -2424,11 +2747,11 @@ function createSidebar() {
         // 顯示歡迎訊息
         announcementList.innerHTML = `
           <div class="e3-helper-welcome-message">
-            <h3>👋 歡迎使用公告與信件聚合</h3>
+            <h3> 歡迎使用公告與信件聚合</h3>
             ${isOnE3Site() ? `
-              <p>請先點擊上方的 <span class="highlight">🔄 同步</span> 按鈕來載入課程資料。</p>
+              <p>請先點擊上方的 <span class="highlight">同步</span> 按鈕來載入課程資料。</p>
             ` : `
-              <p>請先訪問 <a href="https://e3p.nycu.edu.tw/" target="_blank" style="color: white; text-decoration: underline; font-weight: 600;">NYCU E3</a>，然後點擊 <span class="highlight">🔄 同步</span> 按鈕。</p>
+              <p>請先訪問 <a href="https://e3p.nycu.edu.tw/" target="_blank" style="text-decoration: underline; font-weight: 600;" class="e3-helper-on-accent">NYCU E3</a>，然後點擊 <span class="highlight">同步</span> 按鈕。</p>
             `}
             <p>同步完成後，您就可以查看所有課程的最新公告與信件了。</p>
           </div>
@@ -2437,13 +2760,13 @@ function createSidebar() {
         // 兩者都沒有資料（storage 中也沒有），顯示載入按鈕
         announcementList.innerHTML = `
             <div class="e3-helper-welcome-message">
-              <h3>📢 公告與信件聚合</h3>
+              <h3> 公告與信件聚合</h3>
               <p>將所有課程的最新公告與系統信件整合在此，方便快速查看。</p>
               ${isOnE3Site() ? `
-                <button id="e3-helper-load-announcements-now" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; margin-top: 12px;">
-                  🔄 載入公告與信件
+                <button id="e3-helper-load-announcements-now" style="border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin-top: 12px;" class="e3-helper-primary e3-helper-regular-text">
+                   載入公告與信件
                 </button>
-                <p style="color: #999; font-size: 12px; margin-top: 8px;">⏱️ 載入時間約 30-60 秒</p>
+                <p style="margin-top: 8px;" class="e3-helper-muted-text e3-helper-small-text"> 載入時間約 30-60 秒</p>
               ` : `
                 <p>請訪問 E3 網站，然後在公告分頁點擊「載入公告與信件」按鈕。</p>
               `}
@@ -2476,14 +2799,14 @@ function createSidebar() {
           const announcementListContainer = document.querySelector('.e3-helper-content[data-content="announcements"] .e3-helper-assignment-list');
           if (announcementListContainer) {
             const warningHTML = `
-              <div style="padding: 12px; margin-bottom: 12px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; color: #856404;">
-                <div style="font-weight: 600; margin-bottom: 6px;">⚠️ 資料不完整</div>
-                <div style="font-size: 12px; margin-bottom: 8px;">
+              <div style="padding: 12px; margin-bottom: 12px; border: 1px solid var(--e3-warning); border-radius: 6px;" class="e3-helper-surface e3-helper-warning-text">
+                <div style="font-weight: 600; margin-bottom: 6px;"> 資料不完整</div>
+                <div style="margin-bottom: 8px;" class="e3-helper-small-text">
                   ${hasAnnouncements ? '已載入公告，但尚未載入信件資料。' : '已載入信件，但尚未載入公告資料。'}
                   ${!isOnE3Site() ? '<br><small>將在背景自動連接到 E3 載入</small>' : ''}
                 </div>
-                <button id="e3-helper-reload-all-later" style="background: #ffc107; color: #000; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">
-                  🔄 重新載入完整資料
+                <button id="e3-helper-reload-all-later" style="border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 600;" class="e3-helper-secondary e3-helper-small-text">
+                   重新載入完整資料
                 </button>
               </div>
             `;
@@ -2494,14 +2817,14 @@ function createSidebar() {
             if (reloadBtn) {
               reloadBtn.addEventListener('click', async () => {
                 reloadBtn.disabled = true;
-                reloadBtn.textContent = '⏳ 載入中...';
+                reloadBtn.textContent = ' 載入中...';
 
                 try {
                   if (isOnE3Site()) {
                     // 在 E3 網站，直接載入
                     await Promise.all([loadAnnouncements(), loadMessages()]);
                     displayAnnouncements();
-                    reloadBtn.textContent = '✅ 載入完成';
+                    reloadBtn.textContent = ' 載入完成';
                   } else {
                     // 不在 E3 網站，通過 background 載入
                     const response = await chrome.runtime.sendMessage({
@@ -2514,7 +2837,7 @@ function createSidebar() {
                       if (storage.announcements) allAnnouncements = storage.announcements;
                       if (storage.messages) allMessages = storage.messages;
                       displayAnnouncements();
-                      reloadBtn.textContent = '✅ 載入完成';
+                      reloadBtn.textContent = ' 載入完成';
                     } else {
                       throw new Error(response?.error || '載入失敗');
                     }
@@ -2523,11 +2846,11 @@ function createSidebar() {
                   // 2秒後恢復按鈕
                   setTimeout(() => {
                     reloadBtn.disabled = false;
-                    reloadBtn.textContent = '🔄 重新載入完整資料';
+                    reloadBtn.textContent = ' 重新載入完整資料';
                   }, 2000);
                 } catch (error) {
                   console.error('E3 Helper: 重新載入失敗', error);
-                  reloadBtn.textContent = '❌ 載入失敗';
+                  reloadBtn.textContent = ' 載入失敗';
                   reloadBtn.disabled = false;
 
                   // 顯示錯誤提示
@@ -2632,36 +2955,36 @@ function createSidebar() {
       align-items: center;
     `;
     addAssignmentModal.innerHTML = `
-      <div style="background: white; border-radius: 12px; padding: 24px; width: 90%; max-width: 500px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);">
-        <h3 style="margin: 0 0 16px; font-size: 18px; color: #667eea; display: flex; align-items: center; gap: 8px;">
-          <span id="e3-helper-modal-title">➕ 新增作業</span>
+      <div style="border-radius: 12px; padding: 24px; width: 90%; max-width: 500px;" class="e3-helper-surface e3-helper-flat">
+        <h3 style="margin: 0 0 16px; display: flex; align-items: center; gap: 8px;" class="e3-helper-heading-text e3-helper-body-text">
+          <span id="e3-helper-modal-title">新增作業</span>
         </h3>
         <form id="e3-helper-add-assignment-form" style="display: flex; flex-direction: column; gap: 12px;">
           <input type="hidden" id="e3-helper-edit-assignment-id" value="">
           <div>
-            <label style="display: block; margin-bottom: 6px; font-size: 13px; color: #666; font-weight: 600;">作業名稱 *</label>
-            <input type="text" id="e3-helper-assignment-name" required placeholder="例：期末專題報告" style="width: 100%; padding: 10px 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box;">
+            <label style="display: block; margin-bottom: 6px; font-weight: 600;" class="e3-helper-small-text e3-helper-muted-text" for="e3-helper-assignment-name">作業名稱 *</label>
+            <input type="text" id="e3-helper-assignment-name" required placeholder="例：期末專題報告" style="width: 100%; padding: 10px 12px; border-radius: 6px; box-sizing: border-box;" class="e3-helper-regular-text">
           </div>
           <div>
-            <label style="display: block; margin-bottom: 6px; font-size: 13px; color: #666; font-weight: 600;">課程名稱</label>
-            <select id="e3-helper-assignment-course-select" style="width: 100%; padding: 10px 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box; background: white;">
+            <label style="display: block; margin-bottom: 6px; font-weight: 600;" class="e3-helper-small-text e3-helper-muted-text" for="e3-helper-assignment-course-select">課程名稱</label>
+            <select id="e3-helper-assignment-course-select" style="width: 100%; padding: 10px 12px; border-radius: 6px; box-sizing: border-box;" class="e3-helper-regular-text e3-helper-surface">
               <option value="">選擇課程...</option>
             </select>
-            <input type="text" id="e3-helper-assignment-course-custom" placeholder="請輸入課程名稱" style="width: 100%; padding: 10px 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box; margin-top: 8px; display: none;">
+            <input type="text" id="e3-helper-assignment-course-custom" placeholder="請輸入課程名稱" aria-label="自訂課程名稱" style="width: 100%; padding: 10px 12px; border-radius: 6px; box-sizing: border-box; margin-top: 8px; display: none;" class="e3-helper-regular-text">
           </div>
           <div>
-            <label style="display: block; margin-bottom: 6px; font-size: 13px; color: #666; font-weight: 600;">截止日期 *</label>
-            <input type="date" id="e3-helper-assignment-date" required style="width: 100%; padding: 10px 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box;">
+            <label style="display: block; margin-bottom: 6px; font-weight: 600;" class="e3-helper-small-text e3-helper-muted-text" for="e3-helper-assignment-date">截止日期 *</label>
+            <input type="date" id="e3-helper-assignment-date" required style="width: 100%; padding: 10px 12px; border-radius: 6px; box-sizing: border-box;" class="e3-helper-regular-text">
           </div>
           <div>
-            <label style="display: block; margin-bottom: 6px; font-size: 13px; color: #666; font-weight: 600;">截止時間 *</label>
-            <input type="time" id="e3-helper-assignment-time" required value="23:59" style="width: 100%; padding: 10px 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box;">
+            <label style="display: block; margin-bottom: 6px; font-weight: 600;" class="e3-helper-small-text e3-helper-muted-text" for="e3-helper-assignment-time">截止時間 *</label>
+            <input type="time" id="e3-helper-assignment-time" required value="23:59" style="width: 100%; padding: 10px 12px; border-radius: 6px; box-sizing: border-box;" class="e3-helper-regular-text">
           </div>
           <div style="display: flex; gap: 8px; margin-top: 8px;">
-            <button type="submit" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
-              <span id="e3-helper-modal-submit-text">➕ 新增</span>
+            <button type="submit" style="flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;" class="e3-helper-primary e3-helper-regular-text">
+              <span id="e3-helper-modal-submit-text">新增</span>
             </button>
-            <button type="button" id="e3-helper-cancel-add-assignment" style="flex: 1; padding: 12px; background: #e0e0e0; color: #666; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">取消</button>
+            <button type="button" id="e3-helper-cancel-add-assignment" style="flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;" class="e3-helper-secondary e3-helper-regular-text">取消</button>
           </div>
         </form>
       </div>
@@ -2692,8 +3015,8 @@ function createSidebar() {
         const editIdInput = document.getElementById('e3-helper-edit-assignment-id');
 
         // 重置表單為新增模式
-        modalTitle.textContent = '➕ 新增作業';
-        submitText.textContent = '➕ 新增';
+        modalTitle.textContent = ' 新增作業';
+        submitText.textContent = ' 新增';
         editIdInput.value = '';
         document.getElementById('e3-helper-add-assignment-form').reset();
         document.getElementById('e3-helper-assignment-time').value = '23:59';
@@ -2798,8 +3121,75 @@ function createSidebar() {
     // 創建收合按鈕（獨立於側欄）
     toggleBtn = document.createElement('button');
     toggleBtn.className = 'e3-helper-sidebar-toggle';
-    toggleBtn.innerHTML = '<span class="e3-helper-toggle-icon">📚</span><span class="e3-helper-toggle-text">E3小助手</span><span class="e3-helper-toggle-badge" id="e3-helper-toggle-badge"></span>';
+    toggleBtn.innerHTML = `<span class="e3-helper-toggle-icon">${helperIcon('book')}</span><span class="e3-helper-toggle-text">E3 Helper</span><span class="e3-helper-toggle-badge" id="e3-helper-toggle-badge"></span>`;
+    toggleBtn.setAttribute('aria-label', '開啟 E3 Helper');
+    toggleBtn.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        toggleSidebar();
+      }
+    });
     toggleBtn.title = 'E3 小助手（可上下拖曳調整位置）';
+
+    function toggleSidebar() {
+      sidebar.classList.toggle('expanded');
+      const icon = toggleBtn.querySelector('.e3-helper-toggle-icon');
+      const text = toggleBtn.querySelector('.e3-helper-toggle-text');
+      if (sidebar.classList.contains('expanded')) {
+        icon.innerHTML = helperIcon('close');
+        text.textContent = '關閉';
+        toggleBtn.classList.add('hidden');
+
+        // 自動同步：檢查距離上次同步的時間
+        chrome.storage.local.get(['lastSyncTime'], (result) => {
+          const lastSyncTime = result.lastSyncTime || 0;
+          const now = Date.now();
+          const timeSinceLastSync = now - lastSyncTime;
+          const fiveMinutes = 5 * 60 * 1000;
+
+          // 如果距離上次同步超過 5 分鐘，立即同步
+          if (timeSinceLastSync > fiveMinutes) {
+            console.log(`E3 Helper: 距離上次同步已 ${Math.floor(timeSinceLastSync / 60000)} 分鐘，自動同步中...`);
+            performAutoSync();
+          } else {
+            console.log(`E3 Helper: 距離上次同步僅 ${Math.floor(timeSinceLastSync / 60000)} 分鐘，無需立即同步`);
+          }
+        });
+
+        // 啟動定時器：每 5 分鐘檢查一次
+        if (!autoSyncIntervalId) {
+          console.log('E3 Helper: 啟動自動同步定時器（每 5 分鐘）');
+          autoSyncIntervalId = setInterval(() => {
+            console.log('E3 Helper: 定時器觸發，檢查是否需要同步...');
+            chrome.storage.local.get(['lastSyncTime'], (result) => {
+              const lastSyncTime = result.lastSyncTime || 0;
+              const now = Date.now();
+              const timeSinceLastSync = now - lastSyncTime;
+              const fiveMinutes = 5 * 60 * 1000;
+
+              if (timeSinceLastSync > fiveMinutes) {
+                console.log(`E3 Helper: 距離上次同步已 ${Math.floor(timeSinceLastSync / 60000)} 分鐘，執行定時同步...`);
+                performAutoSync();
+              } else {
+                console.log(`E3 Helper: 距離上次同步僅 ${Math.floor(timeSinceLastSync / 60000)} 分鐘，跳過此次定時同步`);
+              }
+            });
+          }, 5 * 60 * 1000); // 5 分鐘
+        }
+      } else {
+        icon.innerHTML = helperIcon('book');
+        text.textContent = 'E3 Helper';
+        toggleBtn.classList.remove('hidden');
+
+        // 清除定時器
+        if (autoSyncIntervalId) {
+          console.log('E3 Helper: 清除自動同步定時器');
+          clearInterval(autoSyncIntervalId);
+          autoSyncIntervalId = null;
+        }
+      }
+      if (sidebar.classList.contains('expanded')) sidebar.querySelector('#e3-helper-close-btn').focus();
+    }
 
     // 從 localStorage 載入保存的位置
     const savedTop = localStorage.getItem('e3-helper-toggle-top');
@@ -2860,62 +3250,7 @@ function createSidebar() {
         console.log(`E3 Helper: 按鈕位置已保存: ${currentTop}`);
       } else {
         // 如果沒有拖曳，視為點擊
-        sidebar.classList.toggle('expanded');
-        const icon = toggleBtn.querySelector('.e3-helper-toggle-icon');
-        const text = toggleBtn.querySelector('.e3-helper-toggle-text');
-        if (sidebar.classList.contains('expanded')) {
-          icon.textContent = '✕';
-          text.textContent = '關閉';
-          toggleBtn.classList.add('hidden');
-
-          // 自動同步：檢查距離上次同步的時間
-          chrome.storage.local.get(['lastSyncTime'], (result) => {
-            const lastSyncTime = result.lastSyncTime || 0;
-            const now = Date.now();
-            const timeSinceLastSync = now - lastSyncTime;
-            const fiveMinutes = 5 * 60 * 1000;
-
-            // 如果距離上次同步超過 5 分鐘，立即同步
-            if (timeSinceLastSync > fiveMinutes) {
-              console.log(`E3 Helper: 距離上次同步已 ${Math.floor(timeSinceLastSync / 60000)} 分鐘，自動同步中...`);
-              performAutoSync();
-            } else {
-              console.log(`E3 Helper: 距離上次同步僅 ${Math.floor(timeSinceLastSync / 60000)} 分鐘，無需立即同步`);
-            }
-          });
-
-          // 啟動定時器：每 5 分鐘檢查一次
-          if (!autoSyncIntervalId) {
-            console.log('E3 Helper: 啟動自動同步定時器（每 5 分鐘）');
-            autoSyncIntervalId = setInterval(() => {
-              console.log('E3 Helper: 定時器觸發，檢查是否需要同步...');
-              chrome.storage.local.get(['lastSyncTime'], (result) => {
-                const lastSyncTime = result.lastSyncTime || 0;
-                const now = Date.now();
-                const timeSinceLastSync = now - lastSyncTime;
-                const fiveMinutes = 5 * 60 * 1000;
-
-                if (timeSinceLastSync > fiveMinutes) {
-                  console.log(`E3 Helper: 距離上次同步已 ${Math.floor(timeSinceLastSync / 60000)} 分鐘，執行定時同步...`);
-                  performAutoSync();
-                } else {
-                  console.log(`E3 Helper: 距離上次同步僅 ${Math.floor(timeSinceLastSync / 60000)} 分鐘，跳過此次定時同步`);
-                }
-              });
-            }, 5 * 60 * 1000); // 5 分鐘
-          }
-        } else {
-          icon.textContent = '📚';
-          text.textContent = 'E3小助手';
-          toggleBtn.classList.remove('hidden');
-
-          // 清除定時器
-          if (autoSyncIntervalId) {
-            console.log('E3 Helper: 清除自動同步定時器');
-            clearInterval(autoSyncIntervalId);
-            autoSyncIntervalId = null;
-          }
-        }
+        toggleSidebar();
       }
 
       isDragging = false;
@@ -3078,7 +3413,7 @@ function createLogModal() {
   logModal.innerHTML = `
     <div class="e3-helper-log-modal-content">
       <div class="e3-helper-log-modal-header">
-        <h2>📋 操作日誌</h2>
+        <h2> 操作日誌</h2>
         <button class="e3-helper-log-modal-close" id="e3-helper-close-log">&times;</button>
       </div>
       <div class="e3-helper-log-modal-body">
@@ -3180,6 +3515,16 @@ function createSettingsModal() {
       </div>
       <div class="e3-helper-log-modal-body">
         <div class="e3-helper-settings-container">
+          <div class="e3-helper-settings-section">
+            <h3 class="e3-helper-settings-title">外觀</h3>
+            <label class="e3-helper-setting-label-block" for="e3-helper-theme">主題</label>
+            <select id="e3-helper-theme" class="e3-helper-setting-input">
+              <option value="light">淺色</option>
+              <option value="dark">深色</option>
+              <option value="system">跟隨系統</option>
+            </select>
+          </div>
+
           <div class="e3-helper-settings-section">
             <h3 class="e3-helper-settings-title">🤖 AI 功能（Google Gemini）</h3>
             <div class="e3-helper-settings-description">
@@ -3363,7 +3708,8 @@ function createSettingsModal() {
 
 // 載入 AI 設定
 async function loadAISettings() {
-  const storage = await chrome.storage.local.get(['aiSettings']);
+  const storage = await chrome.storage.local.get(['aiSettings', 'themePreference']);
+  document.getElementById('e3-helper-theme').value = ['system', 'dark'].includes(storage.themePreference) ? storage.themePreference : 'light';
   const aiSettings = storage.aiSettings || {
     enabled: false,
     geminiApiKey: '',
@@ -3395,7 +3741,9 @@ async function saveAISettings() {
     geminiModel: geminiModel
   };
 
-  await chrome.storage.local.set({ aiSettings: aiSettings });
+  const themePreference = document.getElementById('e3-helper-theme').value;
+  await chrome.storage.local.set({ aiSettings: aiSettings, themePreference });
+  applyThemePreference(themePreference);
 
   console.log('E3 Helper: AI 設定已儲存', { ...aiSettings, geminiApiKey: aiSettings.geminiApiKey ? '***' : '' });
   showTemporaryMessage('設定已儲存！', 'success');
@@ -3501,7 +3849,7 @@ async function updateCourseOptions() {
   // 添加「自行輸入」選項
   const customOption = document.createElement('option');
   customOption.value = '__custom__';
-  customOption.textContent = '➕ 自行輸入...';
+  customOption.textContent = ' 自行輸入...';
   select.appendChild(customOption);
 
   console.log(`E3 Helper: 已載入 ${sortedCourses.length} 個課程選項`);
@@ -3511,20 +3859,16 @@ async function updateCourseOptions() {
 // type: 'success' | 'error' | 'warning' | 'info'
 function showTemporaryMessage(message, type = 'success', duration = 3000) {
   const colors = {
-    success: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    error: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)',
-    warning: 'linear-gradient(135deg, #f39c12 0%, #e67e22 100%)',
-    info: 'linear-gradient(135deg, #3498db 0%, #2980b9 100%)'
-  };
-
-  const icons = {
-    success: '✓',
-    error: '✕',
-    warning: '⚠',
-    info: 'ℹ'
+    success: 'var(--e3-success)',
+    error: 'var(--e3-danger)',
+    warning: 'var(--e3-warning)',
+    info: 'var(--e3-info)'
   };
 
   const messageEl = document.createElement('div');
+  messageEl.className = 'e3-helper-toast';
+  messageEl.dataset.type = Object.hasOwn(colors, type) ? type : 'success';
+  messageEl.setAttribute('role', type === 'error' ? 'alert' : 'status');
   messageEl.style.cssText = `
     position: fixed;
     top: 20px;
@@ -3541,7 +3885,7 @@ function showTemporaryMessage(message, type = 'success', duration = 3000) {
     max-width: 350px;
     word-wrap: break-word;
   `;
-  messageEl.innerHTML = `<span style="margin-right: 8px;">${icons[type] || icons.success}</span>${message}`;
+  messageEl.innerHTML = `<span class="e3-helper-toast-icon">${helperIcon(type === 'success' ? 'check' : type === 'error' ? 'close' : type === 'warning' ? 'warning' : 'info')}</span>${escapeHtml(message)}`;
   document.body.appendChild(messageEl);
 
   setTimeout(() => {
@@ -3559,23 +3903,23 @@ function showWelcomeMessage() {
 
   const welcomeHTML = `
     <div class="e3-helper-welcome-message">
-      <h3>👋 歡迎使用 E3 小助手</h3>
+      <h3> 歡迎使用 E3 小助手</h3>
       <p>這是您第一次使用，讓我來幫您設定！</p>
 
       ${isOnE3 ? `
-        <p>✨ 您目前在 E3 網站上，請點擊上方的 <span class="highlight">🔄 同步</span> 按鈕來載入您的資料。</p>
+        <p> 您目前在 E3 網站上，請點擊上方的 <span class="highlight">同步</span> 按鈕來載入您的資料。</p>
         <ul>
-          <li>📝 同步作業和截止時間</li>
-          <li>📚 同步課程列表</li>
-          <li>📊 準備成績分析</li>
+          <li>同步作業和截止時間</li>
+          <li>同步課程列表</li>
+          <li> 準備成績分析</li>
         </ul>
         <p>同步完成後，您就可以在<strong>任何網頁</strong>上查看作業和成績了！</p>
       ` : `
-        <p>⚠️ 請先訪問 <a href="https://e3p.nycu.edu.tw/" target="_blank" style="color: white; text-decoration: underline; font-weight: 600;">NYCU E3</a>，然後點擊上方的 <span class="highlight">🔄 同步</span> 按鈕。</p>
+        <p> 請先訪問 <a href="https://e3p.nycu.edu.tw/" target="_blank" style="text-decoration: underline; font-weight: 600;" class="e3-helper-on-accent">NYCU E3</a>，然後點擊上方的 <span class="highlight">同步</span> 按鈕。</p>
         <ul>
-          <li>📝 載入作業和截止時間</li>
-          <li>📚 載入課程列表</li>
-          <li>📊 準備成績分析資料</li>
+          <li> 載入作業和截止時間</li>
+          <li> 載入課程列表</li>
+          <li> 準備成績分析資料</li>
         </ul>
         <p>同步完成後，您就可以在<strong>任何網頁</strong>上使用小助手了！</p>
       `}
@@ -3661,28 +4005,30 @@ async function updateSidebarContent() {
     }
 
     // 緊急標籤
-    const urgentBadge = isUrgent ? '<span style="display: inline-block; background: #dc3545; color: white; font-size: 10px; padding: 2px 6px; border-radius: 3px; margin-left: 6px; font-weight: 600;">🚨 24hr內到期</span>' : '';
+    const urgentBadge = isUrgent ? '<span class="e3-helper-urgent-badge">24 小時內到期</span>' : '';
 
     const hasValidUrl = assignment.url && assignment.url !== '#' && assignment.url.startsWith('http');
 
     // 所有作業都添加編輯和刪除按鈕
     const manualControls = `
-      <div style="display: flex; gap: 6px; margin-top: 8px;">
-        <button class="e3-helper-edit-assignment" data-event-id="${assignment.eventId}" onclick="event.preventDefault(); event.stopPropagation();" style="flex: 1; padding: 6px 12px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.3s;">✏️ 編輯</button>
-        <button class="e3-helper-delete-assignment" data-event-id="${assignment.eventId}" onclick="event.preventDefault(); event.stopPropagation();" style="flex: 1; padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.3s;">🗑️ 刪除</button>
-      </div>
+        <button class="e3-helper-secondary e3-helper-edit-assignment" data-event-id="${assignment.eventId}" onclick="event.preventDefault(); event.stopPropagation();" style="cursor: pointer;">編輯</button>
+        <button class="e3-helper-secondary e3-helper-delete-assignment" data-event-id="${assignment.eventId}" onclick="event.preventDefault(); event.stopPropagation();" style="cursor: pointer;">刪除</button>
     `;
 
     return `
-      <a href="${hasValidUrl ? assignment.url : 'javascript:void(0);'}" target="${hasValidUrl ? '_blank' : '_self'}" class="e3-helper-assignment-item ${statusClass}" data-event-id="${assignment.eventId}" ${!hasValidUrl ? 'data-need-fetch="true"' : ''} style="display: block; text-decoration: none; color: inherit; cursor: pointer;">
-        <div class="e3-helper-assignment-name">${escapeHtml(assignment.name)}${urgentBadge}</div>
-        <div class="e3-helper-assignment-course">${escapeHtml(assignment.course || '(未知課程)')}</div>
-        <div class="e3-helper-assignment-deadline">
-          📅 ${dateStr}
-          <span class="e3-helper-status-toggle ${statusToggleClass}" data-event-id="${assignment.eventId}" onclick="event.preventDefault(); event.stopPropagation();">${statusToggleText}</span>
+      <a href="${hasValidUrl ? assignment.url : 'javascript:void(0);'}" target="${hasValidUrl ? '_blank' : '_self'}" class="e3-helper-body-text e3-helper-assignment-item ${statusClass}" data-event-id="${assignment.eventId}" ${!hasValidUrl ? 'data-need-fetch="true"' : ''} style="text-decoration: none; cursor: pointer;">
+        <div class="e3-helper-assignment-heading">
+          <div class="e3-helper-assignment-name">${escapeHtml(assignment.name)}${urgentBadge}</div>
+          <div class="e3-helper-assignment-course">${escapeHtml(assignment.course || '(未知課程)')}</div>
         </div>
-        <div class="e3-helper-assignment-countdown ${countdown.status}">⏰ ${countdown.text}</div>
-        ${manualControls}
+        <div class="e3-helper-assignment-countdown ${countdown.status}">${countdownMarkup(countdown.text)}</div>
+        <div class="e3-helper-assignment-deadline">
+          <span>${dateStr}</span>
+          <span class="e3-helper-assignment-actions">
+            <button type="button" class="e3-helper-status-toggle ${statusToggleClass}" data-event-id="${assignment.eventId}" onclick="event.preventDefault(); event.stopPropagation();">${statusToggleText}</button>
+            ${manualControls}
+          </span>
+        </div>
       </a>
     `;
   }).join('');
@@ -3760,8 +4106,8 @@ async function updateSidebarContent() {
       const submitText = document.getElementById('e3-helper-modal-submit-text');
       const editIdInput = document.getElementById('e3-helper-edit-assignment-id');
 
-      modalTitle.textContent = '✏️ 編輯作業';
-      submitText.textContent = '💾 儲存';
+      modalTitle.textContent = ' 編輯作業';
+      submitText.textContent = ' 儲存';
       editIdInput.value = eventId;
 
       // 更新課程選項列表
@@ -3820,7 +4166,7 @@ async function updateSidebarContent() {
       const isManual = assignment.isManual || eventId.startsWith('manual-');
       const confirmMessage = isManual
         ? `確定要刪除「${assignment.name}」嗎？此操作無法復原。`
-        : `確定要刪除「${assignment.name}」嗎？\n\n⚠️ 注意：這是從 E3 同步的作業，刪除後下次同步時可能會再次出現。`;
+        : `確定要刪除「${assignment.name}」嗎？\n\n 注意：這是從 E3 同步的作業，刪除後下次同步時可能會再次出現。`;
 
       // 確認刪除
       if (confirm(confirmMessage)) {
@@ -3926,7 +4272,7 @@ function updateCountdowns() {
       const countdownEl = item.querySelector('.e3-helper-assignment-countdown');
 
       if (countdownEl) {
-        countdownEl.textContent = `⏰ ${countdown.text}`;
+        countdownEl.innerHTML = countdownMarkup(countdown.text);
         countdownEl.className = `e3-helper-assignment-countdown ${countdown.status}`;
       }
 
@@ -4168,7 +4514,7 @@ async function loadCourseGrades(courseId) {
     statsContainer.innerHTML = `
       <div class="e3-helper-loading">
         載入成績失敗<br>
-        <small style="color: #999;">${e.message}</small>
+        <small style="" class="e3-helper-muted-text">${e.message}</small>
       </div>
     `;
   }
@@ -4287,7 +4633,7 @@ function displayGradeStats(stats, grades) {
     statsContainer.innerHTML = `
       <div class="e3-helper-no-assignments">
         目前尚無任何評分項目<br>
-        <small style="color: #999; margin-top: 8px; display: block;">等待老師評分後即可查看</small>
+        <small style="margin-top: 8px; display: block;" class="e3-helper-muted-text">等待老師評分後即可查看</small>
       </div>
     `;
     return;
@@ -4295,19 +4641,19 @@ function displayGradeStats(stats, grades) {
 
   // 顯示摘要卡片
   const summaryHTML = `
-    <div style="padding: 12px; border-bottom: 1px solid #e9ecef; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-      <div style="display: flex; justify-content: space-around; color: white;">
+    <div style="padding: 12px;" class="e3-helper-divider e3-helper-surface">
+      <div style="display: flex; justify-content: space-around;" class="e3-helper-on-accent">
         <div style="text-align: center;">
-          <div style="font-size: 11px; opacity: 0.9;">評分進度</div>
-          <div style="font-size: 18px; font-weight: 600;">${stats.progress.toFixed(0)}%</div>
+          <div style="opacity: 0.9;" class="e3-helper-small-text">評分進度</div>
+          <div style="font-weight: 600;" class="e3-helper-heading-text">${stats.progress.toFixed(0)}%</div>
         </div>
         <div style="text-align: center;">
-          <div style="font-size: 11px; opacity: 0.9;">當前表現</div>
-          <div style="font-size: 18px; font-weight: 600;">${stats.currentPerformance.toFixed(1)}</div>
+          <div style="opacity: 0.9;" class="e3-helper-small-text">當前表現</div>
+          <div style="font-weight: 600;" class="e3-helper-heading-text">${stats.currentPerformance.toFixed(1)}</div>
         </div>
         <div style="text-align: center;">
-          <div style="font-size: 11px; opacity: 0.9;">樂觀預估</div>
-          <div style="font-size: 18px; font-weight: 600;">${stats.optimisticScore.toFixed(1)}</div>
+          <div style="opacity: 0.9;" class="e3-helper-small-text">樂觀預估</div>
+          <div style="font-weight: 600;" class="e3-helper-heading-text">${stats.optimisticScore.toFixed(1)}</div>
         </div>
       </div>
     </div>
@@ -4317,13 +4663,13 @@ function displayGradeStats(stats, grades) {
   const itemsHTML = grades.items.map(item => {
     const statusClass = item.evaluated ? 'completed' : 'warning';
     const scoreDisplay = item.evaluated ? `${item.score.toFixed(0)} 分` : '尚未評分';
-    const scoreColor = item.evaluated ? '#51cf66' : '#ffa500';
+    const scoreColor = item.evaluated ? 'var(--e3-success)' : 'var(--e3-warning)';
 
     return `
       <div class="e3-helper-assignment-item ${statusClass}">
         <div class="e3-helper-assignment-name">${item.name}</div>
         <div class="e3-helper-assignment-deadline">
-          📊 配分: ${item.weight.toFixed(0)}%
+           配分: ${item.weight.toFixed(0)}%
           <span style="margin-left: 12px; color: ${scoreColor}; font-weight: 600;">${scoreDisplay}</span>
         </div>
       </div>
@@ -4373,7 +4719,7 @@ async function loadAllCourseGrades(forceRefresh = false) {
           statsContainer.innerHTML = `
             <div class="e3-helper-no-assignments">
               無法載入成績資料<br>
-              <small style="color: #999; margin-top: 8px; display: block;">請先訪問 E3 或點擊同步按鈕</small>
+              <small style="margin-top: 8px; display: block;" class="e3-helper-muted-text">請先訪問 E3 或點擊同步按鈕</small>
             </div>
           `;
           return;
@@ -4409,7 +4755,7 @@ async function loadAllCourseGrades(forceRefresh = false) {
       statsContainer.innerHTML = `
         <div class="e3-helper-no-assignments">
           無法載入課程列表<br>
-          <small style="color: #999; margin-top: 8px; display: block;">請訪問 E3 並點擊同步按鈕</small>
+          <small style="margin-top: 8px; display: block;" class="e3-helper-muted-text">請訪問 E3 並點擊同步按鈕</small>
         </div>
       `;
       return;
@@ -4425,7 +4771,7 @@ async function loadAllCourseGrades(forceRefresh = false) {
     // 載入每個課程的成績
     for (const course of allCourses) {
       try {
-        statsContainer.innerHTML = `<div class="e3-helper-loading">載入課程成績中... ${loadedCount + 1}/${allCourses.length}<br><small style="color: #999; margin-top: 8px; display: block;">${escapeHtml(course.fullname)}</small></div>`;
+        statsContainer.innerHTML = `<div class="e3-helper-loading">載入課程成績中... ${loadedCount + 1}/${allCourses.length}<br><small style="margin-top: 8px; display: block;" class="e3-helper-muted-text">${escapeHtml(course.fullname)}</small></div>`;
 
         // 構建成績頁面URL
         const gradeUrl = `https://e3p.nycu.edu.tw/local/courseextension/grade/report/user/index.php?id=${course.id}`;
@@ -4483,7 +4829,7 @@ async function loadAllCourseGrades(forceRefresh = false) {
     statsContainer.innerHTML = `
       <div class="e3-helper-loading">
         載入失敗<br>
-        <small style="color: #999;">${e.message}</small>
+        <small style="" class="e3-helper-muted-text">${e.message}</small>
       </div>
     `;
   }
@@ -4561,8 +4907,8 @@ async function loadAllCoursesList() {
     if (courses.length === 0) {
       container.innerHTML = `
         <div class="e3-helper-welcome-message">
-          <h3>📚 尚無課程資料</h3>
-          <p>請先點擊上方的 🔄 同步按鈕來載入課程資料。</p>
+          <h3> 尚無課程資料</h3>
+          <p>請先點擊上方的  同步按鈕來載入課程資料。</p>
         </div>
       `;
       return;
@@ -4578,13 +4924,10 @@ async function loadAllCoursesList() {
       const participantCount = participantData ? participantData.count : '未知';
 
       return `
-        <div class="e3-helper-course-item" data-course-id="${course.id}" style="padding: 12px; border-bottom: 1px solid #e9ecef; cursor: pointer; transition: background 0.2s; position: relative;"
-             onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">
-          <div style="padding-right: 55px; margin-bottom: 6px;">
-            <div style="font-size: 13px; font-weight: 600; color: #495057; line-height: 1.4; word-wrap: break-word;">${escapeHtml(course.fullname)}</div>
-            <span style="position: absolute; right: 12px; top: 12px; font-size: 11px; color: #6c757d; background: #e9ecef; padding: 2px 6px; border-radius: 3px; white-space: nowrap;">👥 ${participantCount}</span>
-          </div>
-          ${course.summary ? `<div style="font-size: 11px; color: #6c757d; line-height: 1.3; margin-top: 4px;">${course.summary.replace(/<[^>]*>/g, '').substring(0, 60)}${course.summary.length > 60 ? '...' : ''}</div>` : ''}
+        <div class="e3-helper-divider e3-helper-course-item" data-course-id="${course.id}">
+          <div class="e3-helper-course-title e3-helper-body-text">${escapeHtml(course.fullname)}</div>
+          <span class="e3-helper-course-count${participantData ? '' : ' e3-helper-muted-text e3-helper-small-text'}">${participantCount}</span>
+          ${course.summary ? `<div style="line-height: 1.45; margin-top: 3px; padding-right: 56px;" class="e3-helper-small-text e3-helper-muted-text">${course.summary.replace(/<[^>]*>/g, '').substring(0, 60)}${course.summary.length > 60 ? '...' : ''}</div>` : ''}
         </div>
       `;
     }).join('');
@@ -4608,7 +4951,7 @@ async function loadAllCoursesList() {
       refreshBtn.dataset.bound = 'true';
       refreshBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        refreshBtn.textContent = '🔄 載入中...';
+        refreshBtn.textContent = ' 載入中...';
         refreshBtn.disabled = true;
 
         // 重新從 API 載入課程
@@ -4617,7 +4960,7 @@ async function loadAllCoursesList() {
         // 重新顯示課程列表
         await loadAllCoursesList();
 
-        refreshBtn.textContent = '🔄 重新載入';
+        refreshBtn.textContent = ' 重新載入';
         refreshBtn.disabled = false;
       });
     }
@@ -4629,7 +4972,7 @@ async function loadAllCoursesList() {
       checkParticipantsBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const originalText = checkParticipantsBtn.textContent;
-        checkParticipantsBtn.textContent = '⏳ 檢查中...';
+        checkParticipantsBtn.textContent = ' 檢查中...';
         checkParticipantsBtn.disabled = true;
 
         try {
@@ -4666,7 +5009,7 @@ async function loadAllCoursesList() {
     console.error('E3 Helper: 載入課程列表失敗:', error);
     container.innerHTML = `
       <div class="e3-helper-welcome-message">
-        <h3>❌ 載入失敗</h3>
+        <h3> 載入失敗</h3>
         <p>${escapeHtml(error.message)}</p>
       </div>
     `;
@@ -4717,11 +5060,9 @@ async function showCourseDetail(course) {
       // 更新 tab 樣式
       document.querySelectorAll('.e3-helper-course-function-tab').forEach(t => {
         if (t.classList) t.classList.remove('active');
-        if (t.style) t.style.borderBottom = '2px solid transparent';
       });
 
       if (newTab.classList) newTab.classList.add('active');
-      if (newTab.style) newTab.style.borderBottom = '2px solid #667eea';
 
       // 切換內容
       const functionType = newTab.dataset.function;
@@ -4761,44 +5102,44 @@ async function showCourseStats(course) {
 
     // 生成統計 HTML
     let statsHTML = `
-      <div style="padding: 16px;">
+      <div style="padding: 12px;">
         <!-- 基本資訊 -->
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-          <div style="font-size: 12px; opacity: 0.9; margin-bottom: 8px;">課程基本資訊</div>
+        <div style="border-radius: 8px; padding: 12px; margin-bottom: 12px;" class="e3-helper-surface e3-helper-on-accent">
+          <div style="opacity: 0.9; margin-bottom: 8px;" class="e3-helper-small-text">課程基本資訊</div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div>
-              <div style="font-size: 11px; opacity: 0.8;">課程代碼</div>
-              <div style="font-size: 16px; font-weight: 600; margin-top: 4px;">${course.id}</div>
+              <div style="opacity: 0.8;" class="e3-helper-small-text">課程代碼</div>
+              <div style="font-weight: 600; margin-top: 4px;" class="e3-helper-heading-text">${course.id}</div>
             </div>
             <div>
-              <div style="font-size: 11px; opacity: 0.8;">目前人數</div>
-              <div style="font-size: 16px; font-weight: 600; margin-top: 4px;">${participantData ? participantData.count : '未檢測'} 人</div>
+              <div style="opacity: 0.8;" class="e3-helper-small-text">目前人數</div>
+              <div style="font-weight: 600; margin-top: 4px;" class="e3-helper-heading-text">${participantData ? participantData.count : '未檢測'} 人</div>
             </div>
           </div>
         </div>
 
         <!-- 成員變動歷史 -->
-        <div style="margin-bottom: 16px;">
-          <div style="font-size: 13px; font-weight: 600; color: #495057; margin-bottom: 8px;">📊 成員變動歷史</div>
+        <div style="margin-bottom: 12px;">
+          <div style="font-weight: 600; margin-bottom: 8px;" class="e3-helper-small-text e3-helper-body-text"> 成員變動歷史</div>
     `;
 
     if (courseChanges.length > 0) {
       statsHTML += `
-        <div style="background: #f8f9fa; border-radius: 8px; padding: 12px;">
+        <div style="border-radius: 8px; padding: 12px;" class="e3-helper-surface">
       `;
 
       courseChanges.forEach(change => {
         const timeAgo = getTimeAgoText(change.timestamp);
-        const diffText = change.diff > 0 ? `<span style="color: #28a745;">+${change.diff}</span>` : `<span style="color: #dc3545;">${change.diff}</span>`;
+        const diffText = change.diff > 0 ? `<span style="" class="e3-helper-success-text">+${change.diff}</span>` : `<span style="" class="e3-helper-danger-text">${change.diff}</span>`;
 
         statsHTML += `
-          <div style="padding: 8px 0; border-bottom: 1px solid #dee2e6; last-child:border-bottom: none;">
+          <div style="padding: 8px 0; last-child:border-bottom: none;" class="e3-helper-divider">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <div>
-                <span style="font-size: 12px; color: #495057;">${change.oldCount} → ${change.newCount}</span>
-                <span style="font-size: 12px; margin-left: 8px;">(${diffText} 人)</span>
+                <span style="" class="e3-helper-small-text e3-helper-body-text">${change.oldCount} → ${change.newCount}</span>
+                <span style="margin-left: 8px;" class="e3-helper-small-text">(${diffText} 人)</span>
               </div>
-              <span style="font-size: 11px; color: #6c757d;">${timeAgo}</span>
+              <span style="" class="e3-helper-small-text e3-helper-muted-text">${timeAgo}</span>
             </div>
           </div>
         `;
@@ -4809,7 +5150,7 @@ async function showCourseStats(course) {
       `;
     } else {
       statsHTML += `
-        <div style="background: #f8f9fa; border-radius: 8px; padding: 16px; text-align: center; color: #6c757d; font-size: 12px;">
+        <div style="border-radius: 8px; padding: 12px; text-align: center;" class="e3-helper-surface e3-helper-muted-text e3-helper-small-text">
           尚無成員變動記錄
         </div>
       `;
@@ -4819,11 +5160,11 @@ async function showCourseStats(course) {
         </div>
 
         <!-- 成員列表區域 -->
-        <div style="margin-bottom: 16px;">
+        <div style="margin-bottom: 12px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <div style="font-size: 13px; font-weight: 600; color: #495057;">👥 成員列表</div>
+            <div style="font-weight: 600;" class="e3-helper-small-text e3-helper-body-text"> 成員列表</div>
             <button id="e3-helper-show-members-btn" data-course-id="${course.id}"
-                    style="background: #667eea; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px;">
+                    style="border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;" class="e3-helper-secondary e3-helper-small-text">
               顯示成員
             </button>
           </div>
@@ -4835,14 +5176,12 @@ async function showCourseStats(course) {
         <!-- 快速操作 -->
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
           <button onclick="window.open('https://e3p.nycu.edu.tw/course/view.php?id=${course.id}', '_blank')"
-                  style="background: white; border: 1px solid #dee2e6; color: #495057; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.2s;"
-                  onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">
-            📖 開啟課程頁面
+                  style="padding: 10px; cursor: pointer;" class="e3-helper-secondary e3-helper-small-text">
+             開啟課程頁面
           </button>
           <button onclick="window.open('https://e3p.nycu.edu.tw/user/index.php?id=${course.id}&scopec=1', '_blank')"
-                  style="background: white; border: 1px solid #dee2e6; color: #495057; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.2s;"
-                  onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">
-            👥 在新分頁查看
+                  style="padding: 10px; cursor: pointer;" class="e3-helper-secondary e3-helper-small-text">
+             在新分頁查看
           </button>
         </div>
       </div>
@@ -4872,9 +5211,9 @@ async function showCourseStats(course) {
   } catch (error) {
     console.error('E3 Helper: 載入課程統計失敗:', error);
     statsContent.innerHTML = `
-      <div style="padding: 16px; text-align: center; color: #dc3545;">
+      <div style="padding: 12px; text-align: center;" class="e3-helper-danger-text">
         載入失敗<br>
-        <small style="color: #6c757d;">${escapeHtml(error.message)}</small>
+        <small style="" class="e3-helper-muted-text">${escapeHtml(error.message)}</small>
       </div>
     `;
   }
@@ -4969,7 +5308,7 @@ async function loadCourseMembers(courseId, courseName) {
     // 顯示成員列表
     if (members.length > 0) {
       let membersHTML = `
-        <div style="background: #f8f9fa; border-radius: 8px; padding: 12px; max-height: 400px; overflow-y: auto;">
+        <div style="border-radius: 8px; padding: 12px; max-height: 400px; overflow-y: auto;" class="e3-helper-surface">
       `;
 
       // 按角色分組
@@ -4985,18 +5324,18 @@ async function loadCourseMembers(courseId, courseName) {
       // 顯示每個角色組
       Object.keys(roleGroups).sort().forEach(role => {
         membersHTML += `
-          <div style="margin-bottom: 16px;">
-            <div style="font-size: 11px; font-weight: 600; color: #6c757d; margin-bottom: 8px; text-transform: uppercase;">
+          <div style="margin-bottom: 12px;">
+            <div style="font-weight: 600; margin-bottom: 8px; text-transform: uppercase;" class="e3-helper-small-text e3-helper-muted-text">
               ${escapeHtml(role)} (${roleGroups[role].length})
             </div>
         `;
 
         roleGroups[role].forEach(member => {
           membersHTML += `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: white; border-radius: 4px; margin-bottom: 6px; border: 1px solid #dee2e6;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-radius: 4px; margin-bottom: 6px;" class="e3-helper-surface">
               <div>
-                <div style="font-size: 12px; color: #495057; font-weight: 500;">${escapeHtml(member.name)}</div>
-                ${member.email ? `<div style="font-size: 10px; color: #6c757d; margin-top: 2px;">${escapeHtml(member.email)}</div>` : ''}
+                <div style="font-weight: 500;" class="e3-helper-small-text e3-helper-body-text">${escapeHtml(member.name)}</div>
+                ${member.email ? `<div style="margin-top: 2px;" class="e3-helper-small-text e3-helper-muted-text">${escapeHtml(member.email)}</div>` : ''}
               </div>
             </div>
           `;
@@ -5009,7 +5348,7 @@ async function loadCourseMembers(courseId, courseName) {
       membersContainer.innerHTML = membersHTML;
     } else {
       membersContainer.innerHTML = `
-        <div style="background: #f8f9fa; border-radius: 8px; padding: 16px; text-align: center; color: #6c757d; font-size: 12px;">
+        <div style="border-radius: 8px; padding: 12px; text-align: center;" class="e3-helper-surface e3-helper-muted-text e3-helper-small-text">
           無法載入成員列表<br>
           <small style="margin-top: 4px; display: block;">請點擊「在新分頁查看」按鈕在 E3 網站上查看</small>
         </div>
@@ -5019,9 +5358,9 @@ async function loadCourseMembers(courseId, courseName) {
   } catch (error) {
     console.error('E3 Helper: 載入成員列表失敗:', error);
     membersContainer.innerHTML = `
-      <div style="background: #f8f9fa; border-radius: 8px; padding: 16px; text-align: center; color: #dc3545; font-size: 12px;">
+      <div style="border-radius: 8px; padding: 12px; text-align: center;" class="e3-helper-surface e3-helper-danger-text e3-helper-small-text">
         載入失敗<br>
-        <small style="color: #6c757d; margin-top: 4px; display: block;">${escapeHtml(error.message)}</small>
+        <small style="margin-top: 4px; display: block;" class="e3-helper-muted-text">${escapeHtml(error.message)}</small>
       </div>
     `;
   }
@@ -5052,21 +5391,21 @@ async function displayCourseGradeList() {
       // 有課程但沒有成績資料，提示用戶載入成績
       statsContainer.innerHTML = `
         <div class="e3-helper-welcome-message">
-          <h3>📊 成績資料尚未載入</h3>
+          <h3> 成績資料尚未載入</h3>
           ${isOnE3 ? `
             <p>您已同步課程列表，但還沒有載入成績資料。</p>
             <p>點擊下方的按鈕開始載入成績：</p>
-            <button id="e3-helper-load-grades-now" style="width: 100%; margin-top: 12px; padding: 10px; font-size: 14px; background: white; color: #667eea; border: 2px solid white; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s ease;">
-              🔄 載入成績資料
+            <button id="e3-helper-load-grades-now" style="width: 100%; margin-top: 12px; padding: 10px; border: 2px solid white; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s ease;" class="e3-helper-regular-text e3-helper-secondary">
+               載入成績資料
             </button>
-            <p style="margin-top: 12px; font-size: 12px; opacity: 0.9;">
-              ⏱️ 載入時間約 1-2 分鐘，請耐心等待
+            <p style="margin-top: 12px; opacity: 0.9;" class="e3-helper-small-text">
+               載入時間約 1-2 分鐘，請耐心等待
             </p>
           ` : `
             <p>您已同步課程列表，但還沒有載入成績資料。</p>
-            <p>請訪問 <a href="https://e3p.nycu.edu.tw/" target="_blank" style="color: white; text-decoration: underline; font-weight: 600;">NYCU E3</a>，然後在成績分析頁面點擊「載入成績資料」按鈕。</p>
-            <p style="margin-top: 12px; font-size: 12px; opacity: 0.9;">
-              ⏱️ 載入成績需要在 E3 網站上進行
+            <p>請訪問 <a href="https://e3p.nycu.edu.tw/" target="_blank" style="text-decoration: underline; font-weight: 600;" class="e3-helper-on-accent">NYCU E3</a>，然後在成績分析頁面點擊「載入成績資料」按鈕。</p>
+            <p style="margin-top: 12px; opacity: 0.9;" class="e3-helper-small-text">
+               載入成績需要在 E3 網站上進行
             </p>
           `}
         </div>
@@ -5079,14 +5418,14 @@ async function displayCourseGradeList() {
           // 添加 hover 效果
           loadBtn.addEventListener('mouseenter', () => {
             if (!loadBtn.disabled) {
-              loadBtn.style.background = 'rgba(255,255,255,0.9)';
+              loadBtn.style.opacity = '0.8';
               loadBtn.style.transform = 'translateY(-2px)';
               loadBtn.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
             }
           });
           loadBtn.addEventListener('mouseleave', () => {
             if (!loadBtn.disabled) {
-              loadBtn.style.background = 'white';
+              loadBtn.style.opacity = '1';
               loadBtn.style.transform = 'translateY(0)';
               loadBtn.style.boxShadow = 'none';
             }
@@ -5097,7 +5436,7 @@ async function displayCourseGradeList() {
             loadBtn.disabled = true;
             loadBtn.style.opacity = '0.7';
             loadBtn.style.cursor = 'not-allowed';
-            loadBtn.textContent = '⏳ 載入中...';
+            loadBtn.textContent = ' 載入中...';
             loadAllCourseGrades(true).then(() => {
               // 載入完成
             }).catch((e) => {
@@ -5105,7 +5444,7 @@ async function displayCourseGradeList() {
               loadBtn.disabled = false;
               loadBtn.style.opacity = '1';
               loadBtn.style.cursor = 'pointer';
-              loadBtn.textContent = '🔄 載入成績資料';
+              loadBtn.textContent = ' 載入成績資料';
               showTemporaryMessage('載入成績失敗：' + e.message, 'error');
             });
           });
@@ -5116,7 +5455,7 @@ async function displayCourseGradeList() {
       statsContainer.innerHTML = `
         <div class="e3-helper-no-assignments">
           目前沒有課程有成績資料<br>
-          <small style="color: #999; margin-top: 8px; display: block;">請先同步課程資料，或等待老師評分</small>
+          <small style="margin-top: 8px; display: block;" class="e3-helper-muted-text">請先同步課程資料，或等待老師評分</small>
         </div>
       `;
     }
@@ -5125,9 +5464,9 @@ async function displayCourseGradeList() {
 
   // 添加刷新按鈕
   const refreshBtnHTML = `
-    <div style="padding: 12px; border-bottom: 1px solid #e9ecef; background: #f8f9fa;">
+    <div style="padding: 12px;" class="e3-helper-divider e3-helper-surface">
       <button class="e3-helper-download-btn secondary" id="e3-helper-refresh-grades" style="width: 100%; padding: 6px;">
-        🔄 重新載入成績
+         重新載入成績
       </button>
     </div>
   `;
@@ -5149,8 +5488,8 @@ async function displayCourseGradeList() {
       <div class="e3-helper-assignment-item ${statusClass}" data-course-id="${courseId}">
         <div class="e3-helper-assignment-name">${escapeHtml(course.fullname)}</div>
         <div class="e3-helper-assignment-deadline">
-          📊 評分進度: ${stats.progress.toFixed(0)}%
-          <span style="margin-left: 12px;">當前表現: <span style="color: #667eea; font-weight: 600;">${stats.currentPerformance.toFixed(1)}</span></span>
+           評分進度: ${stats.progress.toFixed(0)}%
+          <span style="margin-left: 12px;">當前表現: <span style="font-weight: 600;" class="e3-helper-body-text">${stats.currentPerformance.toFixed(1)}</span></span>
         </div>
         <button class="e3-helper-status-toggle" data-course-id="${courseId}">查看評分細節</button>
       </div>
@@ -5167,7 +5506,7 @@ async function displayCourseGradeList() {
       refreshBtn.textContent = '載入中...';
       await loadAllCourseGrades(true); // 強制刷新
       refreshBtn.disabled = false;
-      refreshBtn.textContent = '🔄 重新載入成績';
+      refreshBtn.textContent = ' 重新載入成績';
     });
   }
 
@@ -5192,23 +5531,23 @@ function showCourseGradeDetails(courseId) {
 
   // 顯示摘要卡片
   const summaryHTML = `
-    <div style="padding: 12px; border-bottom: 1px solid #e9ecef; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+    <div style="padding: 12px;" class="e3-helper-divider e3-helper-surface">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-        <div style="color: white; font-size: 14px; font-weight: 600;">${escapeHtml(course.fullname)}</div>
-        <button id="e3-helper-back-to-list" style="background: rgba(255,255,255,0.2); border: 1px solid white; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer;">← 返回列表</button>
+        <div style="font-weight: 600;" class="e3-helper-on-accent e3-helper-regular-text">${escapeHtml(course.fullname)}</div>
+        <button id="e3-helper-back-to-list" style="padding: 4px 12px; cursor: pointer;" class="e3-helper-secondary e3-helper-small-text">← 返回列表</button>
       </div>
-      <div style="display: flex; justify-content: space-around; color: white;">
+      <div style="display: flex; justify-content: space-around;" class="e3-helper-on-accent">
         <div style="text-align: center;">
-          <div style="font-size: 11px; opacity: 0.9;">評分進度</div>
-          <div style="font-size: 18px; font-weight: 600;">${stats.progress.toFixed(0)}%</div>
+          <div style="opacity: 0.9;" class="e3-helper-small-text">評分進度</div>
+          <div style="font-weight: 600;" class="e3-helper-heading-text">${stats.progress.toFixed(0)}%</div>
         </div>
         <div style="text-align: center;">
-          <div style="font-size: 11px; opacity: 0.9;">當前表現</div>
-          <div style="font-size: 18px; font-weight: 600;">${stats.currentPerformance.toFixed(1)}</div>
+          <div style="opacity: 0.9;" class="e3-helper-small-text">當前表現</div>
+          <div style="font-weight: 600;" class="e3-helper-heading-text">${stats.currentPerformance.toFixed(1)}</div>
         </div>
         <div style="text-align: center;">
-          <div style="font-size: 11px; opacity: 0.9;">樂觀預估</div>
-          <div style="font-size: 18px; font-weight: 600;">${stats.optimisticScore.toFixed(1)}</div>
+          <div style="opacity: 0.9;" class="e3-helper-small-text">樂觀預估</div>
+          <div style="font-weight: 600;" class="e3-helper-heading-text">${stats.optimisticScore.toFixed(1)}</div>
         </div>
       </div>
     </div>
@@ -5218,13 +5557,13 @@ function showCourseGradeDetails(courseId) {
   const itemsHTML = grades.items.map(item => {
     const statusClass = item.evaluated ? 'completed' : 'warning';
     const scoreDisplay = item.evaluated ? `${item.score.toFixed(0)} 分` : '尚未評分';
-    const scoreColor = item.evaluated ? '#51cf66' : '#ffa500';
+    const scoreColor = item.evaluated ? 'var(--e3-success)' : 'var(--e3-warning)';
 
     return `
       <div class="e3-helper-assignment-item ${statusClass}">
         <div class="e3-helper-assignment-name">${item.name}</div>
         <div class="e3-helper-assignment-deadline">
-          📊 配分: ${item.weight.toFixed(0)}%
+           配分: ${item.weight.toFixed(0)}%
           <span style="margin-left: 12px; color: ${scoreColor}; font-weight: 600;">${scoreDisplay}</span>
         </div>
       </div>
@@ -5268,7 +5607,7 @@ async function loadCourseSelector() {
     courseListContainer.innerHTML = `
       <div class="e3-helper-loading">
         無法載入課程列表<br>
-        <small style="color: #999; margin-top: 8px; display: block;">請訪問 E3 並點擊同步按鈕</small>
+        <small style="margin-top: 8px; display: block;" class="e3-helper-muted-text">請訪問 E3 並點擊同步按鈕</small>
       </div>
     `;
     return;
@@ -5324,14 +5663,14 @@ async function loadAnnouncements() {
   const announcementList = document.querySelector('.e3-helper-content[data-content="announcements"] .e3-helper-assignment-list');
   if (!announcementList) return;
 
-  announcementList.innerHTML = '<div class="e3-helper-loading">載入公告中...<br><small style="color: #999; margin-top: 8px; display: block;">正在從所有課程獲取公告</small></div>';
+  announcementList.innerHTML = '<div class="e3-helper-loading">載入公告中...<br><small style="margin-top: 8px; display: block;" class="e3-helper-muted-text">正在從所有課程獲取公告</small></div>';
 
   // 檢查是否在 E3 網站
   if (!isOnE3Site()) {
     announcementList.innerHTML = `
       <div class="e3-helper-welcome-message">
-        <h3>⚠️ 無法載入公告</h3>
-        <p>請訪問 <a href="https://e3p.nycu.edu.tw/" target="_blank" style="color: white; text-decoration: underline; font-weight: 600;">NYCU E3</a> 來載入公告。</p>
+        <h3> 無法載入公告</h3>
+        <p>請訪問 <a href="https://e3p.nycu.edu.tw/" target="_blank" style="text-decoration: underline; font-weight: 600;" class="e3-helper-on-accent">NYCU E3</a> 來載入公告。</p>
       </div>
     `;
     return;
@@ -5350,8 +5689,8 @@ async function loadAnnouncements() {
   if (allCourses.length === 0) {
     announcementList.innerHTML = `
       <div class="e3-helper-welcome-message">
-        <h3>⚠️ 沒有課程資料</h3>
-        <p>請先點擊上方的 <span class="highlight">🔄 同步</span> 按鈕來載入課程。</p>
+        <h3> 沒有課程資料</h3>
+        <p>請先點擊上方的 <span class="highlight">同步</span> 按鈕來載入課程。</p>
       </div>
     `;
     return;
@@ -5367,7 +5706,7 @@ async function loadAnnouncements() {
       announcementList.innerHTML = `
         <div class="e3-helper-loading">
           載入公告中...<br>
-          <small style="color: #999; margin-top: 8px; display: block;">
+          <small style="margin-top: 8px; display: block;" class="e3-helper-muted-text">
             進度: ${processedCount}/${allCourses.length}<br>
             正在處理: ${course.fullname.substring(0, 30)}...
           </small>
@@ -5436,7 +5775,7 @@ async function notifyNewAnnouncement(announcement) {
       id: `announcement-${announcement.id}-${now}`,
       type: 'announcement',
       title: announcement.title,
-      message: `📚 課程：${announcement.courseName}`,
+      message: ` 課程：${announcement.courseName}`,
       timestamp: now,
       read: false,
       url: announcement.url
@@ -5472,7 +5811,7 @@ async function loadNotifications() {
   if (allNotifications.length === 0) {
     notificationListElement.innerHTML = `
       <div class="e3-helper-welcome-message">
-        <h3>🔔 目前沒有通知</h3>
+        <h3> 目前沒有通知</h3>
         <p>當有新作業上架或課程成員變動時，這裡會顯示通知。</p>
       </div>
     `;
@@ -5486,31 +5825,31 @@ async function loadNotifications() {
   const notificationHTML = allNotifications.map(notification => {
     const timeAgo = getTimeAgoText(notification.timestamp);
     const isUnread = !notification.read;
-    const unreadBadge = isUnread ? '<span style="display: inline-block; width: 8px; height: 8px; background: #dc3545; border-radius: 50%; margin-right: 6px;"></span>' : '';
+    const unreadBadge = isUnread ? '<span class="e3-helper-notification-dot"></span>' : '';
 
-    let icon = '📝';
+    let icon = '';
     let typeText = '新作業';
     let title = notification.title || '';
     let message = notification.message || '';
     let url = notification.url || '';
 
     if (notification.type === 'urgent') {
-      icon = '🚨';
+      icon = '';
       typeText = '緊急作業';
     } else if (notification.type === 'deadline') {
-      icon = '⏰';
+      icon = '';
       typeText = '截止提醒';
     } else if (notification.type === 'grading') {
-      icon = '📊';
+      icon = '';
       typeText = '已評分';
     } else if (notification.type === 'announcement') {
-      icon = '📢';
+      icon = '';
       typeText = '公告';
     } else if (notification.type === 'update') {
-      icon = '🎉';
+      icon = '';
       typeText = '版本更新';
     } else if (notification.type === 'participant-change') {
-      icon = '📊';
+      icon = '';
       typeText = '成員變動';
       const changeText = notification.diff > 0 ? `增加 ${notification.diff} 人` : `減少 ${Math.abs(notification.diff)} 人`;
       title = notification.courseName;
@@ -5520,19 +5859,19 @@ async function loadNotifications() {
 
     return `
       <div class="e3-helper-assignment-item ${isUnread ? 'unread' : ''}"
-           style="cursor: pointer; opacity: ${isUnread ? '1' : '0.7'};"
+           style="cursor: pointer;"
            data-notification-id="${notification.id}"
            data-notification-type="${notification.type || 'assignment'}"
            data-url="${url}">
         <div style="display: flex; align-items: center; margin-bottom: 4px;">
           ${unreadBadge}
-          <span style="font-size: 12px;">${icon} ${typeText}</span>
-          <span style="margin-left: auto; font-size: 11px; color: #999;">${timeAgo}</span>
+          <span style="" class="e3-helper-small-text">${icon} ${typeText}</span>
+          <span style="margin-left: auto;" class="e3-helper-small-text e3-helper-muted-text">${timeAgo}</span>
         </div>
         <div style="font-weight: ${isUnread ? '600' : '400'}; margin-bottom: 4px;">
           ${title}
         </div>
-        <div style="font-size: 12px; color: #666;">
+        <div style="" class="e3-helper-small-text e3-helper-muted-text">
           ${message}
         </div>
       </div>
@@ -6226,7 +6565,7 @@ async function checkAllCoursesParticipants() {
         const changeText = change.diff > 0 ? `增加 ${change.diff} 人` : `減少 ${Math.abs(change.diff)} 人`;
         chrome.runtime.sendMessage({
           action: 'showNotification',
-          title: `📊 課程成員變動`,
+          title: ` 課程成員變動`,
           message: `${change.courseName}\n${changeText} (${change.oldCount} → ${change.newCount})`
         });
       }
@@ -7158,7 +7497,7 @@ async function scanSelectedCourses() {
       if (downloadStatus) {
         downloadStatus.textContent = `正在掃描課程 ${scannedCourses + 1}/${selectedCourseList.length}: ${course.fullname}`;
       }
-      pdfListContainer.innerHTML = `<div class="e3-helper-loading">正在掃描課程 ${scannedCourses + 1}/${selectedCourseList.length}<br><small style="color: #999; margin-top: 8px; display: block;">${escapeHtml(course.fullname)}</small><br><small style="color: #667eea; margin-top: 4px; display: block;">已找到 ${totalPDFs} 個檔案</small></div>`;
+      pdfListContainer.innerHTML = `<div class="e3-helper-loading">正在掃描課程 ${scannedCourses + 1}/${selectedCourseList.length}<br><small style="margin-top: 8px; display: block;" class="e3-helper-muted-text">${escapeHtml(course.fullname)}</small><br><small style="margin-top: 4px; display: block;" class="e3-helper-body-text">已找到 ${totalPDFs} 個檔案</small></div>`;
 
       const coursePDFs = await scanCourseDeep(course.id, course.fullname);
       totalPDFs += coursePDFs.length;
@@ -7208,7 +7547,7 @@ function scanEmbeddedVideos(courseName = '', documentObj = document) {
     if (video.src && video.src.trim() !== '') {
       const videoUrl = video.src;
       const filename = extractFilenameFromUrl(videoUrl) || `內嵌影片_${index + 1}`;
-      const fileType = getFileTypeInfo(videoUrl) || { ext: '.mp4', icon: '🎬', name: 'VIDEO' };
+      const fileType = getFileTypeInfo(videoUrl) || { ext: '.mp4', icon: helperIcon('file'), name: 'VIDEO' };
 
       videos.push({
         url: videoUrl,
@@ -7226,7 +7565,7 @@ function scanEmbeddedVideos(courseName = '', documentObj = document) {
       if (source.src && source.src.trim() !== '') {
         const videoUrl = source.src;
         const filename = extractFilenameFromUrl(videoUrl) || `內嵌影片_${index + 1}_source_${sourceIndex + 1}`;
-        const fileType = getFileTypeInfo(videoUrl) || { ext: '.mp4', icon: '🎬', name: 'VIDEO' };
+        const fileType = getFileTypeInfo(videoUrl) || { ext: '.mp4', icon: helperIcon('file'), name: 'VIDEO' };
 
         // 檢查是否已經加入過（避免重複）
         if (!videos.find(v => v.url === videoUrl)) {
@@ -7283,7 +7622,7 @@ function scanEmbeddedVideos(courseName = '', documentObj = document) {
         url: videoUrl,
         filename: sanitizeFilename(filename),
         course: courseName,
-        fileType: { ext: '', icon: '🎬', name: 'IFRAME_VIDEO' },
+        fileType: { ext: '', icon: helperIcon('file'), name: 'IFRAME_VIDEO' },
         isEmbedded: true,
         isIframe: true,
         originalSrc: src
@@ -7300,7 +7639,7 @@ function scanEmbeddedVideos(courseName = '', documentObj = document) {
     const src = embed.src;
     if (src && src.trim() !== '') {
       const filename = extractFilenameFromUrl(src) || `embed影片_${index + 1}`;
-      const fileType = getFileTypeInfo(src) || { ext: '.mp4', icon: '🎬', name: 'VIDEO' };
+      const fileType = getFileTypeInfo(src) || { ext: '.mp4', icon: helperIcon('file'), name: 'VIDEO' };
 
       videos.push({
         url: src,
@@ -7435,7 +7774,7 @@ async function scanCurrentPage() {
         course: currentCourseName,
         isResource: true,
         pageUrl: url,  // resource 連結使用自己的 URL
-        fileType: { ext: '', icon: '📎', name: 'RESOURCE' }
+        fileType: { ext: '', icon: helperIcon('file'), name: 'RESOURCE' }
       });
     }
   });
@@ -7535,7 +7874,7 @@ async function scanAllCourses() {
       if (downloadStatus) {
         downloadStatus.textContent = `正在掃描課程 ${scannedCourses + 1}/${allCourses.length}: ${course.fullname}`;
       }
-      pdfListContainer.innerHTML = `<div class="e3-helper-loading">正在掃描課程 ${scannedCourses + 1}/${allCourses.length}<br><small style="color: #999; margin-top: 8px; display: block;">${escapeHtml(course.fullname)}</small><br><small style="color: #667eea; margin-top: 4px; display: block;">已找到 ${totalPDFs} 個檔案</small></div>`;
+      pdfListContainer.innerHTML = `<div class="e3-helper-loading">正在掃描課程 ${scannedCourses + 1}/${allCourses.length}<br><small style="margin-top: 8px; display: block;" class="e3-helper-muted-text">${escapeHtml(course.fullname)}</small><br><small style="margin-top: 4px; display: block;" class="e3-helper-body-text">已找到 ${totalPDFs} 個檔案</small></div>`;
 
       const coursePDFs = await scanCourseDeep(course.id, course.fullname);
       totalPDFs += coursePDFs.length;
@@ -8314,7 +8653,7 @@ function updatePDFList() {
   }
 
   if (allPDFs.length === 0) {
-    pdfListContainer.innerHTML = '<div class="e3-helper-no-assignments">目前沒有找到檔案<br><small style="color: #999; margin-top: 8px; display: block;">請前往課程頁面使用此功能，或點擊「📄 掃描此頁」掃描當前頁面</small></div>';
+    pdfListContainer.innerHTML = '<div class="e3-helper-no-assignments">目前沒有找到檔案<br><small style="margin-top: 8px; display: block;" class="e3-helper-muted-text">請前往課程頁面使用此功能，或點擊「 掃描此頁」掃描當前頁面</small></div>';
     if (downloadStatus) {
       downloadStatus.textContent = '已選取 0 個檔案';
     }
@@ -8338,50 +8677,50 @@ function updatePDFList() {
 
   pdfListContainer.innerHTML = allPDFs.map((pdf, index) => {
     const isSelected = selectedPDFs.has(index);
-    const fileType = pdf.fileType || { icon: '📎', name: 'FILE' };
+    const fileType = pdf.fileType || { icon: helperIcon('file'), name: 'FILE' };
 
     // 為內嵌影片和公告檔案添加標記
     let embeddedBadge = '';
     if (pdf.isEmbedded) {
       if (pdf.isIframe && (pdf.url.includes('youtube.com') || pdf.url.includes('youtu.be'))) {
-        embeddedBadge = ' <span style="background: #ff0000; color: white; font-size: 9px; padding: 2px 4px; border-radius: 3px; margin-left: 4px;">YouTube</span>';
+        embeddedBadge = ' <span style="padding: 2px 4px; border-radius: 3px; margin-left: 4px;" class="e3-helper-surface e3-helper-on-accent e3-helper-small-text">YouTube</span>';
       } else if (pdf.isIframe && pdf.url.includes('vimeo.com')) {
-        embeddedBadge = ' <span style="background: #1ab7ea; color: white; font-size: 9px; padding: 2px 4px; border-radius: 3px; margin-left: 4px;">Vimeo</span>';
+        embeddedBadge = ' <span style="padding: 2px 4px; border-radius: 3px; margin-left: 4px;" class="e3-helper-surface e3-helper-on-accent e3-helper-small-text">Vimeo</span>';
       } else if (pdf.isIframe) {
-        embeddedBadge = ' <span style="background: #667eea; color: white; font-size: 9px; padding: 2px 4px; border-radius: 3px; margin-left: 4px;">內嵌</span>';
+        embeddedBadge = ' <span style="padding: 2px 4px; border-radius: 3px; margin-left: 4px;" class="e3-helper-surface e3-helper-on-accent e3-helper-small-text">內嵌</span>';
       } else {
-        embeddedBadge = ' <span style="background: #28a745; color: white; font-size: 9px; padding: 2px 4px; border-radius: 3px; margin-left: 4px;">影片</span>';
+        embeddedBadge = ' <span style="padding: 2px 4px; border-radius: 3px; margin-left: 4px;" class="e3-helper-surface e3-helper-on-accent e3-helper-small-text">影片</span>';
       }
     }
 
     // 為公告來源的檔案添加標記
     if (pdf.fromForum) {
-      embeddedBadge += ' <span style="background: #ffc107; color: #333; font-size: 9px; padding: 2px 4px; border-radius: 3px; margin-left: 4px;">📢公告</span>';
+      embeddedBadge += ' <span style="padding: 2px 4px; border-radius: 3px; margin-left: 4px;" class="e3-helper-surface e3-helper-body-text e3-helper-small-text">公告</span>';
     }
 
     // 為作業來源的檔案添加標記
     if (pdf.fromAssignment) {
-      embeddedBadge += ' <span style="background: #17a2b8; color: white; font-size: 9px; padding: 2px 4px; border-radius: 3px; margin-left: 4px;">📝作業</span>';
+      embeddedBadge += ' <span style="padding: 2px 4px; border-radius: 3px; margin-left: 4px;" class="e3-helper-surface e3-helper-on-accent e3-helper-small-text">作業</span>';
     }
 
     // 為其他活動來源的檔案添加標記
     if (pdf.fromActivity && pdf.activityType) {
       const activityBadges = {
-        'supervideo': { text: '📹影片', color: '#e91e63' },
-        'page': { text: '📄頁面', color: '#9c27b0' },
-        'quiz': { text: '📝測驗', color: '#ff9800' },
-        'book': { text: '📖書籍', color: '#795548' },
-        'activity': { text: '🔧活動', color: '#607d8b' }
+        'supervideo': { text: '影片', color: '#e91e63' },
+        'page': { text: '頁面', color: '#9c27b0' },
+        'quiz': { text: '測驗', color: '#ff9800' },
+        'book': { text: '書籍', color: '#795548' },
+        'activity': { text: '活動', color: '#607d8b' }
       };
 
       const badge = activityBadges[pdf.activityType] || activityBadges['activity'];
-      embeddedBadge += ` <span style="background: ${badge.color}; color: white; font-size: 9px; padding: 2px 4px; border-radius: 3px; margin-left: 4px;">${badge.text}</span>`;
+      embeddedBadge += ` <span style="padding: 2px 4px; border-radius: 3px; margin-left: 4px;" class="e3-helper-surface e3-helper-body-text e3-helper-small-text">${badge.text}</span>`;
     }
 
     // 決定按鈕顯示
     const hasPageUrl = pdf.pageUrl && pdf.pageUrl !== pdf.url;
     const pageButtonHtml = hasPageUrl
-      ? `<button class="e3-helper-file-btn e3-helper-view-page" data-url="${pdf.pageUrl}" title="查看檔案所在的頁面">📄 查看來源頁面</button>`
+      ? `<button class="e3-helper-file-btn e3-helper-view-page" data-url="${pdf.pageUrl}" title="查看檔案所在的頁面"> 查看來源頁面</button>`
       : '';
 
     return `
@@ -8396,7 +8735,7 @@ function updatePDFList() {
         </div>
         <div class="e3-helper-file-actions">
           ${pageButtonHtml}
-          <button class="e3-helper-file-btn e3-helper-download-file" data-url="${pdf.url}" data-filename="${pdf.filename}" data-index="${index}" title="直接下載此檔案">⬇️ 直接下載</button>
+          <button class="e3-helper-file-btn e3-helper-download-file" data-url="${pdf.url}" data-filename="${pdf.filename}" data-index="${index}" title="直接下載此檔案"> 直接下載</button>
         </div>
       </div>
     `;
@@ -8433,7 +8772,7 @@ function updatePDFList() {
 
   // 綁定「直接下載」按鈕
   pdfListContainer.querySelectorAll('.e3-helper-download-file').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       const url = btn.dataset.url;
       const index = parseInt(btn.dataset.index);
@@ -8464,10 +8803,9 @@ function updatePDFList() {
           window.open(pdf.url, '_blank');
         } else {
           // 使用 Chrome Downloads API 下載
-          chrome.runtime.sendMessage({
-            action: 'download',
-            url: pdf.url,
-            filename: fullFilename
+          await chrome.runtime.sendMessage({ action: 'download', url: pdf.url, filename: fullFilename }).catch(error => {
+            console.error('E3 Helper: download failed', error);
+            showTemporaryMessage('下載失敗，請查看 Console 了解詳情', 'error');
           });
         }
       }
@@ -8591,10 +8929,9 @@ async function downloadSeparately() {
           window.open(pdf.url, '_blank');
         } else {
           // 使用 Chrome Downloads API 下載
-          chrome.runtime.sendMessage({
-            action: 'download',
-            url: pdf.url,
-            filename: fullFilename
+          await chrome.runtime.sendMessage({ action: 'download', url: pdf.url, filename: fullFilename }).catch(error => {
+            console.error('E3 Helper: download failed', error);
+            showTemporaryMessage('下載失敗，請查看 Console 了解詳情', 'error');
           });
         }
 
@@ -8846,7 +9183,7 @@ async function downloadAsZip() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
 
     // 下載完成
     if (downloadBtn) {
@@ -8998,7 +9335,7 @@ function collectAssignmentInfo() {
           allAssignments.push(assignmentData);
           processedEventIds.add(eventId);
           collectedCount++;
-          debugInfo.push(`  📌 已收集作業資訊: ${assignmentName}, 截止: ${new Date(deadline).toLocaleString()}`);
+          debugInfo.push(`   已收集作業資訊: ${assignmentName}, 截止: ${new Date(deadline).toLocaleString()}`);
 
           // 載入已儲存的手動標記狀態
           (async () => {
@@ -9080,7 +9417,7 @@ function showExtensionInvalidWarning() {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+    background: #dc2626;
     color: white;
     padding: 24px;
     border-radius: 12px;
@@ -9091,20 +9428,15 @@ function showExtensionInvalidWarning() {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   `;
   warning.innerHTML = `
-    <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
-    <div style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">擴充功能已更新</div>
-    <div style="font-size: 14px; margin-bottom: 20px; opacity: 0.9;">請重新整理頁面以繼續使用</div>
-    <button onclick="location.reload()" style="
-      background: white;
-      color: #ff6b6b;
-      border: none;
+    <div style="margin-bottom: 12px;" class="e3-helper-heading-text"></div>
+    <div style="font-weight: 600; margin-bottom: 12px;" class="e3-helper-heading-text">擴充功能已更新</div>
+    <div style="margin-bottom: 20px; opacity: 0.9;" class="e3-helper-regular-text">請重新整理頁面以繼續使用</div>
+    <button onclick="location.reload()" style="border: none;
       padding: 10px 24px;
       border-radius: 6px;
-      font-size: 14px;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s;
-    " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+      transition: all 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" class="e3-helper-secondary e3-helper-regular-text">
       重新整理頁面
     </button>
   `;
@@ -9128,12 +9460,14 @@ function updateSyncStatus() {
 
       if (sync.loginRequired) {
         // 顯示登入警告
-        syncTimeEl.innerHTML = '⚠️ 需要登入';
+        syncTimeEl.innerHTML = ' 需要登入';
         showLoginWarning();
       } else if (sync.success) {
         // 顯示最後同步時間
         const timeAgo = getTimeAgoCompact(sync.timestamp);
-        syncTimeEl.textContent = `✓ ${timeAgo}前同步`;
+        syncTimeEl.textContent = 'zh-TW' === 'en'
+          ? (timeAgo === 'Just now' ? '✓ Synced just now' : `✓ Synced ${timeAgo} ago`)
+          : `✓ ${timeAgo}前同步`;
       } else {
         // 顯示錯誤
         syncTimeEl.textContent = `✕ 同步失敗`;
@@ -9156,7 +9490,7 @@ function showLoginWarning() {
   const warning = document.createElement('div');
   warning.className = 'e3-helper-login-warning';
   warning.innerHTML = `
-    ⚠️ E3 登入已過期<br>
+     E3 登入已過期<br>
     請<a href="https://e3p.nycu.edu.tw/" target="_blank">點此登入 E3</a>，然後點擊同步按鈕
   `;
 
@@ -9211,10 +9545,10 @@ function manualSync() {
   const timeoutId = setTimeout(() => {
     if (syncBtn) {
       syncBtn.disabled = false;
-      syncBtn.textContent = '🔄 同步';
+      syncBtn.textContent = ' 同步';
     }
     if (syncTimeEl) {
-      syncTimeEl.innerHTML = '✕ 同步超時 <button id="e3-helper-retry-sync" style="margin-left: 8px; padding: 2px 8px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">重試</button>';
+      syncTimeEl.innerHTML = '✕ 同步超時 <button id="e3-helper-retry-sync" style="margin-left: 8px; padding: 2px 8px; border: none; border-radius: 4px; cursor: pointer;" class="e3-helper-secondary e3-helper-small-text">重試</button>';
       // 綁定重試按鈕
       const retryBtn = document.getElementById('e3-helper-retry-sync');
       if (retryBtn) {
@@ -9233,7 +9567,7 @@ function manualSync() {
     clearTimeout(timeoutId);
     if (syncBtn) {
       syncBtn.disabled = false;
-      syncBtn.textContent = '🔄 同步';
+      syncBtn.textContent = ' 同步';
     }
 
     // 檢查是否有錯誤
@@ -9249,7 +9583,7 @@ function manualSync() {
     if (response) {
       if (response.loginRequired) {
         if (syncTimeEl) {
-          syncTimeEl.innerHTML = '⚠️ 需要登入';
+          syncTimeEl.innerHTML = ' 需要登入';
         }
         showLoginWarning();
         showTemporaryMessage('E3 登入已過期，請先登入 E3', 'warning');
@@ -9324,8 +9658,9 @@ function bindSyncButton() {
         toggleBtn.classList.remove('hidden');
         const icon = toggleBtn.querySelector('.e3-helper-toggle-icon');
         const text = toggleBtn.querySelector('.e3-helper-toggle-text');
-        if (icon) icon.textContent = '📚';
-        if (text) text.textContent = 'E3小助手';
+        if (icon) icon.innerHTML = helperIcon('book');
+        if (text) text.textContent = 'E3 Helper';
+        toggleBtn.focus();
       }
     });
   }
@@ -9358,13 +9693,13 @@ function createChangelogModal() {
     align-items: center;
   `;
   modal.innerHTML = `
-    <div style="background: white; border-radius: 12px; padding: 24px; width: 90%; max-width: 520px; max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.2);">
-      <h3 style="margin: 0 0 12px; font-size: 18px; color: #7c4dff; display: flex; align-items: center; gap: 8px;">
-        <span id="e3-helper-changelog-title">🎉 已更新</span>
+    <div style="border-radius: 12px; padding: 24px; width: 90%; max-width: 520px; max-height: 80vh; overflow-y: auto;" class="e3-helper-surface e3-helper-flat">
+      <h3 style="margin: 0 0 12px; display: flex; align-items: center; gap: 8px;" class="e3-helper-heading-text e3-helper-body-text">
+        <span id="e3-helper-changelog-title"> 已更新</span>
       </h3>
-      <div id="e3-helper-changelog-body" style="font-size: 13px; color: #333; line-height: 1.6; margin-bottom: 16px;"></div>
+      <div id="e3-helper-changelog-body" style="line-height: 1.6; margin-bottom: 12px;" class="e3-helper-small-text e3-helper-body-text"></div>
       <div style="display: flex; gap: 8px;">
-        <button type="button" id="e3-helper-changelog-close" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">我知道了</button>
+        <button type="button" id="e3-helper-changelog-close" style="flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;" class="e3-helper-primary e3-helper-regular-text">我知道了</button>
       </div>
     </div>
   `;
@@ -9403,7 +9738,7 @@ function createChangelogModal() {
 function showChangelogModal(version, bodyHtml) {
   createChangelogModal();
   const modal = document.getElementById('e3-helper-changelog-modal');
-  document.getElementById('e3-helper-changelog-title').textContent = `🎉 已更新到 v${version}`;
+  document.getElementById('e3-helper-changelog-title').textContent = ` 已更新到 v${version}`;
   const fallback = `<p style="margin: 6px 0;">已更新到 v${version}。本版變更請見專案 CHANGELOG.md。</p>`;
   const html = bodyHtml ? sanitizeHtml(bodyHtml) : fallback;
   document.getElementById('e3-helper-changelog-body').innerHTML = html;
