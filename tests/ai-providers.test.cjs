@@ -123,3 +123,9 @@ test('summary provider surfaces a background failure and a rejected message', as
   app.chrome.runtime.lastError = { message: 'Extension context invalidated' };
   await assert.rejects(app.generateDailyDigest([], { provider: 'openai', apiKey: 'fixture', model: 'fixture-model' }), /Extension context invalidated/);
 });
+test('OpenAI rejects partial text from an incomplete response', async () => {
+  const send = worker(async () => jsonResponse({status:'incomplete',incomplete_details:{reason:'max_output_tokens'},output_text:'partial summary'}));
+  const result = await send({action:'callOpenAIResponsesApi',apiKey:'fixture',model:'fixture',content:'source'});
+  assert.equal(result.success,false);
+  assert.match(result.error,/max_output_tokens/);
+});

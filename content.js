@@ -3930,7 +3930,7 @@ function showTemporaryMessage(message, type = 'success', duration = 3000) {
 
   const messageEl = document.createElement('div');
   messageEl.className = 'e3-helper-toast';
-  messageEl.dataset.type = Object.hasOwn(colors, type) ? type : 'success';
+  messageEl.dataset.type = Object.prototype.hasOwnProperty.call(colors, type) ? type : 'success';
   messageEl.setAttribute('role', type === 'error' ? 'alert' : 'status');
   messageEl.style.cssText = `
     position: fixed;
@@ -6681,6 +6681,21 @@ async function saveParticipantChangeNotifications(changes) {
 
 // 顯示公告與信件列表
 let dailyDigestCache = null;
+let dailyDigestInFlight = false;
+
+function getCurrentDailyDigestItems() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return [...allAnnouncements.map(item => ({ ...item, type: 'announcement' })),
+    ...allMessages.map(item => ({ ...item, type: 'message' }))]
+    .filter(item => item.timestamp >= today.getTime())
+    .sort((a, b) => b.timestamp - a.timestamp).slice(0, 40);
+}
+
+function getDailyDigestSourceKey(items) {
+  return JSON.stringify(items.map(({ id, type, timestamp, title, courseName, author, url }) =>
+    [id, type, timestamp, title, courseName, author, url]));
+}
 
 function getSavedDailyDigestHTML() {
   const today = new Date();
@@ -6689,7 +6704,10 @@ function getSavedDailyDigestHTML() {
       dailyDigestCache.language !== 'zh-TW' ||
       typeof dailyDigestCache.text !== 'string' || !Array.isArray(dailyDigestCache.items) ||
       !dailyDigestCache.items.length) return '';
-  return renderDailyDigest(dailyDigestCache.text, dailyDigestCache.items);
+  try {
+    if (getDailyDigestSourceKey(dailyDigestCache.items) !== getDailyDigestSourceKey(getCurrentDailyDigestItems())) return '';
+    return renderDailyDigest(dailyDigestCache.text, dailyDigestCache.items);
+  } catch { return ''; }
 }
 
 async function displayAnnouncements() {
@@ -6856,43 +6874,45 @@ async function displayAnnouncements() {
 // 綁定公告相關事件
 function bindAnnouncementEvents(renderCallback) {
   const dailyDigestBtn = document.getElementById('e3-helper-generate-daily-digest');
+  if (dailyDigestBtn) {
+    dailyDigestBtn.disabled = dailyDigestInFlight;
+    dailyDigestBtn.textContent = dailyDigestInFlight ? '整理中…' : '產生總覽';
+  }
   if (dailyDigestBtn && !dailyDigestBtn.dataset.bound) {
     dailyDigestBtn.dataset.bound = 'true';
     dailyDigestBtn.addEventListener('click', async () => {
       const digestContainer = document.getElementById('e3-helper-daily-digest');
-      if (!digestContainer) return;
-
-      const storage = await chrome.storage.local.get(['aiSettings']);
-      const aiSettings = storage.aiSettings || {};
-      const config = getAISummaryConfig(aiSettings);
-      if (!aiSettings.enabled || !config.apiKey || !config.model) {
-        showTemporaryMessage('請先在設定中啟用 AI 摘要並設定所選供應商的 API Key 與模型', 'warning');
-        return;
-      }
-
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
-      const todayItems = [
-        ...allAnnouncements.map(item => ({ ...item, type: 'announcement' })),
-        ...allMessages.map(item => ({ ...item, type: 'message' }))
-      ]
-        .filter(item => item.timestamp >= startOfToday.getTime())
-        .sort((a, b) => b.timestamp - a.timestamp)
-        .slice(0, 40);
-
-      if (todayItems.length === 0) {
-        digestContainer.style.display = 'block';
-        digestContainer.innerHTML = '<div style="margin-top: 12px; padding: 12px; border-radius: 6px;" class="e3-helper-surface e3-helper-divider e3-helper-small-text e3-helper-body-text">今天沒有新同步的公告或信件。</div>';
-        return;
-      }
-
-      dailyDigestBtn.disabled = true;
-      dailyDigestBtn.textContent = '整理中…';
-      digestContainer.style.display = 'block';
-      digestContainer.innerHTML = '<div style="margin-top: 12px; padding: 12px; border-radius: 6px;" class="e3-helper-surface e3-helper-divider e3-helper-small-text e3-helper-body-text">正在整理今天的公告與信件…</div>';
-
+      if (!digestContainer || dailyDigestInFlight) return;
+      dailyDigestInFlight = true;
       try {
+        const storage = await chrome.storage.local.get(['aiSettings']);
+        const aiSettings = storage.aiSettings || {};
+        const config = getAISummaryConfig(aiSettings);
+        if (!aiSettings.enabled || !config.apiKey || !config.model) {
+          showTemporaryMessage('請先在設定中啟用 AI 摘要並設定所選供應商的 API Key 與模型', 'warning');
+          return;
+        }
+
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+        const todayItems = getCurrentDailyDigestItems();
+
+        if (todayItems.length === 0) {
+          digestContainer.style.display = 'block';
+          digestContainer.innerHTML = '<div style="margin-top: 12px; padding: 12px; border-radius: 6px;" class="e3-helper-surface e3-helper-divider e3-helper-small-text e3-helper-body-text">今天沒有新同步的公告或信件。</div>';
+          return;
+        }
+
+        dailyDigestBtn.disabled = true;
+        dailyDigestBtn.textContent = '整理中…';
+        digestContainer.style.display = 'block';
+        digestContainer.innerHTML = '<div style="margin-top: 12px; padding: 12px; border-radius: 6px;" class="e3-helper-surface e3-helper-divider e3-helper-small-text e3-helper-body-text">正在整理今天的公告與信件…</div>';
+
         const digest = await generateDailyDigest(todayItems, config);
+        parseDailyDigest(digest, todayItems);
+        if (getDailyDigestSourceKey(todayItems) !== getDailyDigestSourceKey(getCurrentDailyDigestItems())) {
+          throw new Error('來源資料已變更，請重新產生總覽');
+        }
         const cache = {
           day: startOfToday.getTime(),
           language: 'zh-TW',
@@ -6917,8 +6937,12 @@ function bindAnnouncementEvents(renderCallback) {
         }
         showTemporaryMessage(`今日總覽失敗：${error.message}`, 'error');
       } finally {
-        dailyDigestBtn.disabled = false;
-        dailyDigestBtn.textContent = '產生總覽';
+        dailyDigestInFlight = false;
+        const currentButton = document.getElementById('e3-helper-generate-daily-digest');
+        if (currentButton) {
+          currentButton.disabled = false;
+          currentButton.textContent = '產生總覽';
+        }
       }
     });
   }
@@ -7145,21 +7169,20 @@ function parseDailyDigest(text, items) {
     const sections = ['highlights', 'priority'].map(key => {
       if (!Array.isArray(data[key])) throw new Error('總覽格式不符');
       return data[key].slice(0, 3).flatMap(entry => {
-        if (!entry || !Number.isInteger(entry.source) || entry.source < 1 || entry.source > items.length || seen.has(entry.source)) return [];
+        if (!entry || typeof entry.summary !== 'string' || !entry.summary.trim() || !Number.isInteger(entry.source) || entry.source < 1 || entry.source > items.length || seen.has(entry.source)) return [];
         seen.add(entry.source);
-        return [{ item: items[entry.source - 1], summary: typeof entry.summary === 'string' ? entry.summary.slice(0, 60) : '' }];
+        return [{ item: items[entry.source - 1], summary: entry.summary.trim().slice(0, 60) }];
       });
     });
     if (!sections.some(section => section.length)) throw new Error('總覽沒有有效來源');
-    return { sections, fallback: false };
+    return { sections };
   } catch {
-    // 模型未回傳可用格式時仍提供可查閱的來源卡片。
-    return { sections: [items.map(item => ({ item, summary: '' })), []], fallback: true };
+    throw new Error('總覽格式不符或沒有有效來源');
   }
 }
 
 function renderDailyDigest(text, items) {
-  const { sections, fallback } = parseDailyDigest(text, items);
+  const { sections } = parseDailyDigest(text, items);
   const renderCard = ({ item, summary }) => {
     let sourceUrl = '';
     try {
@@ -7175,10 +7198,9 @@ function renderDailyDigest(text, items) {
       <details style="margin: 0; padding: 0; line-height: 1.4;" class="e3-helper-small-text e3-helper-body-text"><summary style="cursor: pointer; margin: 0; padding: 2px 0; line-height: 1.4;">詳細資訊</summary><div style="margin-top: 4px; line-height: 1.5;">原文：${title}<br>課程：${escapeHtml(item.courseName || '系統')}<br>寄件者：${escapeHtml(item.author || '未知')}</div></details>
     </article>`;
   };
-  const headings = fallback ? ['今日公告與信件', ''] : ['今日重點', '建議優先查看'];
+  const headings = ['今日重點', '建議優先查看'];
   return `<section aria-label="今日總覽" style="margin-top: 8px; padding: 10px; border-radius: 12px; text-align: left; white-space: normal; line-height: 1.4;" class="e3-helper-digest-result">
     <h3 style="margin: 0 0 8px; padding: 0; line-height: 1.4; font-weight: 700;" class="e3-helper-regular-text e3-helper-body-text">今日總覽</h3>
-    ${fallback ? '<p style="margin: 0 0 12px;" class="e3-helper-small-text e3-helper-body-text">摘要格式未完成，先列出今日來源供查閱。</p>' : ''}
     ${sections.map((entries, index) => entries.length ? `<section style="margin: 0 0 10px; padding: 0;"><h4 style="margin: 0 0 6px; padding: 0; line-height: 1.4; font-weight: 700;" class="e3-helper-small-text e3-helper-body-text">${headings[index]}</h4><div style="display: grid; gap: 6px;">${entries.map(renderCard).join('')}</div></section>` : '').join('')}
     <p style="margin: 0; padding: 0; line-height: 1.4;" class="e3-helper-small-text e3-helper-body-text">已整理 ${items.length} 則資訊 · 點擊重點開啟原文 ↗</p>
   </section>`;

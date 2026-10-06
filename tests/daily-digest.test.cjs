@@ -6,6 +6,7 @@ const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../content.js'), 'utf8');
 const digestCode = source.slice(source.indexOf('// 顯示公告與信件列表'), source.indexOf('// 翻譯文字（'));
 const rendering = source.slice(source.indexOf('// 只接受既有來源編號'), source.indexOf('async function generateDailyDigest'));
+const fixtureTimestamp = Date.now();
 const fixture = () => ({ aiSettings: { enabled: true, openaiSummaryApiKey: 'fixture' } });
 function load(storage) {
   let elements = {};
@@ -19,7 +20,7 @@ function load(storage) {
     container.style.display = html.match(/id="e3-helper-daily-digest" style="display: ([^;]+);/)[1];
     container.innerHTML = html.split('aria-live="polite">')[1].split('\n      </section>')[0].replace(/<\/div>\s*$/, '');
   } };
-  const item = { id: 1, timestamp: Date.now(), title: '課中提問', courseName: '課程', author: '老師', url: 'https://e3.nycu.edu.tw/source' };
+  const item = { id: 1, timestamp: fixtureTimestamp, title: '課中提問', courseName: '課程', author: '老師', url: 'https://e3.nycu.edu.tw/source' };
   const context = vm.createContext({
     console, URL, Date, window: { location: { href: 'https://e3.nycu.edu.tw/' } },
     E3HelperI18n: { language: 'zh-TW' },
@@ -33,7 +34,7 @@ function load(storage) {
   });
   const configCode = source.slice(source.indexOf('function getAISummaryConfig('), source.indexOf('function updateAIProviderFields('));
   vm.runInContext(configCode + digestCode + rendering, context);
-  return { context, display: () => context.displayAnnouncements(), generate: () => elements['e3-helper-generate-daily-digest'].click(), container: () => elements['e3-helper-daily-digest'], calls: () => calls, config: () => lastConfig };
+  return { context, display: () => context.displayAnnouncements(), generate: () => elements['e3-helper-generate-daily-digest'].click(), container: () => elements['e3-helper-daily-digest'], button: () => elements['e3-helper-generate-daily-digest'], calls: () => calls, config: () => lastConfig };
 }
 test('generated digest survives helper reopening and a fresh content-script session without another AI call', async () => {
   const storage = fixture();
@@ -109,4 +110,55 @@ test('digest generation uses the chosen Gemini provider and preserves cached out
   assert.equal(app.config().apiKey, 'gemini-fixture');
   assert.equal(app.config().model, 'future-model');
   assert.match(storage.dailyDigestCache.text, /保留下來的重點/);
+});
+
+test('cached digest is hidden when current source records belong to another account', async () => {
+  const storage = fixture(), app = load(storage);
+  await app.display(); await app.generate();
+  const reopened = load(storage);
+  reopened.context.allAnnouncements[0].title = 'Different account announcement';
+  await reopened.display();
+  assert.equal(reopened.container().style.display,'none');
+});
+test('in-flight generation stays locked after list rerender', async () => {
+  const app = load(fixture());
+  let finish, requests = 0;
+  app.context.generateDailyDigest = () => { requests++; return new Promise(resolve => {finish=resolve;}); };
+  await app.display();
+  const pending = app.generate(); await Promise.resolve();
+  await app.display();
+  assert.equal(app.button().disabled,true);
+  const duplicate = app.generate(); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(requests,1);
+  await duplicate;
+  finish('{"highlights":[{"source":1,"summary":"finished"}],"priority":[]}');
+  await pending;
+  assert.equal(app.button().disabled,false);
+});
+for (const output of ['not JSON', '{"highlights":[{"source":99,"summary":"invalid"}],"priority":[]}']) {
+  test(`unusable digest preserves previous successful cache: ${output}`, async () => {
+    const storage = fixture(), app = load(storage);
+    await app.display(); await app.generate();
+    const previous = structuredClone(storage.dailyDigestCache);
+    app.context.generateDailyDigest = async () => output;
+    await app.generate();
+    assert.deepEqual(storage.dailyDigestCache,previous);
+  });
+}
+test('generation cannot save a result after source records change', async () => {
+  const storage = fixture(), app = load(storage);
+  let finish;
+  app.context.generateDailyDigest = () => new Promise(resolve => {finish=resolve;});
+  await app.display(); const pending=app.generate(); await new Promise(resolve => setImmediate(resolve));
+  app.context.allAnnouncements[0] = {...app.context.allAnnouncements[0],title:'Other account'};
+  finish('{"highlights":[{"source":1,"summary":"stale"}],"priority":[]}');
+  await pending;
+  assert.equal(storage.dailyDigestCache,undefined);
+});
+test('missing settings release the generation lock for a later configured attempt', async () => {
+  const storage = {aiSettings:{enabled:false}}, app=load(storage);
+  await app.display(); await app.generate();
+  storage.aiSettings=fixture().aiSettings;
+  await app.generate();
+  assert.equal(app.calls(),1);
 });

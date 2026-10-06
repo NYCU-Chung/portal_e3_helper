@@ -307,7 +307,6 @@ v2.1.0 進行了全面安全審查與加固，修復 18 項安全問題：
 
 ### API 金鑰保護
 - **Background Script 代理**：Gemini / OpenAI API 呼叫透過 background.js 發送；金鑰儲存在本機設定中，不寫入日誌或網址
-- **Console 遮蔽**：API 金鑰在日誌輸出中自動遮蔽（僅顯示前 10 字元）
 
 ### 下載安全
 - **網域白名單**：下載 URL 限制為 E3 網域（`e3.nycu.edu.tw`、`e3p.nycu.edu.tw`）

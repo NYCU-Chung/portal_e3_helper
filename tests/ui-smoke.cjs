@@ -117,6 +117,7 @@ const fs = require('node:fs');
         return script.slice(start,script.indexOf('\n}',start)+2);
       }).join('\n');
       await page.addScriptTag({content:functions});
+      await page.evaluate(() => {Object.hasOwn = undefined;});
       for (const theme of ['light', 'dark']) {
         await page.evaluate(theme => chrome.storage.local.set({themePreference:theme}), theme);
         const treatments = [];

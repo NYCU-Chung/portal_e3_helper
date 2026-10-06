@@ -195,6 +195,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         });
 
         const data = await readAIResponse(response, 'OpenAI');
+        if (data.status === 'incomplete' || data.status === 'failed' || data.error) {
+          throw new Error(data.error?.message || data.incomplete_details?.reason || `OpenAI response ${data.status}`);
+        }
 
         const outputText = data.output_text || data.output
           ?.flatMap(item => item.content || [])
