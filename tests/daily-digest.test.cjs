@@ -398,3 +398,48 @@ test('a failed queued write preserves the previous result and allows a later wri
   assert.match(storage[app.context.getDailyDigestCacheKey()].text, /retry succeeded/);
   assert.match(app.container().innerHTML, /retry succeeded/);
 });
+
+
+for (const invalidRequest of [false, true]) {
+  test(`queued maintenance retains the newest requested source key${invalidRequest ? ' despite an invalid request' : ''}`, async () => {
+    const storage = fixture(), first = load(storage), second = load(storage);
+    await first.display(); await first.generate();
+    const oldKey = first.context.getDailyDigestCacheKey();
+    const old = structuredClone(storage[oldKey]);
+    second.context.allAnnouncements[0].title = 'Newest source';
+    const newKey = second.context.getDailyDigestCacheKey();
+    const current = { ...old, savedAt: fixtureTimestamp - 1,
+      text: '{"highlights":[{"source":1,"summary":"newest source overview"}],"priority":[]}',
+      items: [{ ...second.context.allAnnouncements[0], type: 'announcement' }] };
+    storage[newKey] = structuredClone(current);
+    for (let i = 0; i < 4; i++) storage[`dailyDigestCache:recent-${i}`] = { ...old, savedAt: fixtureTimestamp + i + 1 };
+    const local = first.context.chrome.storage.local;
+    const originalGet = local.get;
+    let finishRead, readStarted, delayed = false;
+    const reading = new Promise(resolve => { readStarted = resolve; });
+    local.get = keys => {
+      if (keys !== null || delayed) return originalGet(keys);
+      delayed = true;
+      const snapshot = structuredClone(storage);
+      return new Promise(resolve => { finishRead = () => resolve(snapshot); readStarted(); });
+    };
+    const staleMaintenance = first.context.pruneDailyDigestCaches();
+    await reading;
+    const newerMaintenance = second.context.pruneDailyDigestCaches();
+    let invalid;
+    if (invalidRequest) {
+      invalid = first.context.chrome.runtime.sendMessage({
+        action: 'updateDailyDigestCache', currentKey: oldKey,
+        oldestDay: old.day - 6 * 86400000, cacheKey: 'unrelated-storage', cache: old
+      }, () => {});
+    }
+    finishRead();
+    await Promise.all([staleMaintenance, newerMaintenance]);
+    if (invalidRequest) assert.equal((await invalid).success, false);
+    assert.deepEqual(storage[newKey], current);
+    assert.equal(storage[oldKey], undefined);
+    await second.display();
+    assert.match(second.container().innerHTML, /newest source overview/);
+    assert.equal(Object.keys(storage).filter(key => key.startsWith('dailyDigestCache:')).length, 5);
+  });
+}

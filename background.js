@@ -73,25 +73,35 @@ console.log('E3 Helper Background Script 已載入');
 // Serialize daily digest writes and pruning in the shared background worker.
 // Content scripts in different tabs must not mutate these slots directly.
 let dailyDigestStorageQueue = Promise.resolve();
+let latestDailyDigestCurrentKey = null;
 function updateDailyDigestCache(request) {
+  // Validate before publishing the preference: rejected requests must not change
+  // which snapshot an already-running maintenance operation protects.
+  if (typeof request.currentKey !== 'string' || !request.currentKey.startsWith('dailyDigestCache:') ||
+      !Number.isFinite(request.oldestDay)) {
+    return Promise.reject(new Error('Invalid digest cache maintenance request'));
+  }
+  if (request.cacheKey !== undefined &&
+      (typeof request.cacheKey !== 'string' || !request.cacheKey.startsWith('dailyDigestCache:') ||
+       !request.cache || !Number.isFinite(request.cache.day) ||
+       typeof request.cache.text !== 'string' || !Array.isArray(request.cache.items))) {
+    return Promise.reject(new Error('Invalid digest cache write'));
+  }
+  latestDailyDigestCurrentKey = request.currentKey;
   const operation = dailyDigestStorageQueue.then(async () => {
-    if (typeof request.currentKey !== 'string' || !request.currentKey.startsWith('dailyDigestCache:') ||
-        !Number.isFinite(request.oldestDay)) throw new Error('Invalid digest cache maintenance request');
     if (request.cacheKey !== undefined) {
-      if (typeof request.cacheKey !== 'string' || !request.cacheKey.startsWith('dailyDigestCache:') ||
-          !request.cache || !Number.isFinite(request.cache.day) ||
-          typeof request.cache.text !== 'string' || !Array.isArray(request.cache.items)) {
-        throw new Error('Invalid digest cache write');
-      }
       await chrome.storage.local.set({ [request.cacheKey]: request.cache });
     }
     try {
       const storage = await chrome.storage.local.get(null);
       const keys = Object.keys(storage).filter(key => key.startsWith('dailyDigestCache:'));
       const recentKeys = keys.filter(key => Number.isFinite(storage[key]?.day) && storage[key].day >= request.oldestDay);
+      // A newer request may arrive while this operation queues or reads storage.
+      // Choose the preference here, after the last await before selecting keys.
+      const preferredKey = latestDailyDigestCurrentKey;
       recentKeys.sort((a, b) => {
-        if (a === request.currentKey) return -1;
-        if (b === request.currentKey) return 1;
+        if (a === preferredKey) return -1;
+        if (b === preferredKey) return 1;
         return (storage[b].savedAt || storage[b].day) - (storage[a].savedAt || storage[a].day);
       });
       const retained = new Set(recentKeys.slice(0, 5));
