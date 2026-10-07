@@ -73,10 +73,8 @@ console.log('E3 Helper Background Script 已載入');
 // Serialize daily digest writes and pruning in the shared background worker.
 // Content scripts in different tabs must not mutate these slots directly.
 let dailyDigestStorageQueue = Promise.resolve();
-let latestDailyDigestCurrentKey = null;
 function updateDailyDigestCache(request) {
-  // Validate before publishing the preference: rejected requests must not change
-  // which snapshot an already-running maintenance operation protects.
+  // Reject invalid requests before queueing any storage mutation.
   if (typeof request.currentKey !== 'string' || !request.currentKey.startsWith('dailyDigestCache:') ||
       !Number.isFinite(request.oldestDay)) {
     return Promise.reject(new Error('Invalid digest cache maintenance request'));
@@ -87,7 +85,6 @@ function updateDailyDigestCache(request) {
        typeof request.cache.text !== 'string' || !Array.isArray(request.cache.items))) {
     return Promise.reject(new Error('Invalid digest cache write'));
   }
-  latestDailyDigestCurrentKey = request.currentKey;
   const operation = dailyDigestStorageQueue.then(async () => {
     if (request.cacheKey !== undefined) {
       await chrome.storage.local.set({ [request.cacheKey]: request.cache });
@@ -96,15 +93,21 @@ function updateDailyDigestCache(request) {
       const storage = await chrome.storage.local.get(null);
       const keys = Object.keys(storage).filter(key => key.startsWith('dailyDigestCache:'));
       const recentKeys = keys.filter(key => Number.isFinite(storage[key]?.day) && storage[key].day >= request.oldestDay);
-      // A newer request may arrive while this operation queues or reads storage.
-      // Choose the preference here, after the last await before selecting keys.
-      const preferredKey = latestDailyDigestCurrentKey;
-      recentKeys.sort((a, b) => {
-        if (a === preferredKey) return -1;
-        if (b === preferredKey) return 1;
-        return (storage[b].savedAt || storage[b].day) - (storage[a].savedAt || storage[a].day);
-      });
-      const retained = new Set(recentKeys.slice(0, 5));
+      let retained;
+      if (request.cacheKey === undefined) {
+        // Opening a list cannot grow the cache. Expire old slots without
+        // evicting another tab's recently completed overview.
+        retained = new Set(recentKeys);
+      } else {
+        // Only successful writes can add slots. Trim here and protect this
+        // operation's own result, regardless of other queued requests.
+        recentKeys.sort((a, b) => {
+          if (a === request.cacheKey) return -1;
+          if (b === request.cacheKey) return 1;
+          return (storage[b].savedAt || storage[b].day) - (storage[a].savedAt || storage[a].day);
+        });
+        retained = new Set(recentKeys.slice(0, 5));
+      }
       const staleKeys = keys.filter(key => !retained.has(key));
       if (staleKeys.length) await chrome.storage.local.remove(staleKeys);
     } catch (error) {

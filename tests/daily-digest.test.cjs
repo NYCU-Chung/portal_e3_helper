@@ -264,7 +264,7 @@ test('repeated source snapshots and days retain at most five digest entries', as
   assert.deepEqual(storage.aiSettings, fixture().aiSettings);
 });
 
-test('maintenance removes expired entries while preserving current and unrelated data', async () => {
+test('maintenance expires old entries without trimming recent snapshots or unrelated data', async () => {
   const storage = fixture(), app = load(storage);
   await app.display(); await app.generate();
   const currentKey = app.context.getDailyDigestCacheKey();
@@ -280,7 +280,7 @@ test('maintenance removes expired entries while preserving current and unrelated
   }
   await app.display();
   const keys = Object.keys(storage).filter(key => key.startsWith('dailyDigestCache:'));
-  assert.equal(keys.length, 5);
+  assert.equal(keys.length, 9);
   assert.ok(keys.every(key => !key.includes('old-')));
   assert.deepEqual(storage[currentKey], current);
   assert.deepEqual(storage.dailyDigestCache, current);
@@ -360,6 +360,8 @@ test('same-key regeneration waits for an already pending removal, then remains s
   const key = second.context.getDailyDigestCacheKey();
   const old = structuredClone(storage[key]);
   for (let i = 0; i < 5; i++) storage[`dailyDigestCache:recent-${i}`] = { ...old, savedAt: fixtureTimestamp + i + 1 };
+  const expired = { ...old, day: old.day - 8 * 86400000 };
+  storage[key] = expired;
   first.context.allAnnouncements[0].title = 'Other tab source';
   const local = first.context.chrome.storage.local;
   const originalRemove = local.remove;
@@ -375,7 +377,7 @@ test('same-key regeneration waits for an already pending removal, then remains s
   second.context.generateDailyDigest = async () => '{"highlights":[{"source":1,"summary":"saved after removal"}],"priority":[]}';
   const generation = second.generate();
   await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(storage[key], old, 'writer waits until removal finishes');
+  assert.deepEqual(storage[key], expired, 'writer waits until removal finishes');
   local.remove = originalRemove;
   await finishRemove();
   await Promise.all([cleanup, generation]);
@@ -401,7 +403,7 @@ test('a failed queued write preserves the previous result and allows a later wri
 
 
 for (const invalidRequest of [false, true]) {
-  test(`queued maintenance retains the newest requested source key${invalidRequest ? ' despite an invalid request' : ''}`, async () => {
+  test(`queued maintenance preserves all recent source snapshots${invalidRequest ? ' despite an invalid request' : ''}`, async () => {
     const storage = fixture(), first = load(storage), second = load(storage);
     await first.display(); await first.generate();
     const oldKey = first.context.getDailyDigestCacheKey();
@@ -437,9 +439,51 @@ for (const invalidRequest of [false, true]) {
     await Promise.all([staleMaintenance, newerMaintenance]);
     if (invalidRequest) assert.equal((await invalid).success, false);
     assert.deepEqual(storage[newKey], current);
-    assert.equal(storage[oldKey], undefined);
+    assert.deepEqual(storage[oldKey], old);
     await second.display();
     assert.match(second.container().innerHTML, /newest source overview/);
-    assert.equal(Object.keys(storage).filter(key => key.startsWith('dailyDigestCache:')).length, 5);
+    assert.equal(Object.keys(storage).filter(key => key.startsWith('dailyDigestCache:')).length, 6);
+  });
+}
+
+
+for (const blockedStage of ['write', 'read']) {
+  test(`successful write protects its own snapshot when unrelated maintenance arrives during ${blockedStage}`, async () => {
+    const storage = fixture(), writer = load(storage), other = load(storage);
+    await writer.display(); await writer.generate();
+    const key = writer.context.getDailyDigestCacheKey();
+    const old = structuredClone(storage[key]);
+    other.context.allAnnouncements[0].title = 'Other tab source';
+    const otherKey = other.context.getDailyDigestCacheKey();
+    storage[otherKey] = { ...old, savedAt: fixtureTimestamp + 1,
+      items: [{ ...other.context.allAnnouncements[0], type: 'announcement' }] };
+    for (let i = 0; i < 4; i++) storage[`dailyDigestCache:recent-${i}`] = { ...old, savedAt: fixtureTimestamp + i + 2 };
+    const local = writer.context.chrome.storage.local;
+    const originalSet = local.set, originalGet = local.get;
+    let release, started, delayed = false;
+    const blocked = new Promise(resolve => { started = resolve; });
+    if (blockedStage === 'write') {
+      local.set = update => new Promise(resolve => {
+        release = async () => { await originalSet(update); resolve(); };
+        started();
+      });
+    } else {
+      local.get = keys => {
+        if (keys !== null || delayed) return originalGet(keys);
+        delayed = true;
+        const snapshot = structuredClone(storage);
+        return new Promise(resolve => { release = () => resolve(snapshot); started(); });
+      };
+    }
+    writer.context.generateDailyDigest = async () => '{"highlights":[{"source":1,"summary":"successful write survives maintenance"}],"priority":[]}';
+    const generation = writer.generate();
+    await blocked;
+    const maintenance = other.context.pruneDailyDigestCaches();
+    await release();
+    await Promise.all([generation, maintenance]);
+    assert.match(storage[key]?.text || '', /successful write survives maintenance/);
+    assert.ok(Object.keys(storage).filter(key => key.startsWith('dailyDigestCache:')).length <= 5);
+    await writer.display();
+    assert.match(writer.container().innerHTML, /successful write survives maintenance/);
   });
 }
