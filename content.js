@@ -6708,30 +6708,27 @@ function getDailyDigestCacheKey(items = getCurrentDailyDigestItems(), day, langu
   return `dailyDigestCache:${JSON.stringify([day, language, getDailyDigestSourceKey(items)])}`;
 }
 
-// Bound snapshot storage without replacing the isolated cache slots. Only remove
-// keys present in this read; a concurrent write to a new key is left untouched.
+// The background worker serializes all tabs' snapshot writes and cleanup.
+async function updateDailyDigestCache(cacheKey, cache) {
+  const oldest = new Date();
+  oldest.setHours(0, 0, 0, 0);
+  oldest.setDate(oldest.getDate() - 6);
+  const response = await new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({
+      action: 'updateDailyDigestCache', currentKey: getDailyDigestCacheKey(),
+      oldestDay: oldest.getTime(), ...(cacheKey === undefined ? {} : { cacheKey, cache })
+    }, result => {
+      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+      else resolve(result);
+    });
+  });
+  if (!response?.success) throw new Error(response?.error || 'Daily digest cache update failed');
+}
+
 async function pruneDailyDigestCaches() {
   try {
-    const storage = await chrome.storage.local.get(null);
-    const currentKey = getDailyDigestCacheKey();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    today.setDate(today.getDate() - 6);
-    const oldestDay = today.getTime();
-    const keys = Object.keys(storage).filter(key => key.startsWith('dailyDigestCache:'));
-    const recentKeys = keys.filter(key => Number.isFinite(storage[key]?.day) && storage[key].day >= oldestDay);
-    recentKeys.sort((a, b) => {
-      if (a === currentKey) return -1;
-      if (b === currentKey) return 1;
-      return (storage[b].savedAt || storage[b].day) - (storage[a].savedAt || storage[a].day);
-    });
-    // Keep at most five snapshots from the last seven calendar days, preferring
-    // the current source even when an old-source write finishes later.
-    const retained = new Set(recentKeys.slice(0, 5));
-    const staleKeys = keys.filter(key => !retained.has(key));
-    if (staleKeys.length) await chrome.storage.local.remove(staleKeys);
+    await updateDailyDigestCache();
   } catch (error) {
-    // Cleanup failure must not hide a successfully stored overview.
     console.warn('Daily digest cache cleanup failed:', error);
   }
 }
@@ -6962,8 +6959,7 @@ function bindAnnouncementEvents(renderCallback) {
           items: todayItems
         };
         const cacheKey = getDailyDigestCacheKey(todayItems, cache.day, cache.language);
-        await chrome.storage.local.set({ [cacheKey]: cache });
-        await pruneDailyDigestCaches();
+        await updateDailyDigestCache(cacheKey, cache);
         // Source refresh or midnight may happen while the storage write awaits.
         // The write is isolated; discard its completion instead of promoting it.
         if (cacheKey !== getDailyDigestCacheKey()) {

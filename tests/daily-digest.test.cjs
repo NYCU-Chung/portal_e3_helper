@@ -13,6 +13,34 @@ class FixtureDate extends Date {
 }
 function storedCacheKey(storage) { return Object.keys(storage).find(key => key.startsWith('dailyDigestCache:')) || 'dailyDigestCache'; }
 function storedCache(storage) { return storage[storedCacheKey(storage)]; }
+// Share the real background message handler across simulated tabs.
+const background = fs.readFileSync(path.join(__dirname, '../background.js'), 'utf8');
+const workers = new WeakMap();
+function sharedWorker(storage) {
+  if (workers.has(storage)) return workers.get(storage);
+  const local = {
+    get: async () => structuredClone(storage),
+    set: async update => Object.assign(storage, structuredClone(update)),
+    remove: async keys => keys.forEach(key => { delete storage[key]; })
+  };
+  let listener;
+  const worker = vm.createContext({ console: { ...console, warn() {} },
+    chrome: { storage: { local }, runtime: { onMessage: { addListener(fn) { listener = fn; } } } }
+  });
+  const start = background.indexOf('chrome.runtime.onMessage.addListener(');
+  const end = background.indexOf('\n});', start) + 4;
+  vm.runInContext(background.slice(background.indexOf('// Serialize daily digest'), start) + background.slice(start, end), worker);
+  const runtime = { sendMessage(request, callback) {
+    const promise = new Promise(resolve => {
+      assert.equal(listener(request, {}, resolve), true);
+    });
+    promise.then(callback);
+    return promise;
+  } };
+  const chrome = { storage: { local }, runtime };
+  workers.set(storage, chrome);
+  return chrome;
+}
 const fixture = () => ({ aiSettings: { enabled: true, openaiSummaryApiKey: 'fixture' } });
 function load(storage, now = fixtureTimestamp) {
   class ControlledDate extends Date {
@@ -38,7 +66,7 @@ function load(storage, now = fixtureTimestamp) {
     uiText: text => text, escapeHtml: text => String(text).replaceAll('<', '&lt;'), getTimeAgoText: () => '剛剛',
     allAnnouncements: [item], allMessages: [], readAnnouncements: new Set(), readMessages: new Set(),
     document: { querySelector: selector => selector.includes('assignment-list') ? list : null, querySelectorAll: () => [], getElementById: id => elements[id] || null },
-    chrome: { storage: { local: { get: async () => structuredClone(storage), set: async update => Object.assign(storage, structuredClone(update)), remove: async keys => keys.forEach(key => { delete storage[key]; }) } } },
+    chrome: sharedWorker(storage),
     generateDailyDigest: async (items, config) => { lastConfig = config; calls++; return '{"highlights":[{"source":1,"summary":"保留下來的重點"}],"priority":[]}'; },
     showTemporaryMessage() {}
   });
@@ -188,8 +216,8 @@ test('refresh during a delayed cache write cannot replace the current source ove
   const current = {day:new FixtureDate().setHours(0,0,0,0),language:'zh-TW',text:'{"highlights":[{"source":1,"summary":"current overview"}],"priority":[]}',items:[{...app.context.allAnnouncements[0],type:'announcement'}]};
   const key=app.context.getDailyDigestCacheKey(current.items);
   storage[key]=structuredClone(current);
-  await app.display();
-  finishWrite(); await pending;
+  const refreshing = app.display();
+  finishWrite(); await Promise.all([pending, refreshing]);
   assert.deepEqual(storage[key],current);
   assert.match(app.container().innerHTML,/current overview/);
 });
@@ -272,6 +300,7 @@ test('cleanup leaves a concurrently written new snapshot untouched', async () =>
     finishRead = () => resolve(snapshot);
   });
   const pruning = app.context.pruneDailyDigestCaches();
+  await new Promise(resolve => setImmediate(resolve));
   app.context.allAnnouncements[0].title = 'Concurrent source';
   const key = app.context.getDailyDigestCacheKey();
   const current = { ...previous, items: [{ ...app.context.allAnnouncements[0], type: 'announcement' }] };
@@ -290,4 +319,82 @@ test('cleanup failure does not hide a successfully generated digest', async () =
   assert.match(storage[app.context.getDailyDigestCacheKey()].text, /保留下來的重點/);
   assert.match(app.container().innerHTML, /保留下來的重點/);
   assert.equal(app.button().disabled, false);
+});
+
+
+test('a second tab regenerating the same key survives cleanup of its old value', async () => {
+  const storage = fixture(), first = load(storage), second = load(storage);
+  await second.display(); await second.generate();
+  const key = second.context.getDailyDigestCacheKey();
+  const old = structuredClone(storage[key]);
+  for (let i = 0; i < 5; i++) storage[`dailyDigestCache:recent-${i}`] = { ...old, savedAt: fixtureTimestamp + i + 1 };
+  first.context.allAnnouncements[0].title = 'Different source in first tab';
+  let finishRead, readStarted;
+  const reading = new Promise(resolve => { readStarted = resolve; });
+  const local = first.context.chrome.storage.local;
+  const originalGet = local.get;
+  let delayed = false;
+  local.get = keys => {
+    if (keys !== null || delayed) return originalGet(keys);
+    delayed = true;
+    const snapshot = structuredClone(storage);
+    return new Promise(resolve => { finishRead = () => resolve(snapshot); readStarted(); });
+  };
+  const cleanup = first.context.pruneDailyDigestCaches();
+  await reading;
+  second.context.generateDailyDigest = async () => '{"highlights":[{"source":1,"summary":"regenerated in second tab"}],"priority":[]}';
+  const generation = second.generate();
+  await new Promise(resolve => setImmediate(resolve));
+  finishRead();
+  await Promise.all([cleanup, generation]);
+  assert.match(storage[key]?.text || '', /regenerated in second tab/);
+  await second.display();
+  assert.match(second.container().innerHTML, /regenerated in second tab/);
+  assert.ok(Object.keys(storage).filter(key => key.startsWith('dailyDigestCache:')).length <= 5);
+});
+
+
+test('same-key regeneration waits for an already pending removal, then remains saved', async () => {
+  const storage = fixture(), first = load(storage), second = load(storage);
+  await second.display(); await second.generate();
+  const key = second.context.getDailyDigestCacheKey();
+  const old = structuredClone(storage[key]);
+  for (let i = 0; i < 5; i++) storage[`dailyDigestCache:recent-${i}`] = { ...old, savedAt: fixtureTimestamp + i + 1 };
+  first.context.allAnnouncements[0].title = 'Other tab source';
+  const local = first.context.chrome.storage.local;
+  const originalRemove = local.remove;
+  let finishRemove, removeStarted;
+  const removing = new Promise(resolve => { removeStarted = resolve; });
+  local.remove = keys => new Promise(resolve => {
+    assert.ok(keys.includes(key));
+    finishRemove = async () => { await originalRemove(keys); resolve(); };
+    removeStarted();
+  });
+  const cleanup = first.context.pruneDailyDigestCaches();
+  await removing;
+  second.context.generateDailyDigest = async () => '{"highlights":[{"source":1,"summary":"saved after removal"}],"priority":[]}';
+  const generation = second.generate();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(storage[key], old, 'writer waits until removal finishes');
+  local.remove = originalRemove;
+  await finishRemove();
+  await Promise.all([cleanup, generation]);
+  assert.match(storage[key].text, /saved after removal/);
+  await second.display();
+  assert.match(second.container().innerHTML, /saved after removal/);
+});
+
+test('a failed queued write preserves the previous result and allows a later write', async () => {
+  const storage = fixture(), app = load(storage);
+  await app.display(); await app.generate();
+  const local = app.context.chrome.storage.local;
+  const originalSet = local.set;
+  local.set = async () => { throw new Error('fixture write failure'); };
+  app.context.generateDailyDigest = async () => '{"highlights":[{"source":1,"summary":"retry succeeded"}],"priority":[]}';
+  await app.generate();
+  assert.match(app.container().innerHTML, /保留下來的重點/);
+  local.set = originalSet;
+  await app.generate();
+  assert.match(storage[app.context.getDailyDigestCacheKey()].text, /retry succeeded/);
+  assert.match(app.container().innerHTML, /retry succeeded/);
 });

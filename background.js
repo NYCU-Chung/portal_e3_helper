@@ -70,8 +70,52 @@ console.debug = (...args) => sendLogToContentScript('debug', args);
 
 console.log('E3 Helper Background Script 已載入');
 
+// Serialize daily digest writes and pruning in the shared background worker.
+// Content scripts in different tabs must not mutate these slots directly.
+let dailyDigestStorageQueue = Promise.resolve();
+function updateDailyDigestCache(request) {
+  const operation = dailyDigestStorageQueue.then(async () => {
+    if (typeof request.currentKey !== 'string' || !request.currentKey.startsWith('dailyDigestCache:') ||
+        !Number.isFinite(request.oldestDay)) throw new Error('Invalid digest cache maintenance request');
+    if (request.cacheKey !== undefined) {
+      if (typeof request.cacheKey !== 'string' || !request.cacheKey.startsWith('dailyDigestCache:') ||
+          !request.cache || !Number.isFinite(request.cache.day) ||
+          typeof request.cache.text !== 'string' || !Array.isArray(request.cache.items)) {
+        throw new Error('Invalid digest cache write');
+      }
+      await chrome.storage.local.set({ [request.cacheKey]: request.cache });
+    }
+    try {
+      const storage = await chrome.storage.local.get(null);
+      const keys = Object.keys(storage).filter(key => key.startsWith('dailyDigestCache:'));
+      const recentKeys = keys.filter(key => Number.isFinite(storage[key]?.day) && storage[key].day >= request.oldestDay);
+      recentKeys.sort((a, b) => {
+        if (a === request.currentKey) return -1;
+        if (b === request.currentKey) return 1;
+        return (storage[b].savedAt || storage[b].day) - (storage[a].savedAt || storage[a].day);
+      });
+      const retained = new Set(recentKeys.slice(0, 5));
+      const staleKeys = keys.filter(key => !retained.has(key));
+      if (staleKeys.length) await chrome.storage.local.remove(staleKeys);
+    } catch (error) {
+      // A cleanup failure must not hide a successfully stored overview.
+      console.warn('Daily digest cache cleanup failed:', error);
+    }
+  });
+  // A failed write must not block later tabs' maintenance or regeneration.
+  dailyDigestStorageQueue = operation.catch(() => {});
+  return operation;
+}
+
 // 監聽來自 content script 的訊息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'updateDailyDigestCache') {
+    updateDailyDigestCache(request).then(
+      () => sendResponse({ success: true }),
+      error => sendResponse({ success: false, error: error.message })
+    );
+    return true;
+  }
   if (request.action === 'download') {
     console.log(`E3 Helper: 收到下載請求 - ${request.filename}`);
 
