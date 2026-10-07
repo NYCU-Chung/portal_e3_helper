@@ -38,7 +38,7 @@ function load(storage, now = fixtureTimestamp) {
     uiText: text => text, escapeHtml: text => String(text).replaceAll('<', '&lt;'), getTimeAgoText: () => '剛剛',
     allAnnouncements: [item], allMessages: [], readAnnouncements: new Set(), readMessages: new Set(),
     document: { querySelector: selector => selector.includes('assignment-list') ? list : null, querySelectorAll: () => [], getElementById: id => elements[id] || null },
-    chrome: { storage: { local: { get: async () => structuredClone(storage), set: async update => Object.assign(storage, structuredClone(update)) } } },
+    chrome: { storage: { local: { get: async () => structuredClone(storage), set: async update => Object.assign(storage, structuredClone(update)), remove: async keys => keys.forEach(key => { delete storage[key]; }) } } },
     generateDailyDigest: async (items, config) => { lastConfig = config; calls++; return '{"highlights":[{"source":1,"summary":"保留下來的重點"}],"priority":[]}'; },
     showTemporaryMessage() {}
   });
@@ -215,4 +215,79 @@ test('controlled midnight during cache writing discards yesterday completion', a
   finishWrite(); await pending;
   assert.equal(app.container().style.display,'none');
   assert.equal(app.button().disabled,false);
+});
+
+
+test('repeated source snapshots and days retain at most five digest entries', async () => {
+  const storage = fixture(), app = load(storage);
+  for (let day = 0; day < 10; day++) {
+    const now = fixtureTimestamp + day * 86400000;
+    app.setTime(now);
+    for (let snapshot = 0; snapshot < 8; snapshot++) {
+      app.context.allAnnouncements[0] = { ...app.context.allAnnouncements[0], timestamp: now, title: `Day ${day} snapshot ${snapshot}` };
+      await app.display();
+      await app.generate();
+      const keys = Object.keys(storage).filter(key => key.startsWith('dailyDigestCache:'));
+      assert.ok(keys.length <= 5, `retained ${keys.length} entries`);
+      assert.ok(storage[app.context.getDailyDigestCacheKey()]);
+    }
+  }
+  assert.equal(app.calls(), 80);
+  assert.deepEqual(storage.aiSettings, fixture().aiSettings);
+});
+
+test('maintenance removes expired entries while preserving current and unrelated data', async () => {
+  const storage = fixture(), app = load(storage);
+  await app.display(); await app.generate();
+  const currentKey = app.context.getDailyDigestCacheKey();
+  const current = structuredClone(storage[currentKey]);
+  storage.dailyDigestCache = structuredClone(current);
+  storage.notifications = [{ title: 'unrelated' }];
+  for (let i = 0; i < 12; i++) {
+    storage[`dailyDigestCache:old-${i}`] = { ...current, day: current.day - 8 * 86400000 };
+  }
+  // A later write for a different source must not evict the current snapshot.
+  for (let i = 0; i < 8; i++) {
+    storage[`dailyDigestCache:recent-${i}`] = { ...current, savedAt: fixtureTimestamp + i + 1 };
+  }
+  await app.display();
+  const keys = Object.keys(storage).filter(key => key.startsWith('dailyDigestCache:'));
+  assert.equal(keys.length, 5);
+  assert.ok(keys.every(key => !key.includes('old-')));
+  assert.deepEqual(storage[currentKey], current);
+  assert.deepEqual(storage.dailyDigestCache, current);
+  assert.deepEqual(storage.notifications, [{ title: 'unrelated' }]);
+  assert.match(app.container().innerHTML, /保留下來的重點/);
+});
+
+
+test('cleanup leaves a concurrently written new snapshot untouched', async () => {
+  const storage = fixture(), app = load(storage);
+  await app.display(); await app.generate();
+  const previous = structuredClone(storedCache(storage));
+  for (let i = 0; i < 8; i++) storage[`dailyDigestCache:recent-${i}`] = { ...previous };
+  let finishRead;
+  app.context.chrome.storage.local.get = () => new Promise(resolve => {
+    const snapshot = structuredClone(storage);
+    finishRead = () => resolve(snapshot);
+  });
+  const pruning = app.context.pruneDailyDigestCaches();
+  app.context.allAnnouncements[0].title = 'Concurrent source';
+  const key = app.context.getDailyDigestCacheKey();
+  const current = { ...previous, items: [{ ...app.context.allAnnouncements[0], type: 'announcement' }] };
+  storage[key] = current;
+  finishRead(); await pruning;
+  assert.deepEqual(storage[key], current);
+});
+
+test('cleanup failure does not hide a successfully generated digest', async () => {
+  const storage = fixture(), app = load(storage);
+  await app.display();
+  for (let i = 0; i < 8; i++) storage[`dailyDigestCache:expired-${i}`] = { day: 0 };
+  app.context.console = { ...console, warn() {} };
+  app.context.chrome.storage.local.remove = async () => { throw new Error('fixture cleanup failure'); };
+  await app.generate();
+  assert.match(storage[app.context.getDailyDigestCacheKey()].text, /保留下來的重點/);
+  assert.match(app.container().innerHTML, /保留下來的重點/);
+  assert.equal(app.button().disabled, false);
 });

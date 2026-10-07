@@ -6708,6 +6708,34 @@ function getDailyDigestCacheKey(items = getCurrentDailyDigestItems(), day, langu
   return `dailyDigestCache:${JSON.stringify([day, language, getDailyDigestSourceKey(items)])}`;
 }
 
+// Bound snapshot storage without replacing the isolated cache slots. Only remove
+// keys present in this read; a concurrent write to a new key is left untouched.
+async function pruneDailyDigestCaches() {
+  try {
+    const storage = await chrome.storage.local.get(null);
+    const currentKey = getDailyDigestCacheKey();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    today.setDate(today.getDate() - 6);
+    const oldestDay = today.getTime();
+    const keys = Object.keys(storage).filter(key => key.startsWith('dailyDigestCache:'));
+    const recentKeys = keys.filter(key => Number.isFinite(storage[key]?.day) && storage[key].day >= oldestDay);
+    recentKeys.sort((a, b) => {
+      if (a === currentKey) return -1;
+      if (b === currentKey) return 1;
+      return (storage[b].savedAt || storage[b].day) - (storage[a].savedAt || storage[a].day);
+    });
+    // Keep at most five snapshots from the last seven calendar days, preferring
+    // the current source even when an old-source write finishes later.
+    const retained = new Set(recentKeys.slice(0, 5));
+    const staleKeys = keys.filter(key => !retained.has(key));
+    if (staleKeys.length) await chrome.storage.local.remove(staleKeys);
+  } catch (error) {
+    // Cleanup failure must not hide a successfully stored overview.
+    console.warn('Daily digest cache cleanup failed:', error);
+  }
+}
+
 function getSavedDailyDigestHTML() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -6745,6 +6773,7 @@ async function displayAnnouncements() {
   }
 
   // 載入已讀狀態
+  await pruneDailyDigestCaches();
   const cacheKey = getDailyDigestCacheKey();
   const storage = await chrome.storage.local.get(['readAnnouncements', 'readMessages', 'dailyDigestCache', cacheKey]);
   dailyDigestCache = storage[cacheKey] || storage.dailyDigestCache || null;
@@ -6926,6 +6955,7 @@ function bindAnnouncementEvents(renderCallback) {
           throw new Error('來源資料已變更，請重新產生總覽');
         }
         const cache = {
+          savedAt: Date.now(),
           day: startOfToday.getTime(),
           language: 'zh-TW',
           text: digest,
@@ -6933,6 +6963,7 @@ function bindAnnouncementEvents(renderCallback) {
         };
         const cacheKey = getDailyDigestCacheKey(todayItems, cache.day, cache.language);
         await chrome.storage.local.set({ [cacheKey]: cache });
+        await pruneDailyDigestCaches();
         // Source refresh or midnight may happen while the storage write awaits.
         // The write is isolated; discard its completion instead of promoting it.
         if (cacheKey !== getDailyDigestCacheKey()) {
