@@ -101,9 +101,10 @@ test('Chrome 93 callback-only storage initializes and persists the language', as
   assert.equal(data.interfaceLanguage, 'zh-TW');
   assert.equal(i18n.language, 'zh-TW');
 });
-test('callback storage errors reject without changing the language', async () => {
+test('preference read failure falls back while failed writes preserve the language', async () => {
   const readFailure = callbackOnlyStorage('en', 'get');
-  await assert.rejects(readFailure.i18n.ready, /Read denied/);
+  await readFailure.i18n.ready;
+  assert.equal(readFailure.i18n.language, 'zh-TW');
   const writeFailure = callbackOnlyStorage('en', 'set');
   await writeFailure.i18n.ready;
   await assert.rejects(writeFailure.i18n.save('zh-TW'), /Write denied/);

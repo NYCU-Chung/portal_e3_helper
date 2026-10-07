@@ -140,6 +140,8 @@ for (const language of ['zh-TW', 'en']) {
       await app.generateDailyDigest([], config);
       assert.ok(requests[0].content.includes(`Summarize in ${language === 'en' ? 'English' : 'Traditional Chinese'}`));
       assert.ok(requests[1].content.includes(`使用${language === 'en' ? '英文' : '繁體中文'}寫一份精簡總覽`));
+      assert.ok(requests[1].content.includes(language === 'en' ? 'Check the original source to confirm' : '請查看原文確認'));
+      if (language === 'en') assert.ok(!requests[1].content.includes('請查看原文確認'));
     }
   });
 }

@@ -472,7 +472,6 @@
   "今日重點": "Highlights",
   "系統": "System",
   "未知": "Unknown",
-  "分": "m",
   "週日": "Sun",
   "週一": "Mon",
   "週二": "Tue",
@@ -544,7 +543,9 @@
   const browserLanguage = globalThis.chrome?.i18n?.getUILanguage?.() || globalThis.navigator?.language || 'zh-TW';
   let language = /^zh/i.test(browserLanguage) ? 'zh-TW' : 'en';
   const normalize = value => value === 'en' || value === 'zh-TW' ? value : null;
-  function text(source) {
+  const units = { minutes: { '分': 'm' }, grades: { '分': 'points' } };
+  function text(source, context) {
+    if (language === 'en' && units[context]?.[source]) return units[context][source];
     return language === 'en' ? source.replace(pattern, match => english[match]) : source;
   }
   // Translate static segments before interpolation to preserve dynamic content.
@@ -564,6 +565,8 @@
   }
   const ready = storageCall('get', ['interfaceLanguage']).then(storage => {
     language = normalize(storage.interfaceLanguage) || language;
+  }).catch(() => {
+    // Preference reads are optional: keep the browser default and allow startup.
   });
   chrome.storage.onChanged.addListener((changes, area) => {
     if (typeof document === 'undefined' && area === 'local' && changes.interfaceLanguage) language = normalize(changes.interfaceLanguage.newValue) || language;
