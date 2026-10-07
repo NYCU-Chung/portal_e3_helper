@@ -23,7 +23,10 @@
       "matches": [
         "<all_urls>"
       ],
-      "js": ["jszip.min.js", "content.js"],
+      "js": [
+        "jszip.min.js",
+        "content.js"
+      ],
       "run_at": "document_end"
     }
   ],

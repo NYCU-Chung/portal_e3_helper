@@ -70,8 +70,65 @@ console.debug = (...args) => sendLogToContentScript('debug', args);
 
 console.log('E3 Helper Background Script 已載入');
 
+// Serialize daily digest writes and pruning in the shared background worker.
+// Content scripts in different tabs must not mutate these slots directly.
+let dailyDigestStorageQueue = Promise.resolve();
+function updateDailyDigestCache(request) {
+  // Reject invalid requests before queueing any storage mutation.
+  if (typeof request.currentKey !== 'string' || !request.currentKey.startsWith('dailyDigestCache:') ||
+      !Number.isFinite(request.oldestDay)) {
+    return Promise.reject(new Error('Invalid digest cache maintenance request'));
+  }
+  if (request.cacheKey !== undefined &&
+      (typeof request.cacheKey !== 'string' || !request.cacheKey.startsWith('dailyDigestCache:') ||
+       !request.cache || !Number.isFinite(request.cache.day) ||
+       typeof request.cache.text !== 'string' || !Array.isArray(request.cache.items))) {
+    return Promise.reject(new Error('Invalid digest cache write'));
+  }
+  const operation = dailyDigestStorageQueue.then(async () => {
+    if (request.cacheKey !== undefined) {
+      await chrome.storage.local.set({ [request.cacheKey]: request.cache });
+    }
+    try {
+      const storage = await chrome.storage.local.get(null);
+      const keys = Object.keys(storage).filter(key => key.startsWith('dailyDigestCache:'));
+      const recentKeys = keys.filter(key => Number.isFinite(storage[key]?.day) && storage[key].day >= request.oldestDay);
+      let retained;
+      if (request.cacheKey === undefined) {
+        // Opening a list cannot grow the cache. Expire old slots without
+        // evicting another tab's recently completed overview.
+        retained = new Set(recentKeys);
+      } else {
+        // Only successful writes can add slots. Trim here and protect this
+        // operation's own result, regardless of other queued requests.
+        recentKeys.sort((a, b) => {
+          if (a === request.cacheKey) return -1;
+          if (b === request.cacheKey) return 1;
+          return (storage[b].savedAt || storage[b].day) - (storage[a].savedAt || storage[a].day);
+        });
+        retained = new Set(recentKeys.slice(0, 5));
+      }
+      const staleKeys = keys.filter(key => !retained.has(key));
+      if (staleKeys.length) await chrome.storage.local.remove(staleKeys);
+    } catch (error) {
+      // A cleanup failure must not hide a successfully stored overview.
+      console.warn('Daily digest cache cleanup failed:', error);
+    }
+  });
+  // A failed write must not block later tabs' maintenance or regeneration.
+  dailyDigestStorageQueue = operation.catch(() => {});
+  return operation;
+}
+
 // 監聽來自 content script 的訊息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'updateDailyDigestCache') {
+    updateDailyDigestCache(request).then(
+      () => sendResponse({ success: true }),
+      error => sendResponse({ success: false, error: error.message })
+    );
+    return true;
+  }
   if (request.action === 'download') {
     console.log(`E3 Helper: 收到下載請求 - ${request.filename}`);
 
@@ -163,40 +220,104 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     checkParticipantsInTabs();
     sendResponse({ success: true, message: '已觸發成員檢測' });
     return true;
-  } else if (request.action === 'callGeminiApi') {
-    // 代理 Gemini API 呼叫（避免 API key 暴露在 content script）
+  } else if (request.action === 'callOpenAIResponsesApi') {
+    // 在背景服務中呼叫 OpenAI，避免網頁直接存取使用者的 API key。
     (async () => {
       try {
-        const { model, apiKey, content, generationConfig } = request;
+        const { model, apiKey, content, maxOutputTokens = 512 } = request;
+        if (!apiKey) {
+          sendResponse({ success: false, error: '請輸入 OpenAI API Key' });
+          return;
+        }
+
         const requestBody = {
-          contents: [{ parts: [{ text: content }] }]
+          model,
+          input: content,
+          max_output_tokens: maxOutputTokens,
+          store: false
         };
-        if (generationConfig) {
-          requestBody.generationConfig = generationConfig;
+
+        // GPT-5 摘要使用最低推理強度，避免短摘要耗盡輸出 token 額度。
+        if (['gpt-5', 'gpt-5-mini', 'gpt-5-nano'].includes(model)) {
+          requestBody.reasoning = { effort: 'minimal' };
         }
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
-          }
-        );
-        if (!response.ok) {
-          const errorData = await response.json();
-          sendResponse({ success: false, error: errorData.error?.message || `HTTP ${response.status}` });
+
+        const response = await fetch('https://api.openai.com/v1/responses', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        const data = await readAIResponse(response, 'OpenAI');
+        if (data.status === 'incomplete' || data.status === 'failed' || data.error) {
+          throw new Error(data.error?.message || data.incomplete_details?.reason || `OpenAI response ${data.status}`);
+        }
+
+        const outputText = data.output_text || data.output
+          ?.flatMap(item => item.content || [])
+          .filter(part => part.type === 'output_text' && part.text)
+          .map(part => part.text)
+          .join('')
+          .trim();
+
+        if (!outputText) {
+          sendResponse({ success: false, error: data.incomplete_details?.reason || 'OpenAI API 返回空結果' });
           return;
         }
-        const data = await response.json();
-        if (!data.candidates || data.candidates.length === 0) {
-          sendResponse({ success: false, error: data.promptFeedback?.blockReason || 'Gemini API 返回空結果' });
-          return;
-        }
-        const candidate = data.candidates[0];
-        if (candidate.content?.parts?.[0]?.text) {
-          sendResponse({ success: true, data: candidate.content.parts[0].text.trim() });
+
+        sendResponse({ success: true, data: outputText });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true;
+  } else if (request.action === 'listGeminiModels' || request.action === 'callGeminiApi') {
+    (async () => {
+      try {
+        const { apiKey, content, generationConfig } = request;
+        if (!apiKey) throw new Error('請輸入 Gemini API Key');
+        const headers = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey };
+        if (request.action === 'listGeminiModels') {
+          const models = new Map();
+          let pageToken = '';
+          const seenTokens = new Set();
+          do {
+            const url = new URL('https://generativelanguage.googleapis.com/v1beta/models');
+            url.searchParams.set('pageSize', '1000');
+            if (pageToken) url.searchParams.set('pageToken', pageToken);
+            const response = await fetch(url.href, { headers });
+            const data = await readAIResponse(response, 'Gemini');
+            if (!Array.isArray(data.models)) throw new Error('Gemini 模型清單格式錯誤');
+            for (const model of data.models) {
+              if (model.supportedGenerationMethods?.includes('generateContent') &&
+                  /^models\/[a-zA-Z0-9._-]+$/.test(model.name)) {
+                const id = model.name.slice('models/'.length);
+                models.set(id, { id, name: model.displayName || id });
+              }
+            }
+            pageToken = data.nextPageToken || '';
+            if (pageToken && seenTokens.has(pageToken)) throw new Error('Gemini 模型清單分頁錯誤');
+            seenTokens.add(pageToken);
+          } while (pageToken);
+          if (!models.size) throw new Error('沒有支援文字生成的 Gemini 模型');
+          sendResponse({ success: true, data: [...models.values()] });
         } else {
-          sendResponse({ success: false, error: candidate.finishReason || 'Gemini API 返回格式錯誤' });
+          const model = String(request.model || '').replace(/^models\//, '');
+          if (!/^[a-zA-Z0-9._-]+$/.test(model)) throw new Error('請選擇或輸入 Gemini 模型 ID');
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+            method: 'POST', headers,
+            body: JSON.stringify({ contents: [{ parts: [{ text: content }] }],
+              ...(generationConfig ? { generationConfig } : {}) })
+          });
+          const data = await readAIResponse(response, 'Gemini');
+          const candidate = data.candidates?.[0];
+          const text = candidate?.content?.parts?.filter(part => !part.thought && typeof part.text === 'string')
+            .map(part => part.text).join('').trim();
+          if (!text) throw new Error(data.promptFeedback?.blockReason || candidate?.finishReason || 'Gemini API 返回空結果');
+          sendResponse({ success: true, data: text });
         }
       } catch (error) {
         sendResponse({ success: false, error: error.message });
@@ -225,6 +346,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 });
+
+// 網關可能回傳 HTML；解析失敗不能遮蔽 HTTP 狀態。
+async function readAIResponse(response, provider) {
+  let data;
+  try { data = await response.json(); } catch { data = null; }
+  if (!response.ok) {
+    const message = data?.error?.message;
+    throw new Error(typeof message === 'string' && message.trim() ? message : `HTTP ${response.status}`);
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error(`${provider} API 返回無效結果`);
+  }
+  return data;
+}
 
 // ==================== 自動同步功能 ====================
 
@@ -1282,8 +1417,6 @@ async function handleAIRequest(request) {
       return await callOllamaAPI(config, prompt);
     case 'openai':
       return await callOpenAIAPI(config, prompt);
-    case 'gemini':
-      return await callGeminiAPI(config, prompt);
     case 'custom':
       return await callCustomAPI(config, prompt);
     default:
@@ -1359,70 +1492,6 @@ async function callOpenAIAPI(config, prompt) {
 
     const data = await response.json();
     return data.choices[0].message.content.trim();
-  } catch (error) {
-    throw error;
-  }
-}
-
-// 調用 Gemini API
-async function callGeminiAPI(config, prompt) {
-  const { key, model, temperature, thinkingBudget } = config;
-
-  try {
-    const generationConfig = {
-      temperature: temperature !== undefined ? temperature : 0.3,
-      candidateCount: 1
-    };
-
-    if (thinkingBudget !== undefined) {
-      generationConfig.thinkingConfig = {
-        thinkingBudget: thinkingBudget
-      };
-    }
-
-    const requestBody = {
-      contents: [{
-        parts: [{
-          text: prompt
-        }]
-      }],
-      generationConfig: generationConfig
-    };
-
-    const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Gemini API 請求失敗: ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json();
-
-    // 檢查響應結構
-    if (!data.candidates || data.candidates.length === 0) {
-      throw new Error('Gemini API 沒有返回候選結果');
-    }
-
-    const candidate = data.candidates[0];
-
-    if (candidate.content && candidate.content.parts && candidate.content.parts[0] && candidate.content.parts[0].text) {
-      return candidate.content.parts[0].text.trim();
-    } else if (candidate.text) {
-      return candidate.text.trim();
-    } else if (candidate.output) {
-      return candidate.output.trim();
-    } else {
-      if (candidate.finishReason === 'MAX_TOKENS') {
-        throw new Error('Gemini MAX_TOKENS 錯誤且未返回任何文本，可能是輸入 prompt 太長。');
-      }
-      throw new Error('無法解析 Gemini 響應結構: ' + JSON.stringify(candidate));
-    }
   } catch (error) {
     throw error;
   }
