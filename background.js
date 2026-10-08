@@ -1,3 +1,6 @@
+importScripts('i18n.js');
+const uiText = E3HelperI18n.text;
+const ui = E3HelperI18n.template;
 // NYCU E3 Helper - Background Script (Service Worker)
 // 處理下載請求和自動同步
 
@@ -218,7 +221,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // 手動觸發成員檢測
     console.log('E3 Helper: 收到手動成員檢測請求');
     checkParticipantsInTabs();
-    sendResponse({ success: true, message: '已觸發成員檢測' });
+    sendResponse({ success: true, message: uiText('已觸發成員檢測') });
     return true;
   } else if (request.action === 'callOpenAIResponsesApi') {
     // 在背景服務中呼叫 OpenAI，避免網頁直接存取使用者的 API key。
@@ -401,6 +404,7 @@ async function sweepOrphanBgTab() {
 // 從 CHANGELOG.md 抓指定版本區塊轉成 HTML 字串，寫入 storage 給 content.js 渲染 What's New
 // 沒對應區塊或 fetch 失敗仍會推通知，使用者打開側邊欄會看到 fallback 文案
 async function notifyVersionUpdate(version) {
+  await E3HelperI18n.ready;
   try {
     let changelogHtml = '';
     try {
@@ -423,8 +427,8 @@ async function notifyVersionUpdate(version) {
     notifications.unshift({
       id: `update-${version}-${now}`,
       type: 'update',
-      title: `🎉 已更新到 v${version}`,
-      message: '打開側邊欄會自動顯示本版變更，或點此再次查看',
+      title: ui`🎉 已更新到 v${version}`,
+      message: uiText('打開側邊欄會自動顯示本版變更，或點此再次查看'),
       timestamp: now,
       read: false,
       url: ''
@@ -1167,6 +1171,7 @@ async function detectAndNotifyNewAssignments(newAssignments, oldAssignments) {
 
 // 發送作業通知
 async function sendAssignmentNotification(assignment) {
+  await E3HelperI18n.ready;
   try {
     // 計算剩餘時間
     const now = Date.now();
@@ -1177,22 +1182,22 @@ async function sendAssignmentNotification(assignment) {
 
     let timeText = '';
     if (daysLeft > 0) {
-      timeText = `剩餘 ${daysLeft} 天 ${hoursLeft} 小時`;
+      timeText = ui`剩餘 ${daysLeft} 天 ${hoursLeft} 小時`;
     } else if (hoursLeft > 0) {
-      timeText = `剩餘 ${hoursLeft} 小時`;
+      timeText = ui`剩餘 ${hoursLeft} 小時`;
     } else if (timeLeft > 0) {
       const minutesLeft = Math.floor(timeLeft / (1000 * 60));
-      timeText = `剩餘 ${minutesLeft} 分鐘`;
+      timeText = ui`剩餘 ${minutesLeft} 分鐘`;
     } else {
-      timeText = '已逾期';
+      timeText = uiText('已逾期');
     }
 
     // 發送桌面通知
     await chrome.notifications.create(`assignment-${assignment.eventId}`, {
       type: 'basic',
       iconUrl: 'chrome-extension://' + chrome.runtime.id + '/128.png',
-      title: '📝 新作業上架！',
-      message: `${assignment.name}\n📚 課程：${assignment.course}\n⏰ ${timeText}`,
+      title: uiText('📝 新作業上架！'),
+      message: ui`${assignment.name}\n📚 課程：${assignment.course}\n⏰ ${timeText}`,
       priority: 2,
       requireInteraction: false
     });
@@ -1205,7 +1210,7 @@ async function sendAssignmentNotification(assignment) {
       id: `assignment-${assignment.eventId}-${now}`,
       type: 'assignment',
       title: assignment.name,
-      message: `📚 課程：${assignment.course}\n⏰ ${timeText}`,
+      message: ui`📚 課程：${assignment.course}\n⏰ ${timeText}`,
       timestamp: now,
       read: false,
       url: assignment.url
@@ -1237,6 +1242,7 @@ async function sendAssignmentNotification(assignment) {
 
 // 發送評分通知
 async function sendGradingNotification(assignment) {
+  await E3HelperI18n.ready;
   try {
     const now = Date.now();
 
@@ -1244,8 +1250,8 @@ async function sendGradingNotification(assignment) {
     await chrome.notifications.create(`grading-${assignment.eventId}`, {
       type: 'basic',
       iconUrl: 'chrome-extension://' + chrome.runtime.id + '/128.png',
-      title: '📊 作業已評分！',
-      message: `${assignment.name}\n📚 課程：${assignment.course}`,
+      title: uiText('📊 作業已評分！'),
+      message: ui`${assignment.name}\n📚 課程：${assignment.course}`,
       priority: 2,
       requireInteraction: false
     });
@@ -1258,7 +1264,7 @@ async function sendGradingNotification(assignment) {
       id: `grading-${assignment.eventId}-${now}`,
       type: 'grading',
       title: assignment.name,
-      message: `📚 課程：${assignment.course}\n📊 作業已評分，點擊查看成績`,
+      message: ui`📚 課程：${assignment.course}\n📊 作業已評分，點擊查看成績`,
       timestamp: now,
       read: false,
       url: assignment.url
@@ -1661,7 +1667,7 @@ async function loadAnnouncementsAndMessagesInBackground() {
             reject(new Error('無法與 E3 標籤頁通訊'));
           } else if (response && response.success) {
             console.log('E3 Helper: 資料載入完成');
-            resolve({ success: true, message: '資料已在背景載入完成' });
+            resolve({ success: true, message: uiText('資料已在背景載入完成') });
           } else {
             console.error('E3 Helper: 載入失敗', response);
             reject(new Error(response?.error || '載入失敗'));
@@ -1717,7 +1723,7 @@ async function loadAnnouncementsAndMessagesInBackground() {
                 } else if (response && response.success) {
                   console.log('E3 Helper: 資料載入完成（新標籤頁）');
                   cleanup();
-                  resolve({ success: true, message: '資料已在背景載入完成' });
+                  resolve({ success: true, message: uiText('資料已在背景載入完成') });
                 } else {
                   console.error('E3 Helper: 載入失敗（新標籤頁）', response);
                   cleanup();

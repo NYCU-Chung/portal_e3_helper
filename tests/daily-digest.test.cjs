@@ -487,3 +487,25 @@ for (const blockedStage of ['write', 'read']) {
     assert.match(writer.container().innerHTML, /successful write survives maintenance/);
   });
 }
+
+test('Chinese and English digest snapshots stay separate across fresh sessions', async () => {
+  const storage = fixture();
+  for (const language of ['zh-TW', 'en']) {
+    const app = load(storage);
+    app.context.E3HelperI18n.language = language;
+    await app.display();
+    assert.equal(app.container().style.display, 'none');
+    await app.generate();
+    assert.equal(app.container().style.display, 'block');
+  }
+  const keys = Object.keys(storage).filter(key => key.startsWith('dailyDigestCache:'));
+  assert.equal(keys.length, 2);
+  assert.deepEqual(new Set(keys.map(key => storage[key].language)), new Set(['zh-TW', 'en']));
+  for (const language of ['zh-TW', 'en']) {
+    const reopened = load(storage);
+    reopened.context.E3HelperI18n.language = language;
+    await reopened.display();
+    assert.equal(reopened.container().style.display, 'block');
+    assert.equal(reopened.calls(), 0);
+  }
+});

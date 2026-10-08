@@ -3,7 +3,7 @@
   "minimum_chrome_version": "93",
   "name": "NYCU E3 Helper",
   "version": "2.2.0",
-  "description": "優化 NYCU E3 使用體驗：作業倒數、成績分析、檔案下載（教材/影片/公告）、AI 智能翻譯與摘要、智能通知徽章等功能",
+  "description": "__MSG_extensionDescription__",
   "permissions": [
     "storage",
     "downloads",
@@ -25,6 +25,7 @@
       ],
       "js": [
         "jszip.min.js",
+        "i18n.js",
         "content.js"
       ],
       "run_at": "document_end"
@@ -45,5 +46,6 @@
     "16": "128.png",
     "48": "128.png",
     "128": "128.png"
-  }
+  },
+  "default_locale": "zh_TW"
 }

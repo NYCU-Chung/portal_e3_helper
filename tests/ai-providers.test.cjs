@@ -83,8 +83,8 @@ test('Gemini preserves explicitly supplied generation options', async () => {
   await send({ action: 'callGeminiApi', apiKey: 'fixture', model: 'future-model', content: 'source', generationConfig: { temperature: 0.2 } });
   assert.deepEqual(body.generationConfig, { temperature: 0.2 });
 });
-function summaryContext(sendMessage) {
-  const context = vm.createContext({ console, Date, chrome: { runtime: { sendMessage } } });
+function summaryContext(sendMessage, language = 'zh-TW') {
+  const context = vm.createContext({ console, Date, E3HelperI18n: { language }, chrome: { runtime: { sendMessage } } });
   vm.runInContext(['getAISummaryConfig', 'callSummaryProvider', 'generateAISummary', 'generateDailyDigest']
     .map(name => functionSource(content, name)).join('\n'), context);
   return context;
@@ -129,3 +129,19 @@ test('OpenAI rejects partial text from an incomplete response', async () => {
   assert.equal(result.success,false);
   assert.match(result.error,/max_output_tokens/);
 });
+
+for (const language of ['zh-TW', 'en']) {
+  test(`both summary providers use the selected ${language} output language`, async () => {
+    for (const provider of ['gemini', 'openai']) {
+      const requests = [];
+      const app = summaryContext((request, callback) => { requests.push(request); callback({ success: true, data: 'summary' }); }, language);
+      const config = { provider, apiKey: 'fixture', model: 'fixture-model' };
+      await app.generateAISummary('原始內文', config);
+      await app.generateDailyDigest([], config);
+      assert.ok(requests[0].content.includes(`Summarize in ${language === 'en' ? 'English' : 'Traditional Chinese'}`));
+      assert.ok(requests[1].content.includes(`使用${language === 'en' ? '英文' : '繁體中文'}寫一份精簡總覽`));
+      assert.ok(requests[1].content.includes(language === 'en' ? 'Check the original source to confirm' : '請查看原文確認'));
+      if (language === 'en') assert.ok(!requests[1].content.includes('請查看原文確認'));
+    }
+  });
+}

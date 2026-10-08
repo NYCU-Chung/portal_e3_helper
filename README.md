@@ -1,3 +1,5 @@
+[English guide](README.en.md)
+
 # NYCU E3 Helper
 
 優化陽明交通大學 E3 學習平台的使用體驗。
