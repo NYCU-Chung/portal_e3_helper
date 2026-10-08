@@ -1194,7 +1194,7 @@ async function sendAssignmentNotification(assignment) {
       message: ui`${assignment.name}\n📚 課程：${assignment.course}\n⏰ ${timeText}`,
       priority: 2,
       requireInteraction: false
-    }, assignment.url);
+    }, assignment.url).catch(() => console.warn('E3 Helper: 桌面通知排程失敗，仍保存側欄通知'));
 
     // 儲存到通知中心
     const storage = await chrome.storage.local.get(['notifications']);
@@ -1248,7 +1248,7 @@ async function sendGradingNotification(assignment) {
       message: ui`${assignment.name}\n📚 課程：${assignment.course}`,
       priority: 2,
       requireInteraction: false
-    }, assignment.url);
+    }, assignment.url).catch(() => console.warn('E3 Helper: 桌面通知排程失敗，仍保存側欄通知'));
 
     // 儲存到通知中心
     const storage = await chrome.storage.local.get(['notifications']);

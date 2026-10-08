@@ -35,7 +35,7 @@ function load(seed = {}, now = new Date(2026, 9, 1, 10).getTime(), desktopSuppor
   vm.runInContext(fs.readFileSync(require('node:path').join(__dirname, '../notification-api.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(require('node:path').join(__dirname, '../desktop-notifications.js'), 'utf8'), context);
   vm.runInContext(source, context);
-  return { engine: context.E3Notifications, data, desktop, requests, advance: ms => { now += ms; }, failDesktop: value => { failDesktop = value; }, listener, clicked, opened, cleared };
+  return { engine: context.E3Notifications, data, desktop, requests, advance: ms => { now += ms; }, failDesktop: value => { failDesktop = value; }, listener, clicked, opened, cleared, context };
 }
 const options = { type: 'basic', title: 'Test', message: 'Content' };
 test('immediate desktop delivery is deduplicated across worker restarts', async () => {
@@ -140,4 +140,91 @@ test('Chrome 93 callback delivery failures retry, persist and open trusted click
   const restarted = load(app.data, Date.now(), true, true);
   await restarted.engine.enqueue('callback', options);
   assert.equal(restarted.desktop.length, 0);
+});
+
+
+function queued(id, due) {
+  return { id, options, url: 'https://e3p.nycu.edu.tw/source', created: due - 1, due, delivered: {}, attempts: 0 };
+}
+test('unrelated saves preserve overdue daily alerts and future retry times', async () => {
+  const now = new Date(2026, 9, 8, 10).getTime();
+  const settings = { desktop: true, updates: true, mode: 'daily', time: '09:00', reminders: [] };
+  const app = load({ notificationSettings: settings, notificationQueue: [queued('overdue', now - 3600000), queued('retry', now + 120000)] }, now);
+  app.data.notificationSettings = { ...settings, updates: false };
+  app.listener({ notificationSettings: { oldValue: settings, newValue: app.data.notificationSettings } }, 'local');
+  await app.engine.tick();
+  assert.equal(app.desktop.length, 1);
+  assert.equal(app.data.notificationQueue[0].due, now + 120000);
+});
+test('timing changes reschedule future alerts while preserving already-due work', async () => {
+  const now = new Date(2026, 9, 8, 10).getTime();
+  const settings = { desktop: true, mode: 'daily', time: '09:00', reminders: [] };
+  const app = load({ notificationSettings: settings, notificationQueue: [queued('overdue', now - 1), queued('future', now + 86400000)] }, now);
+  app.data.notificationSettings = { ...settings, time: '12:00' };
+  app.listener({ notificationSettings: { oldValue: settings, newValue: app.data.notificationSettings } }, 'local');
+  await app.engine.tick();
+  assert.equal(app.desktop.length, 1);
+  assert.equal(app.data.notificationQueue[0].due, now + 7200000);
+});
+test('queue capacity failures reject explicitly and retain the warning until space is available', async () => {
+  const now = new Date(2026, 9, 8, 10).getTime();
+  const app = load({ notificationSettings: { mode: 'daily', time: '20:00', reminders: [] }, notificationQueue: Array.from({ length: 200 }, (_, i) => queued(`queued-${i}`, now + 3600000)) }, now);
+  await assert.rejects(app.engine.enqueue('overflow', options), /通知佇列已滿/);
+  assert.ok(app.data.notificationDeliveryError);
+  await app.engine.tick();
+  assert.ok(app.data.notificationDeliveryError);
+  assert.equal(app.data.notificationQueue.length, 200);
+  app.advance(3600000);
+  await app.engine.tick();
+  assert.equal(app.data.notificationDeliveryError, '');
+  await app.engine.enqueue('overflow', options);
+  assert.ok(app.data.notificationQueue.some(item => item.id === 'overflow'));
+});
+test('a click on the first visible alert opens E3 while later delivery is pending', async () => {
+  const now = Date.now();
+  const app = load({ notificationSettings: { reminders: [] }, notificationQueue: [queued('first', now - 1), queued('second', now - 1)] }, now);
+  let release, started;
+  const blocked = new Promise(resolve => { release = resolve; });
+  const entered = new Promise(resolve => { started = resolve; });
+  app.context.chrome.notifications.create = async id => { if (id === 'e3-alert-second') { started(); await blocked; } };
+  const processing = app.engine.tick();
+  await entered;
+  try {
+    app.clicked('e3-alert-first');
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(app.opened, ['https://e3p.nycu.edu.tw/source']);
+    assert.deepEqual(app.cleared, ['e3-alert-first']);
+  } finally { release(); await processing; }
+});
+
+test('overflowed storage updates survive restart and enqueue when capacity returns', async () => {
+  const now = new Date(2026, 9, 8, 10).getTime();
+  const app = load({ notificationSettings: { mode: 'daily', time: '20:00', reminders: [] }, notificationQueue: Array.from({ length: 200 }, (_, i) => queued(`queued-${i}`, now + 3600000)) }, now);
+  app.data.messages = [{ id: 'new', title: 'Original subject', url: 'https://e3p.nycu.edu.tw/source' }];
+  app.listener({ messages: { oldValue: [], newValue: app.data.messages } }, 'local');
+  await app.engine.tick();
+  assert.deepEqual(app.data.notificationPendingUpdates, [{ source: 'messages', id: 'new' }]);
+  assert.ok(app.data.notificationDeliveryError);
+  const restarted = load(app.data, now + 3600000);
+  await restarted.engine.tick();
+  await restarted.engine.tick();
+  assert.equal(restarted.data.notificationPendingUpdates.length, 0);
+  assert.equal(restarted.data.notificationDeliveryError, '');
+  assert.ok(restarted.data.notificationQueue.some(item => item.id === 'messages-new'));
+});
+
+test('assignment and grading sidebar entries remain available when desktop queue is full', async () => {
+  const background = fs.readFileSync(require('node:path').join(__dirname, '../background.js'), 'utf8');
+  for (const name of ['sendAssignmentNotification', 'sendGradingNotification']) {
+    const start = background.indexOf(`async function ${name}(`);
+    const fn = background.slice(start, background.indexOf('\n}', start) + 2);
+    const app = load({ notificationSettings: { reminders: [] } });
+    app.context.console = { log() {}, warn() {}, error() {} };
+    app.context.uiText = s => s;
+    app.context.ui = (parts, ...values) => parts.reduce((result, part, index) => result + part + (values[index] ?? ''), '');
+    app.context.E3Notifications.enqueue = async () => { throw new Error('Queue full'); };
+    vm.runInContext(fn, app.context);
+    await app.context[name]({ eventId: 'new', name: 'Original assignment', course: 'Original course', deadline: Date.now() + 3600000, url: 'https://e3p.nycu.edu.tw/source' });
+    assert.equal(app.data.notifications?.length, 1, name);
+  }
 });
