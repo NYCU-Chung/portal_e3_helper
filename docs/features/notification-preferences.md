@@ -11,3 +11,7 @@ The queue is processed every minute while the browser runs. Submitted, deleted, 
 Storage, delivery, permission checks, settings navigation and notification clicks use callback-compatible APIs for Chrome 93–94 as well as Promise implementations.
 
 Run `node --test tests/*.test.cjs` and `node tests/notification-ui-smoke.cjs` with Playwright available. Repeat the browser fixture with `UI_LANGUAGE=zh-TW` and `SAFARI_FIXTURE=1` to check Chinese and unsupported APIs. Add `CHROME_93_FIXTURE=1` to exercise callback-only APIs. Fixtures test dropdowns, timing, save status, responsive layout, deduplication, daily delivery, deadline cancellation, and retries. Actual OS banners and authenticated E3 updates require manual checks.
+
+### Real extension integration
+
+With Playwright's test Chromium installed (`npx playwright install chromium`), run `node tests/notification-extension-smoke.cjs`. Set `EXTENSION_PATH` to an extracted runtime ZIP to test the package itself. The fixture uses an isolated temporary profile and blocks external DNS; it exercises the actual MV3 worker, Chrome notifications/storage/alarms, options save/test, baseline/update delivery, daily queuing, browser restart persistence, delivery-error retry, deadline filtering and alarm dispatch. It clears its notifications and removes the profile afterward. OS banner visibility and physical notification clicks remain manual checks.
