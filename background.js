@@ -1,4 +1,4 @@
-importScripts('i18n.js');
+importScripts('i18n.js', 'notification-api.js', 'desktop-notifications.js', 'notification-engine.js');
 const uiText = E3HelperI18n.text;
 const ui = E3HelperI18n.template;
 // NYCU E3 Helper - Background Script (Service Worker)
@@ -132,6 +132,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     );
     return true;
   }
+  if (request.action === 'openNotificationSettings') {
+    chrome.runtime.openOptionsPage(() => {
+      sendResponse({ success: !chrome.runtime.lastError });
+    });
+    return true;
+  }
   if (request.action === 'download') {
     console.log(`E3 Helper: 收到下載請求 - ${request.filename}`);
 
@@ -196,25 +202,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     sendResponse({ success: true });
     return true;
   } else if (request.action === 'showNotification') {
-    // 發送桌面通知
-    console.log(`E3 Helper: 發送通知 - ${request.title}`);
-
-    chrome.notifications.create({
-      type: 'basic',
-      iconUrl: 'chrome-extension://' + chrome.runtime.id + '/128.png',
-      title: request.title,
-      message: request.message,
-      priority: 2,
-      requireInteraction: false
-    }, (notificationId) => {
-      if (chrome.runtime.lastError) {
-        console.error('E3 Helper: 發送通知失敗', chrome.runtime.lastError);
-        sendResponse({ success: false });
-      } else {
-        console.log(`E3 Helper: 通知已發送，ID: ${notificationId}`);
-        sendResponse({ success: true });
-      }
-    });
+    E3Notifications.enqueue(request.notificationId || `event-${Date.now()}-${Math.random().toString(36).slice(2)}`, {
+      type: 'basic', iconUrl: chrome.runtime.getURL('128.png'),
+      title: request.title, message: request.message
+    }, request.url).then(() => sendResponse({ success: true }), () => sendResponse({ success: false }));
 
     return true;
   } else if (request.action === 'checkParticipants') {
@@ -379,6 +370,7 @@ async function ensureAlarm(name, periodInMinutes) {
 // onInstalled（含更新）和 onStartup 都呼叫：舊用戶持久化的舊週期（公告原本 360）
 // 會在週期不符時被刷新成 30，週期已正確時則不動，不重置相位
 function setupAlarms() {
+  ensureAlarm('deliverE3Notifications', 1);
   ensureAlarm('syncE3Data', 60);          // 作業、課程
   ensureAlarm('checkParticipants', 60);   // 課程成員變動
   ensureAlarm('syncAnnouncementsAndMessages', 30); // 公告、信件（僅使用已開啟的 E3 分頁）
@@ -542,7 +534,9 @@ async function updateBadgeFromStorage() {
 
 // 監聽定時器
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'syncE3Data') {
+  if (alarm.name === 'deliverE3Notifications') {
+    E3Notifications.tick().catch(() => console.warn('E3 Helper: 通知處理失敗'));
+  } else if (alarm.name === 'syncE3Data') {
     console.log('E3 Helper: 定時同步觸發');
     syncE3Data();
   } else if (alarm.name === 'checkParticipants') {
@@ -1193,14 +1187,14 @@ async function sendAssignmentNotification(assignment) {
     }
 
     // 發送桌面通知
-    await chrome.notifications.create(`assignment-${assignment.eventId}`, {
+    await E3Notifications.enqueue(`assignment-${assignment.eventId}`, {
       type: 'basic',
       iconUrl: 'chrome-extension://' + chrome.runtime.id + '/128.png',
       title: uiText('📝 新作業上架！'),
       message: ui`${assignment.name}\n📚 課程：${assignment.course}\n⏰ ${timeText}`,
       priority: 2,
       requireInteraction: false
-    });
+    }, assignment.url).catch(() => console.warn('E3 Helper: 桌面通知排程失敗，仍保存側欄通知'));
 
     // 儲存到通知中心
     const storage = await chrome.storage.local.get(['notifications']);
@@ -1247,14 +1241,14 @@ async function sendGradingNotification(assignment) {
     const now = Date.now();
 
     // 發送桌面通知
-    await chrome.notifications.create(`grading-${assignment.eventId}`, {
+    await E3Notifications.enqueue(`grading-${assignment.eventId}`, {
       type: 'basic',
       iconUrl: 'chrome-extension://' + chrome.runtime.id + '/128.png',
       title: uiText('📊 作業已評分！'),
       message: ui`${assignment.name}\n📚 課程：${assignment.course}`,
       priority: 2,
       requireInteraction: false
-    });
+    }, assignment.url).catch(() => console.warn('E3 Helper: 桌面通知排程失敗，仍保存側欄通知'));
 
     // 儲存到通知中心
     const storage = await chrome.storage.local.get(['notifications']);

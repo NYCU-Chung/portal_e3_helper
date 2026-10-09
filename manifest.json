@@ -47,5 +47,9 @@
     "48": "128.png",
     "128": "128.png"
   },
-  "default_locale": "zh_TW"
+  "default_locale": "zh_TW",
+  "options_ui": {
+    "page": "notification-settings.html",
+    "open_in_tab": true
+  }
 }

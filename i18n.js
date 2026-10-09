@@ -482,6 +482,7 @@
   "作業已更新": "Assignment updated",
   "作業已新增": "Assignment added",
   "尚未評分": "Not graded yet",
+  "無法開啟通知設定。": "Unable to open notification settings.",
   "新作業": "New assignment",
   "緊急作業": "Due soon",
   "截止提醒": "Deadline reminder",

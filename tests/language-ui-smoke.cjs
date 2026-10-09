@@ -16,7 +16,7 @@ const path = require('node:path');
       const read = () => JSON.parse(localStorage.getItem('fixture') || JSON.stringify(seed));
       window.chrome = {
         i18n: { getUILanguage: () => 'zh-TW' },
-        runtime: { id: 'test', getManifest: () => ({ version: '2.2.0' }), getURL: p => p, onMessage: { addListener() {} }, sendMessage: (message, callback) => { const result = { success: true }; callback?.(result); return Promise.resolve(result); } },
+        runtime: { id: 'test', getManifest: () => ({ version: '2.2.0' }), getURL: p => p, onMessage: { addListener() {} }, sendMessage: (message, callback) => { if (message.action === 'openNotificationSettings') { window.openedNotificationSettings = true; callback({ success: true }); return undefined; } const result = { success: true }; callback?.(result); return Promise.resolve(result); } },
         storage: {
           onChanged: { addListener: listener => changes.push(listener) },
           local: {
@@ -93,6 +93,8 @@ const path = require('node:path');
     await page.locator('#e3-helper-more-btn').click();
     await page.locator('#e3-helper-settings-btn').click();
     assert.equal(await page.locator('#e3-helper-language').inputValue(), 'en');
+    await page.locator('#e3-helper-notification-settings').click();
+    assert.equal(await page.evaluate(() => window.openedNotificationSettings), true);
     assert.ok((await page.locator('#e3-helper-settings-modal').innerText()).includes('Saving a new language refreshes this page.'));
     await page.locator('#e3-helper-enable-ai').check();
     const settings = await page.locator('#e3-helper-settings-modal').innerText();
