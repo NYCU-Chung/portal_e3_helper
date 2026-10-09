@@ -65,6 +65,42 @@ const path = require('node:path');
     });
     assert.equal(disabled.settings.desktop, false);
     assert.equal(disabled.active['e3-alert-integration-off'], undefined);
+    // Pause delivery after link persistence, then save disable through the real
+    // options page while its storage-change handler waits behind this tick.
+    await page.locator('#desktop').check();
+    await page.locator('#save').click();
+    await page.waitForFunction(() => document.getElementById('status').dataset.state === 'success');
+    await worker.evaluate(async () => {
+      await E3Notifications.tick();
+      const now = Date.now();
+      await chrome.storage.local.set({ notificationQueue: [{
+        id: 'integration-disable-race', due: now - 1, created: now - 2, delivered: {}, attempts: 0,
+        options: { type: 'basic', iconUrl: chrome.runtime.getURL('128.png'), title: 'Disable race', message: 'Must not deliver' }
+      }] });
+      const set = E3NotificationAPI.set;
+      let entered;
+      const paused = new Promise(resolve => { entered = resolve; });
+      const blocked = new Promise(resolve => { globalThis.releaseDelivery = resolve; });
+      E3NotificationAPI.set = async value => {
+        await set(value);
+        if (value.notificationLinks && !value.notificationQueue) { entered(); await blocked; }
+      };
+      globalThis.pendingDelivery = E3Notifications.tick().finally(() => { E3NotificationAPI.set = set; });
+      await paused;
+    });
+    await page.locator('#desktop').uncheck();
+    await page.locator('#save').click();
+    await page.waitForFunction(() => document.getElementById('status').dataset.state === 'success');
+    const raced = await worker.evaluate(async () => {
+      releaseDelivery();
+      await pendingDelivery;
+      await E3Notifications.tick();
+      delete globalThis.releaseDelivery;
+      delete globalThis.pendingDelivery;
+      return { active: await chrome.notifications.getAll(), storage: await chrome.storage.local.get('notificationQueue') };
+    });
+    assert.equal(raced.active['e3-alert-integration-disable-race'], undefined);
+    assert.equal(raced.storage.notificationQueue.length, 0);
     await page.locator('#desktop').check();
     await page.locator('input[value=daily]').check();
     await page.locator('#time').fill('23:59');
@@ -121,7 +157,7 @@ const path = require('node:path');
     const reminders = await worker.evaluate(async () => {
       const deadline = Date.now() + 1800000;
       await chrome.storage.local.set({
-        notificationSettings: { desktop: true, updates: true, mode: 'instant', reminders: [1] },
+        notificationSettings: { desktop: true, updates: true, mode: 'instant', reminders: [24, 1] },
         assignments: [
           { eventId: 'live', name: 'Active deadline', deadline },
           { eventId: 'submitted', name: 'Already submitted', deadline, manualStatus: 'submitted' },
@@ -131,7 +167,8 @@ const path = require('node:path');
       await E3Notifications.tick();
       return Object.keys(await chrome.notifications.getAll());
     });
-    assert.ok(reminders.some(id => id.startsWith('e3-alert-deadline-live-')));
+    assert.equal(reminders.filter(id => id.startsWith('e3-alert-deadline-live-')).length, 1);
+    assert.ok(reminders.some(id => /^e3-alert-deadline-live-\d+-1$/.test(id)));
     assert.ok(!reminders.some(id => /deadline-(submitted|expired)-/.test(id)));
 
     // Fire the real Chrome alarm to verify background.js dispatches to the engine.
@@ -146,7 +183,7 @@ const path = require('node:path');
     const alarmPage = await context.newPage();
     await alarmPage.goto(`chrome-extension://${id}/notification-settings.html`);
     await alarmPage.waitForFunction(async () => Boolean((await chrome.notifications.getAll())['e3-alert-integration-alarm']), null, { timeout: 15000 });
-    console.log('Passed: packaged MV3 worker, real notification APIs, options save/test, storage update delivery, alarm registration, disable/daily scheduling, browser restart persistence, failed-delivery retry, deadline filtering and actual alarm dispatch.');
+    console.log('Passed: packaged MV3 worker, real notification APIs, options save/test, storage update delivery, alarm registration, saved-disable delivery race, daily scheduling, browser restart persistence, failed-delivery retry, missed-threshold collapse, deadline filtering and actual alarm dispatch.');
   } finally {
     if (context) {
       for (const worker of context.serviceWorkers()) {

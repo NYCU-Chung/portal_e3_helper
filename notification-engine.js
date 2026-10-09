@@ -7,6 +7,12 @@
       time: /^([01]\d|2[0-3]):[0-5]\d$/.test(value.time || '') ? value.time : defaults.time,
       reminders: (Array.isArray(value.reminders) ? value.reminders : defaults.reminders).filter(h => Number.isFinite(h) && h > 0 && h <= 720) };
   }
+  function currentReminder(settings, left) {
+    if (!Number.isFinite(left) || left <= 0) return;
+    // On wake-up, use the nearest elapsed cutoff rather than backfilling each
+    // historical threshold. A later, closer cutoff can still notify normally.
+    return settings.reminders.filter(hours => left <= hours * 3600000).sort((a, b) => a - b)[0];
+  }
   function dueAt(settings, now) {
     if (settings.mode !== 'daily') return now;
     const date = new Date(now);
@@ -61,15 +67,13 @@
     for (const assignment of data.assignments || []) {
       if (assignment.manualStatus === 'submitted' || data.assignmentStatuses?.[assignment.eventId] === 'submitted') continue;
       const left = Number(assignment.deadline) - now;
-      if (!Number.isFinite(left) || left <= 0) continue;
-      for (const hours of settings.reminders) {
-        if (left > hours * 3600000) continue;
-        await add(`deadline-${assignment.eventId}-${assignment.deadline}-${hours}`, {
-          type: 'basic', iconUrl: chrome.runtime.getURL('128.png'),
-          title: E3HelperI18n.text('作業即將截止'),
-          message: `${assignment.name}\n${assignment.course || ''}\n${new Date(assignment.deadline).toLocaleString(E3HelperI18n.language)}`
-        }, assignment.url, now, { eventId: assignment.eventId, timestamp: Number(assignment.deadline), hours });
-      }
+      const hours = currentReminder(settings, left);
+      if (hours === undefined) continue;
+      await add(`deadline-${assignment.eventId}-${assignment.deadline}-${hours}`, {
+        type: 'basic', iconUrl: chrome.runtime.getURL('128.png'),
+        title: E3HelperI18n.text('作業即將截止'),
+        message: `${assignment.name}\n${assignment.course || ''}\n${new Date(assignment.deadline).toLocaleString(E3HelperI18n.language)}`
+      }, assignment.url, now, { eventId: assignment.eventId, timestamp: Number(assignment.deadline), hours });
     }
     data = await E3NotificationAPI.get(['notificationQueue', 'notificationHistory', 'notificationLinks', 'notificationDeliveryError']);
     const history = data.notificationHistory || [];
@@ -83,21 +87,33 @@
       if (item.deadline && !settings.reminders.includes(item.deadline.hours)) { history.push(item.id); continue; }
       if (item.deadline) {
         const assignment = (assignments.assignments || []).find(a => String(a.eventId) === String(item.deadline.eventId));
-        if (!assignment || Number(assignment.deadline) !== item.deadline.timestamp || item.deadline.timestamp <= now || assignment.manualStatus === 'submitted' || assignments.assignmentStatuses?.[assignment.eventId] === 'submitted') {
+        if (!assignment || Number(assignment.deadline) !== item.deadline.timestamp || item.deadline.timestamp <= now || assignment.manualStatus === 'submitted' || assignments.assignmentStatuses?.[assignment.eventId] === 'submitted' || item.deadline.hours !== currentReminder(settings, item.deadline.timestamp - now)) {
           history.push(item.id); continue;
         }
       }
       if (item.due > now) { remaining.push(item); continue; }
+      let deliverySettings = settings;
       if (settings.desktop && !item.delivered.desktop) {
         try {
           const id = `e3-alert-${item.id}`;
           links[id] = item.url || 'https://e3p.nycu.edu.tw/';
           await E3NotificationAPI.set({ notificationLinks: Object.fromEntries(Object.entries(links).slice(-200)) });
-          await E3DesktopNotifications.create(id, item.options, item.url);
-          item.delivered.desktop = true;
+          // Settings writes happen in the options page independently of this
+          // serial worker queue. Read again after link persistence, immediately
+          // before create, so a saved disable applies to this delivery too.
+          const latest = await E3NotificationAPI.get('notificationSettings');
+          deliverySettings = normalize(latest.notificationSettings);
+          if ((!deliverySettings.updates && /^(announcements|messages)-/.test(item.id)) ||
+              (item.deadline && item.deadline.hours !== currentReminder(deliverySettings, item.deadline.timestamp - now))) {
+            history.push(item.id); continue;
+          }
+          if (deliverySettings.desktop) {
+            await E3DesktopNotifications.create(id, item.options, item.url);
+            item.delivered.desktop = true;
+          }
         } catch { deliveryError = '桌面通知失敗，請檢查瀏覽器與系統通知設定。'; }
       }
-      if (!settings.desktop || item.delivered.desktop) history.push(item.id);
+      if (!deliverySettings.desktop || item.delivered.desktop) history.push(item.id);
       else {
         item.attempts++;
         item.due = now + Math.min(3600000, 60000 * 2 ** Math.min(item.attempts, 6));

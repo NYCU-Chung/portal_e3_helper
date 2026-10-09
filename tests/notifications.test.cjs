@@ -228,3 +228,114 @@ test('assignment and grading sidebar entries remain available when desktop queue
     assert.equal(app.data.notifications?.length, 1, name);
   }
 });
+
+test('waking with 30 minutes remaining sends only the current deadline threshold', async () => {
+  const now = new Date(2026, 9, 9, 10).getTime();
+  const app = load({ assignments: [{ eventId: 'a', name: 'Task', deadline: now + 1800000 }], notificationSettings: { reminders: [24, 1] } }, now);
+  await app.engine.tick();
+  assert.deepEqual(app.desktop.map(([id]) => id), [`e3-alert-deadline-a-${now + 1800000}-1`]);
+  await app.engine.tick();
+  const restarted = load(app.data, now);
+  await restarted.engine.tick();
+  assert.equal(app.desktop.length, 1);
+  assert.equal(restarted.desktop.length, 0);
+});
+
+test('a saved disable during link persistence prevents the pending visible alert', async () => {
+  const now = Date.now();
+  const settings = { desktop: true, reminders: [] };
+  const app = load({ notificationSettings: settings, notificationQueue: [queued('first', now - 1)] }, now);
+  let release, started;
+  const blocked = new Promise(resolve => { release = resolve; });
+  const entered = new Promise(resolve => { started = resolve; });
+  const set = app.context.chrome.storage.local.set;
+  app.context.chrome.storage.local.set = async value => {
+    await set(value);
+    if (value.notificationLinks && !value.notificationQueue) { started(); await blocked; }
+  };
+  const processing = app.engine.tick();
+  await entered;
+  try {
+    const disabled = { ...settings, desktop: false };
+    await app.context.E3NotificationAPI.set({ notificationSettings: disabled });
+    app.listener({ notificationSettings: { oldValue: settings, newValue: disabled } }, 'local');
+  } finally { release(); await processing; }
+  await app.engine.tick();
+  assert.equal(app.desktop.length, 0);
+  assert.equal(app.data.notificationQueue.length, 0);
+});
+
+test('normal threshold progression still sends the 24-hour and then the 1-hour reminder', async () => {
+  const now = Date.now();
+  const deadline = now + 25 * 3600000;
+  const app = load({ assignments: [{ eventId: 'a', name: 'Task', deadline }], notificationSettings: { reminders: [1, 24, 24] } }, now);
+  await app.engine.tick();
+  assert.equal(app.desktop.length, 0);
+  app.advance(3600000);
+  await app.engine.tick();
+  assert.deepEqual(app.desktop.map(([id]) => id), [`e3-alert-deadline-a-${deadline}-24`]);
+  app.advance(23 * 3600000);
+  await app.engine.tick();
+  assert.deepEqual(app.desktop.map(([id]) => id), [`e3-alert-deadline-a-${deadline}-24`, `e3-alert-deadline-a-${deadline}-1`]);
+});
+
+test('a queued or retrying historical deadline is superseded by the current threshold', async () => {
+  const now = Date.now();
+  const deadline = now + 1800000;
+  for (const attempts of [0, 2]) {
+    const old = { ...queued(`deadline-a-${deadline}-24`, now - 1), attempts, deadline: { eventId: 'a', timestamp: deadline, hours: 24 } };
+    const current = { ...queued(`deadline-a-${deadline}-1`, now - 1), deadline: { eventId: 'a', timestamp: deadline, hours: 1 } };
+    const app = load({ assignments: [{ eventId: 'a', name: 'Task', deadline }], notificationSettings: { mode: 'daily', reminders: [24, 1] }, notificationQueue: [old, current] }, now);
+    await app.engine.tick();
+    assert.deepEqual(app.desktop.map(([id]) => id), [`e3-alert-deadline-a-${deadline}-1`]);
+    assert.equal(app.data.notificationQueue.length, 0);
+  }
+});
+
+test('a disable saved during the first delivery prevents subsequent batch alerts on callback-only Chrome', async () => {
+  const now = Date.now();
+  const settings = { desktop: true, reminders: [] };
+  const app = load({ notificationSettings: settings, notificationQueue: [queued('first', now - 1), queued('second', now - 1)] }, now, true, true);
+  let release, started;
+  const blocked = new Promise(resolve => { release = resolve; });
+  const entered = new Promise(resolve => { started = resolve; });
+  const create = app.context.chrome.notifications.create;
+  app.context.chrome.notifications.create = (id, options, callback) => {
+    if (id === 'e3-alert-first') {
+      started();
+      blocked.then(() => create(id, options, callback));
+    } else create(id, options, callback);
+  };
+  const processing = app.engine.tick();
+  await entered;
+  try {
+    const disabled = { ...settings, desktop: false };
+    await app.context.E3NotificationAPI.set({ notificationSettings: disabled });
+    app.listener({ notificationSettings: { oldValue: settings, newValue: disabled } }, 'local');
+  } finally { release(); await processing; }
+  await app.engine.tick();
+  assert.deepEqual(app.desktop.map(([id]) => id), ['e3-alert-first']);
+  assert.equal(app.data.notificationQueue.length, 0);
+});
+
+test('delivery revalidates saved update and reminder preferences after link persistence', async () => {
+  const now = Date.now();
+  const deadline = now + 1800000;
+  for (const kind of ['updates', 'reminders']) {
+    const settings = { desktop: true, updates: true, reminders: [1] };
+    const item = kind === 'updates' ? queued('messages-new', now - 1) : {
+      ...queued(`deadline-a-${deadline}-1`, now - 1), deadline: { eventId: 'a', timestamp: deadline, hours: 1 }
+    };
+    const app = load({ notificationSettings: settings, assignments: [{ eventId: 'a', name: 'Task', deadline }], notificationQueue: [item] }, now);
+    const set = app.context.chrome.storage.local.set;
+    app.context.chrome.storage.local.set = async value => {
+      await set(value);
+      if (value.notificationLinks && !value.notificationQueue) {
+        await app.context.E3NotificationAPI.set({ notificationSettings: { ...settings, [kind]: kind === 'updates' ? false : [] } });
+      }
+    };
+    await app.engine.tick();
+    assert.equal(app.desktop.some(([id]) => id === `e3-alert-${item.id}`), false, kind);
+    assert.equal(app.data.notificationQueue.length, 0);
+  }
+});
