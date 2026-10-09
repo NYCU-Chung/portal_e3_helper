@@ -381,7 +381,7 @@ async function ensureAlarm(name, periodInMinutes) {
 function setupAlarms() {
   ensureAlarm('syncE3Data', 60);          // 作業、課程
   ensureAlarm('checkParticipants', 60);   // 課程成員變動
-  ensureAlarm('syncAnnouncementsAndMessages', 30); // 公告、信件（無 E3 分頁時開隱藏背景分頁抓）
+  ensureAlarm('syncAnnouncementsAndMessages', 30); // 公告、信件（僅使用已開啟的 E3 分頁）
 }
 
 // 清掃殘留的隱藏背景同步分頁
@@ -1580,7 +1580,7 @@ async function fetchContentFromE3(url) {
 
 // 定時靜默同步公告和信件
 // 有 E3 標籤頁 → 直接請該分頁同步（最省，不另開分頁）
-// 沒有 E3 標籤頁 → 開隱藏背景分頁抓取，抓完即關（讓沒開 E3 時也能即時更新）
+// 沒有 E3 標籤頁 → 跳過，避免定時同步自行開啟分頁或登入頁
 async function syncAnnouncementsAndMessagesSilently() {
   console.log('E3 Helper: 開始靜默同步公告和信件...', new Date().toLocaleTimeString());
 
@@ -1591,17 +1591,8 @@ async function syncAnnouncementsAndMessagesSilently() {
     });
 
     if (tabs.length === 0) {
-      // 沒有開啟的 E3 標籤頁，改用隱藏背景分頁抓取（loadAnnouncementsAndMessagesInBackground
-      // 會開 active:false 分頁、跑完同步、再自動關閉）
-      console.log('E3 Helper: 無 E3 標籤頁，改用隱藏背景分頁同步');
-      try {
-        const result = await loadAnnouncementsAndMessagesInBackground();
-        updateBadgeFromStorage();
-        return result;
-      } catch (error) {
-        console.error('E3 Helper: 背景分頁同步失敗', error);
-        return { success: false, error: error.message };
-      }
+      console.log('E3 Helper: 無 E3 標籤頁，跳過定時公告和信件同步');
+      return { success: false, reason: 'no_e3_tab' };
     }
 
     // 使用第一個 E3 標籤頁

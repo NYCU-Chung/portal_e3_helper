@@ -75,7 +75,7 @@ In **Downloads**, use **Scan this page** on an E3 page, or **Select courses** to
 
 Background sync runs every 60 minutes for assignments, courses and membership checks, and every 30 minutes for announcements and messages. The open sidebar also checks for stale assignment/course data. Manual **Sync** updates assignments and courses; use **Reload** in Announcements for announcements and messages.
 
-The helper can display saved data and load E3 data in the background from ordinary websites. Background loading may briefly create an inactive E3 tab and close it afterward. Scanning the current page requires opening the relevant E3 page.
+The helper can display saved data and load E3 data in the background from ordinary websites. Scheduled announcement and message synchronization only uses existing E3 tabs and skips when none are open. Manual loading may briefly create an inactive E3 tab and close it afterward. Scanning the current page requires opening the relevant E3 page.
 
 ## AI settings and privacy
 
