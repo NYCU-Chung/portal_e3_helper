@@ -15,7 +15,7 @@ const fs = require('node:fs');
     await page.addInitScript(({ safari, language, native, callbackOnly }) => {
       window.fixture = { interfaceLanguage: language };
       window.chrome = {
-        i18n: { getUILanguage: () => language }, runtime: { getURL: p => native ? `safari-web-extension://test/${p}` : p, sendNativeMessage: async (app, message) => { window.nativeMessage = message; if (message.action === 'showNotification') window.notification = message; return { success: true, permission: 'granted' }; } },
+        i18n: { getUILanguage: () => language }, runtime: { getManifest: () => ({ permissions: native ? ['nativeMessaging'] : [] }), getURL: p => native ? `safari-web-extension://test/${p}` : p, sendNativeMessage: async (app, message) => { window.nativeMessage = message; if (message.action === 'showNotification') window.notification = message; return { success: true, permission: 'granted' }; } },
         storage: { local: { get: async () => window.fixture, set: async value => Object.assign(window.fixture, value) }, onChanged: { addListener() {} } },
         notifications: safari ? undefined : { getPermissionLevel: async () => 'granted', create: async (...args) => { window.notification = args; } }
       };

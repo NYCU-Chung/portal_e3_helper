@@ -1,0 +1,629 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 110;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		E30300000000000000000001 /* notification-api.js in Resources */ = {isa = PBXBuildFile; fileRef = E30300000000000000000002 /* notification-api.js */; };
+        E30100000000000000000001 /* desktop-notifications.js in Resources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000002 /* desktop-notifications.js */; };
+		47019749306E4721001631FD /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47019748306E4721001631FD /* AppDelegate.swift */; };
+		4701974D306E4721001631FD /* Main.html in Resources */ = {isa = PBXBuildFile; fileRef = 4701974B306E4721001631FD /* Main.html */; };
+		4701974F306E4721001631FD /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = 4701974E306E4721001631FD /* Icon.png */; };
+		47019751306E4721001631FD /* Style.css in Resources */ = {isa = PBXBuildFile; fileRef = 47019750306E4721001631FD /* Style.css */; };
+		47019753306E4721001631FD /* Script.js in Resources */ = {isa = PBXBuildFile; fileRef = 47019752306E4721001631FD /* Script.js */; };
+		47019755306E4721001631FD /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47019754306E4721001631FD /* ViewController.swift */; };
+		47019758306E4721001631FD /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 47019756306E4721001631FD /* Main.storyboard */; };
+		4701975A306E4722001631FD /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 47019759306E4722001631FD /* Assets.xcassets */; };
+		47019761306E4722001631FD /* NYCU E3 Helper Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 47019760306E4722001631FD /* NYCU E3 Helper Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		47019766306E4722001631FD /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47019765306E4722001631FD /* SafariWebExtensionHandler.swift */; };
+		4701977D306E4722001631FD /* notification-settings.js in Resources */ = {isa = PBXBuildFile; fileRef = 47019772306E4722001631FD /* notification-settings.js */; };
+		4701977E306E4722001631FD /* background.js in Resources */ = {isa = PBXBuildFile; fileRef = 47019773306E4722001631FD /* background.js */; };
+		4701977F306E4722001631FD /* jszip.min.js in Resources */ = {isa = PBXBuildFile; fileRef = 47019774306E4722001631FD /* jszip.min.js */; };
+		47019780306E4722001631FD /* 128.png in Resources */ = {isa = PBXBuildFile; fileRef = 47019775306E4722001631FD /* 128.png */; };
+		47019781306E4722001631FD /* notification-settings.html in Resources */ = {isa = PBXBuildFile; fileRef = 47019776306E4722001631FD /* notification-settings.html */; };
+		47019782306E4722001631FD /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 47019777306E4722001631FD /* manifest.json */; };
+		47019783306E4722001631FD /* notification-engine.js in Resources */ = {isa = PBXBuildFile; fileRef = 47019778306E4722001631FD /* notification-engine.js */; };
+		47019784306E4722001631FD /* notification-settings.css in Resources */ = {isa = PBXBuildFile; fileRef = 47019779306E4722001631FD /* notification-settings.css */; };
+		47019785306E4722001631FD /* _locales in Resources */ = {isa = PBXBuildFile; fileRef = 4701977A306E4722001631FD /* _locales */; };
+		47019786306E4722001631FD /* content.js in Resources */ = {isa = PBXBuildFile; fileRef = 4701977B306E4722001631FD /* content.js */; };
+		47019787306E4722001631FD /* i18n.js in Resources */ = {isa = PBXBuildFile; fileRef = 4701977C306E4722001631FD /* i18n.js */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		47019762306E4722001631FD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4701973D306E4721001631FD /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4701975F306E4722001631FD;
+			remoteInfo = "NYCU E3 Helper Extension";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		4701976D306E4722001631FD /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "";
+			dstSubfolder = PlugIns;
+			files = (
+				47019761306E4722001631FD /* NYCU E3 Helper Extension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		E30300000000000000000002 /* notification-api.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "notification-api.js"; path = "Resources/notification-api.js"; sourceTree = "<group>"; };
+        E30100000000000000000002 /* desktop-notifications.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "desktop-notifications.js"; path = "Resources/desktop-notifications.js"; sourceTree = "<group>"; };
+		47019745306E4721001631FD /* NYCU E3 Helper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "NYCU E3 Helper.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		47019748306E4721001631FD /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		4701974C306E4721001631FD /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = Base; path = Base.lproj/Main.html; sourceTree = "<group>"; };
+		4701974E306E4721001631FD /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Icon.png; sourceTree = "<group>"; };
+		47019750306E4721001631FD /* Style.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = Style.css; sourceTree = "<group>"; };
+		47019752306E4721001631FD /* Script.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = Script.js; sourceTree = "<group>"; };
+		47019754306E4721001631FD /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		47019757306E4721001631FD /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		47019759306E4722001631FD /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		4701975B306E4722001631FD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		47019760306E4722001631FD /* NYCU E3 Helper Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "NYCU E3 Helper Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		47019765306E4722001631FD /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
+		47019767306E4722001631FD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		47019772306E4722001631FD /* notification-settings.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "notification-settings.js"; path = "Resources/notification-settings.js"; sourceTree = "<group>"; };
+		47019773306E4722001631FD /* background.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = background.js; path = Resources/background.js; sourceTree = "<group>"; };
+		47019774306E4722001631FD /* jszip.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = jszip.min.js; path = Resources/jszip.min.js; sourceTree = "<group>"; };
+		47019775306E4722001631FD /* 128.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = 128.png; path = Resources/128.png; sourceTree = "<group>"; };
+		47019776306E4722001631FD /* notification-settings.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = "notification-settings.html"; path = "Resources/notification-settings.html"; sourceTree = "<group>"; };
+		47019777306E4722001631FD /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = manifest.json; path = Resources/manifest.json; sourceTree = "<group>"; };
+		47019778306E4722001631FD /* notification-engine.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "notification-engine.js"; path = "Resources/notification-engine.js"; sourceTree = "<group>"; };
+		47019779306E4722001631FD /* notification-settings.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; name = "notification-settings.css"; path = "Resources/notification-settings.css"; sourceTree = "<group>"; };
+		4701977A306E4722001631FD /* _locales */ = {isa = PBXFileReference; lastKnownFileType = folder; name = _locales; path = Resources/_locales; sourceTree = "<group>"; };
+		4701977B306E4722001631FD /* content.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = content.js; path = Resources/content.js; sourceTree = "<group>"; };
+		4701977C306E4722001631FD /* i18n.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = i18n.js; path = Resources/i18n.js; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		47019742306E4721001631FD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		4701975D306E4722001631FD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		4701973C306E4721001631FD = {
+			isa = PBXGroup;
+			children = (
+				47019747306E4721001631FD /* NYCU E3 Helper */,
+				47019764306E4722001631FD /* NYCU E3 Helper Extension */,
+				47019746306E4721001631FD /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		47019746306E4721001631FD /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				47019745306E4721001631FD /* NYCU E3 Helper.app */,
+				47019760306E4722001631FD /* NYCU E3 Helper Extension.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		47019747306E4721001631FD /* NYCU E3 Helper */ = {
+			isa = PBXGroup;
+			children = (
+				47019748306E4721001631FD /* AppDelegate.swift */,
+				47019754306E4721001631FD /* ViewController.swift */,
+				47019756306E4721001631FD /* Main.storyboard */,
+				47019759306E4722001631FD /* Assets.xcassets */,
+				4701975B306E4722001631FD /* Info.plist */,
+				4701974A306E4721001631FD /* Resources */,
+			);
+			path = "NYCU E3 Helper";
+			sourceTree = "<group>";
+		};
+		4701974A306E4721001631FD /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				4701974B306E4721001631FD /* Main.html */,
+				4701974E306E4721001631FD /* Icon.png */,
+				47019750306E4721001631FD /* Style.css */,
+				47019752306E4721001631FD /* Script.js */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		47019764306E4722001631FD /* NYCU E3 Helper Extension */ = {
+			isa = PBXGroup;
+			children = (
+				47019771306E4722001631FD /* Resources */,
+				47019765306E4722001631FD /* SafariWebExtensionHandler.swift */,
+				47019767306E4722001631FD /* Info.plist */,
+			);
+			path = "NYCU E3 Helper Extension";
+			sourceTree = "<group>";
+		};
+		47019771306E4722001631FD /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				E30100000000000000000002 /* desktop-notifications.js */,
+                47019772306E4722001631FD /* notification-settings.js */,
+				47019773306E4722001631FD /* background.js */,
+				47019774306E4722001631FD /* jszip.min.js */,
+				47019775306E4722001631FD /* 128.png */,
+				47019776306E4722001631FD /* notification-settings.html */,
+				47019777306E4722001631FD /* manifest.json */,
+				47019778306E4722001631FD /* notification-engine.js */,
+				E30300000000000000000002 /* notification-api.js */,
+				47019779306E4722001631FD /* notification-settings.css */,
+				4701977A306E4722001631FD /* _locales */,
+				4701977B306E4722001631FD /* content.js */,
+				4701977C306E4722001631FD /* i18n.js */,
+			);
+			name = Resources;
+			path = "NYCU E3 Helper Extension";
+			sourceTree = SOURCE_ROOT;
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		47019744306E4721001631FD /* NYCU E3 Helper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4701976E306E4722001631FD /* Build configuration list for PBXNativeTarget "NYCU E3 Helper" */;
+			buildPhases = (
+				47019741306E4721001631FD /* Sources */,
+				47019742306E4721001631FD /* Frameworks */,
+				47019743306E4721001631FD /* Resources */,
+				4701976D306E4722001631FD /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				47019763306E4722001631FD /* PBXTargetDependency */,
+			);
+			name = "NYCU E3 Helper";
+			productName = "NYCU E3 Helper";
+			productReference = 47019745306E4721001631FD /* NYCU E3 Helper.app */;
+			productType = "com.apple.product-type.application";
+		};
+		4701975F306E4722001631FD /* NYCU E3 Helper Extension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4701976A306E4722001631FD /* Build configuration list for PBXNativeTarget "NYCU E3 Helper Extension" */;
+			buildPhases = (
+				4701975C306E4722001631FD /* Sources */,
+				4701975D306E4722001631FD /* Frameworks */,
+				4701975E306E4722001631FD /* Resources */,
+			);
+			buildRules = (
+			);
+			name = "NYCU E3 Helper Extension";
+			productName = "NYCU E3 Helper Extension";
+			productReference = 47019760306E4722001631FD /* NYCU E3 Helper Extension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4701973D306E4721001631FD /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2700;
+				LastUpgradeCheck = 2700;
+				TargetAttributes = {
+					47019744306E4721001631FD = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					4701975F306E4722001631FD = {
+						CreatedOnToolsVersion = 27.0;
+					};
+				};
+			};
+			buildConfigurationList = 47019740306E4721001631FD /* Build configuration list for PBXProject "NYCU E3 Helper" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 4701973C306E4721001631FD;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 47019746306E4721001631FD /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				47019744306E4721001631FD /* NYCU E3 Helper */,
+				4701975F306E4722001631FD /* NYCU E3 Helper Extension */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		47019743306E4721001631FD /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+				4701974F306E4721001631FD /* Icon.png in Resources */,
+				47019758306E4721001631FD /* Main.storyboard in Resources */,
+				47019753306E4721001631FD /* Script.js in Resources */,
+				4701974D306E4721001631FD /* Main.html in Resources */,
+				4701975A306E4722001631FD /* Assets.xcassets in Resources */,
+				47019751306E4721001631FD /* Style.css in Resources */,
+			);
+		};
+		4701975E306E4722001631FD /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+				47019785306E4722001631FD /* _locales in Resources */,
+				4701977E306E4722001631FD /* background.js in Resources */,
+				47019780306E4722001631FD /* 128.png in Resources */,
+				4701977F306E4722001631FD /* jszip.min.js in Resources */,
+				47019786306E4722001631FD /* content.js in Resources */,
+				47019781306E4722001631FD /* notification-settings.html in Resources */,
+				47019782306E4722001631FD /* manifest.json in Resources */,
+				47019784306E4722001631FD /* notification-settings.css in Resources */,
+				47019787306E4722001631FD /* i18n.js in Resources */,
+				47019783306E4722001631FD /* notification-engine.js in Resources */,
+				E30300000000000000000001 /* notification-api.js in Resources */,
+				E30100000000000000000001 /* desktop-notifications.js in Resources */,
+                4701977D306E4722001631FD /* notification-settings.js in Resources */,
+			);
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		47019741306E4721001631FD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+				47019755306E4721001631FD /* ViewController.swift in Sources */,
+				47019749306E4721001631FD /* AppDelegate.swift in Sources */,
+			);
+		};
+		4701975C306E4722001631FD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+				47019766306E4722001631FD /* SafariWebExtensionHandler.swift in Sources */,
+			);
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		47019763306E4722001631FD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4701975F306E4722001631FD /* NYCU E3 Helper Extension */;
+			targetProxy = 47019762306E4722001631FD /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		4701974B306E4721001631FD /* Main.html */ = {
+			isa = PBXVariantGroup;
+			children = (
+				4701974C306E4721001631FD /* Base */,
+			);
+			name = Main.html;
+			sourceTree = "<group>";
+		};
+		47019756306E4721001631FD /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				47019757306E4721001631FD /* Base */,
+			);
+			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		47019768306E4722001631FD /* Debug configuration for PBXProject "NYCU E3 Helper" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		47019769306E4722001631FD /* Release configuration for PBXProject "NYCU E3 Helper" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		4701976B306E4722001631FD /* Debug configuration for PBXNativeTarget "NYCU E3 Helper Extension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 5XHJTS2WUD;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "NYCU E3 Helper Extension/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "NYCU E3 Helper Extension";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 2.2.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yoyo1112.nycu-e3-helper.Extension";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		4701976C306E4722001631FD /* Release configuration for PBXNativeTarget "NYCU E3 Helper Extension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 5XHJTS2WUD;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "NYCU E3 Helper Extension/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "NYCU E3 Helper Extension";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 2.2.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yoyo1112.nycu-e3-helper.Extension";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		4701976F306E4722001631FD /* Debug configuration for PBXNativeTarget "NYCU E3 Helper" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5XHJTS2WUD;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "NYCU E3 Helper/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "NYCU E3 Helper";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMainStoryboardFile = Main;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				INFOPLIST_KEY_NSViewGestureRecognizerIsExclusive = NO;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 2.2.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+					"-framework",
+					WebKit,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yoyo1112.nycu-e3-helper";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		47019770306E4722001631FD /* Release configuration for PBXNativeTarget "NYCU E3 Helper" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5XHJTS2WUD;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "NYCU E3 Helper/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "NYCU E3 Helper";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMainStoryboardFile = Main;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				INFOPLIST_KEY_NSViewGestureRecognizerIsExclusive = NO;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 2.2.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+					"-framework",
+					WebKit,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yoyo1112.nycu-e3-helper";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		47019740306E4721001631FD /* Build configuration list for PBXProject "NYCU E3 Helper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				47019768306E4722001631FD /* Debug configuration for PBXProject "NYCU E3 Helper" */,
+				47019769306E4722001631FD /* Release configuration for PBXProject "NYCU E3 Helper" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		4701976A306E4722001631FD /* Build configuration list for PBXNativeTarget "NYCU E3 Helper Extension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4701976B306E4722001631FD /* Debug configuration for PBXNativeTarget "NYCU E3 Helper Extension" */,
+				4701976C306E4722001631FD /* Release configuration for PBXNativeTarget "NYCU E3 Helper Extension" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		4701976E306E4722001631FD /* Build configuration list for PBXNativeTarget "NYCU E3 Helper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4701976F306E4722001631FD /* Debug configuration for PBXNativeTarget "NYCU E3 Helper" */,
+				47019770306E4722001631FD /* Release configuration for PBXNativeTarget "NYCU E3 Helper" */,
+			);
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4701973D306E4721001631FD /* Project object */;
+	validationLevel = 1;
+}
