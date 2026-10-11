@@ -138,6 +138,6 @@ git pull
 
 ## 系統需求
 
-- Chrome 88+ / Edge 88+ / Brave 或其他 Chromium 核心瀏覽器
+- Chrome 93+ / Edge 93+ / Brave 或其他 Chromium 核心瀏覽器
 - NYCU E3 帳號
 - 網際網路連線

@@ -335,18 +335,48 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+function getRichContentUrlScheme(value) {
+  const normalized = String(value || '').trim().replace(/[\u0000-\u0020\u007f]+/g, '');
+  const match = normalized.match(/^([a-z][a-z0-9+.-]*):/i);
+  return match ? match[1].toLowerCase() : '';
+}
+
+function isSafeRichContentUrl(value, attributeName) {
+  const scheme = getRichContentUrlScheme(value);
+  if (!scheme) return true;
+  if (attributeName === 'href') return ['http', 'https', 'mailto', 'tel'].includes(scheme);
+  if (attributeName === 'src') {
+    if (scheme === 'http' || scheme === 'https') return true;
+    if (scheme === 'data') {
+      return /^data:image\/(?:png|jpeg|gif|webp);base64,/i.test(String(value).trim());
+    }
+  }
+  return false;
+}
+
 // HTML 白名單清理（用於公告/信件等 rich content）
 function sanitizeHtml(html) {
   const div = document.createElement('div');
   div.innerHTML = html;
-  // 移除危險標籤
-  div.querySelectorAll('script,style,iframe,form,object,embed,applet,link,meta,base,svg').forEach(el => el.remove());
-  // 移除所有 on* 事件屬性和危險屬性
+  div.querySelectorAll('script,style,iframe,form,object,embed,applet,link,meta,base,svg,math,template').forEach(el => el.remove());
   div.querySelectorAll('*').forEach(el => {
     [...el.attributes].forEach(attr => {
-      if (attr.name.startsWith('on') || attr.name === 'srcdoc') el.removeAttribute(attr.name);
-      if (attr.name === 'href' && el.getAttribute('href')?.startsWith('javascript:')) el.setAttribute('href', '#');
+      const name = attr.name.toLowerCase();
+      if (name.startsWith('on') || name === 'srcdoc') {
+        el.removeAttribute(attr.name);
+        return;
+      }
+      if ((name === 'href' || name === 'src') && !isSafeRichContentUrl(attr.value, name)) {
+        if (name === 'href') el.setAttribute(attr.name, '#');
+        else el.removeAttribute(attr.name);
+      }
     });
+    if (el.tagName === 'A' && (el.getAttribute('target') || '').toLowerCase() === '_blank') {
+      const rel = new Set((el.getAttribute('rel') || '').split(/\s+/).filter(Boolean));
+      rel.add('noopener');
+      rel.add('noreferrer');
+      el.setAttribute('rel', [...rel].join(' '));
+    }
   });
   return div.innerHTML;
 }
