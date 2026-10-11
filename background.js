@@ -142,14 +142,21 @@ function updateDailyDigestCache(request) {
   return operation;
 }
 
-const trackedE3Downloads = new Set();
+function isExtensionInitiatedE3Download(item) {
+  if (!item || item.byExtensionId !== chrome.runtime.id) return false;
+  try {
+    parseAllowedE3Url(item.url);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function cancelDownloadIfFinalUrlDisallowed(downloadId, finalUrl) {
   try {
     parseAllowedE3Url(finalUrl);
     return false;
   } catch {
-    trackedE3Downloads.delete(downloadId);
     chrome.downloads.cancel(downloadId, () => {
       void chrome.runtime.lastError;
       if (chrome.downloads.removeFile) {
@@ -161,21 +168,20 @@ function cancelDownloadIfFinalUrlDisallowed(downloadId, finalUrl) {
   }
 }
 
-function validateTrackedDownload(downloadId) {
+function validateExtensionE3Download(downloadId) {
   chrome.downloads.search({ id: downloadId }, items => {
     if (chrome.runtime.lastError) return;
     const item = items?.[0];
-    if (item?.finalUrl) cancelDownloadIfFinalUrlDisallowed(downloadId, item.finalUrl);
+    if (!isExtensionInitiatedE3Download(item)) return;
+    if (item.finalUrl) cancelDownloadIfFinalUrlDisallowed(downloadId, item.finalUrl);
   });
 }
 
 chrome.downloads?.onChanged?.addListener(delta => {
-  if (!trackedE3Downloads.has(delta.id)) return;
-  if (delta.finalUrl?.current && cancelDownloadIfFinalUrlDisallowed(delta.id, delta.finalUrl.current)) return;
-  if (delta.state?.current === 'complete' || delta.error) {
-    validateTrackedDownload(delta.id);
-    trackedE3Downloads.delete(delta.id);
-  }
+  if (!delta.finalUrl && !delta.state && !delta.error) return;
+  // Reconstruct ownership from the Downloads API instead of relying on worker
+  // memory, so redirect validation survives Manifest V3 worker suspension.
+  validateExtensionE3Download(delta.id);
 });
 
 // 監聽來自 content script 的訊息
@@ -219,8 +225,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         console.error('E3 Helper: 下載失敗', chrome.runtime.lastError);
         sendResponse({ success: false, error: chrome.runtime.lastError.message });
       } else {
-        trackedE3Downloads.add(downloadId);
-        validateTrackedDownload(downloadId);
+        validateExtensionE3Download(downloadId);
         console.log(`E3 Helper: 下載已開始，ID: ${downloadId}`);
         sendResponse({ success: true, downloadId: downloadId });
       }
