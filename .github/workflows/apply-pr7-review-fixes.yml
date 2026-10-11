@@ -19,6 +19,7 @@ jobs:
       - name: Apply review fixes
         run: |
           sed -i 's/pattern.subn(new_sanitizer, content, count=1)/pattern.subn(lambda _: new_sanitizer, content, count=1)/' .github/scripts/apply-pr7-review-fixes.py
+          sed -i 's/chrome.downloads.onChanged.addListener/chrome.downloads?.onChanged?.addListener/' .github/scripts/apply-pr7-review-fixes.py
           python3 .github/scripts/apply-pr7-review-fixes.py
 
       - name: Validate
