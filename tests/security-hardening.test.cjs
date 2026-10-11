@@ -77,6 +77,10 @@ test('sanitizer executes form-control and DOM-clobbering protections', () => {
   vm.createContext(context);
   vm.runInContext(`${code}\nthis.clean = sanitizeRichContentElement;`, context);
 
+  const base = fakeRichElement('base', { href: 'https://evil.invalid/' });
+  assert.equal(context.clean(base), false);
+  assert.equal(base.removed, true);
+
   const button = fakeRichElement('button', { form: 'known-form', formaction: 'javascript:alert(1)' });
   assert.equal(context.clean(button), false);
   assert.equal(button.removed, true);

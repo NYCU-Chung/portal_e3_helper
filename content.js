@@ -355,7 +355,7 @@ function isSafeRichContentUrl(value, attributeName) {
 }
 
 const RICH_CONTENT_BLOCKED_TAGS = new Set([
-  'script', 'style', 'iframe', 'form', 'object', 'embed', 'applet', 'link', 'meta',
+  'script', 'style', 'iframe', 'form', 'object', 'embed', 'applet', 'link', 'meta', 'base',
   'svg', 'math', 'template', 'button', 'input', 'select', 'textarea', 'option',
   'optgroup', 'fieldset', 'label', 'datalist', 'output'
 ]);
