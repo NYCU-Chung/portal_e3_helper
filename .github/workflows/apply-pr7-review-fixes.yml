@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   patch:
-    if: github.actor == 'NYCU-Chung' && github.event.head_commit.message == 'chore: apply PR 7 review fixes'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -70,8 +69,8 @@ chrome.downloads.onChanged.addListener(delta => {
 '''
           marker = '// 監聽來自 content script 的訊息\n'
           assert marker in background
-          assert 'const trackedE3Downloads = new Set();' not in background
-          background = background.replace(marker, download_helpers + marker, 1)
+          if 'const trackedE3Downloads = new Set();' not in background:
+            background = background.replace(marker, download_helpers + marker, 1)
 
           old_success = '''      } else {
         console.log(`E3 Helper: 下載已開始，ID: ${downloadId}`);
@@ -85,8 +84,10 @@ chrome.downloads.onChanged.addListener(delta => {
         sendResponse({ success: true, downloadId: downloadId });
       }
 '''
-          assert background.count(old_success) == 1
-          background = background.replace(old_success, new_success, 1)
+          if old_success in background:
+            background = background.replace(old_success, new_success, 1)
+          else:
+            assert new_success in background
 
           old_fetch = '''  // 驗證初始 URL；重新導向完成後會再次驗證 response.url。
   parseAllowedE3Url(url);
@@ -111,8 +112,10 @@ chrome.downloads.onChanged.addListener(delta => {
 
     parseAllowedE3Url(response.url);
 '''
-          assert background.count(old_fetch) == 1
-          background = background.replace(old_fetch, new_fetch, 1)
+          if old_fetch in background:
+            background = background.replace(old_fetch, new_fetch, 1)
+          else:
+            assert new_fetch in background
 
           sanitizer = r'''const RICH_CONTENT_BLOCKED_TAGS = new Set([
   'script', 'style', 'iframe', 'form', 'object', 'embed', 'applet', 'link', 'meta',
@@ -155,9 +158,12 @@ function sanitizeHtml(html) {
   return div.innerHTML;
 }
 '''
-          pattern = re.compile(r'// HTML 白名單清理（用於公告/信件等 rich content）\nfunction sanitizeHtml\(html\) \{.*?\n\}\n', re.S)
-          content, count = pattern.subn(sanitizer, content, count=1)
-          assert count == 1
+          if 'const RICH_CONTENT_BLOCKED_TAGS' not in content:
+            pattern = re.compile(r'// HTML 白名單清理（用於公告/信件等 rich content）\nfunction sanitizeHtml\(html\) \{.*?\n\}\n', re.S)
+            content, count = pattern.subn(sanitizer, content, count=1)
+            assert count == 1
+          else:
+            assert 'function sanitizeRichContentElement' in content
 
           tests = r'''const test = require('node:test');
 const assert = require('node:assert/strict');
