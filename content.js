@@ -354,30 +354,44 @@ function isSafeRichContentUrl(value, attributeName) {
   return false;
 }
 
+const RICH_CONTENT_BLOCKED_TAGS = new Set([
+  'script', 'style', 'iframe', 'form', 'object', 'embed', 'applet', 'link', 'meta',
+  'svg', 'math', 'template', 'button', 'input', 'select', 'textarea', 'option',
+  'optgroup', 'fieldset', 'label', 'datalist', 'output'
+]);
+const RICH_CONTENT_BLOCKED_ATTRIBUTES = new Set([
+  'id', 'name', 'form', 'formaction', 'formenctype', 'formmethod', 'formnovalidate',
+  'formtarget', 'action', 'method', 'enctype', 'srcdoc', 'style', 'contenteditable',
+  'autofocus'
+]);
+
+function sanitizeRichContentElement(el) {
+  const tagName = String(el.tagName || '').toLowerCase();
+  if (RICH_CONTENT_BLOCKED_TAGS.has(tagName)) {
+    el.remove();
+    return false;
+  }
+  Array.from(el.attributes).forEach(attr => {
+    const name = attr.name.toLowerCase();
+    if (name.startsWith('on') || RICH_CONTENT_BLOCKED_ATTRIBUTES.has(name) ||
+        ((name === 'href' || name === 'src') && !isSafeRichContentUrl(attr.value, name))) {
+      el.removeAttribute(attr.name);
+    }
+  });
+  if (tagName === 'a' && el.getAttribute('target') === '_blank') {
+    const rel = new Set((el.getAttribute('rel') || '').split(/\s+/).filter(Boolean));
+    rel.add('noopener');
+    rel.add('noreferrer');
+    el.setAttribute('rel', [...rel].join(' '));
+  }
+  return true;
+}
+
 // HTML 白名單清理（用於公告/信件等 rich content）
 function sanitizeHtml(html) {
   const div = document.createElement('div');
   div.innerHTML = html;
-  div.querySelectorAll('script,style,iframe,form,object,embed,applet,link,meta,base,svg,math,template').forEach(el => el.remove());
-  div.querySelectorAll('*').forEach(el => {
-    [...el.attributes].forEach(attr => {
-      const name = attr.name.toLowerCase();
-      if (name.startsWith('on') || name === 'srcdoc') {
-        el.removeAttribute(attr.name);
-        return;
-      }
-      if ((name === 'href' || name === 'src') && !isSafeRichContentUrl(attr.value, name)) {
-        if (name === 'href') el.setAttribute(attr.name, '#');
-        else el.removeAttribute(attr.name);
-      }
-    });
-    if (el.tagName === 'A' && (el.getAttribute('target') || '').toLowerCase() === '_blank') {
-      const rel = new Set((el.getAttribute('rel') || '').split(/\s+/).filter(Boolean));
-      rel.add('noopener');
-      rel.add('noreferrer');
-      el.setAttribute('rel', [...rel].join(' '));
-    }
-  });
+  div.querySelectorAll('*').forEach(el => sanitizeRichContentElement(el));
   return div.innerHTML;
 }
 

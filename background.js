@@ -142,6 +142,42 @@ function updateDailyDigestCache(request) {
   return operation;
 }
 
+const trackedE3Downloads = new Set();
+
+function cancelDownloadIfFinalUrlDisallowed(downloadId, finalUrl) {
+  try {
+    parseAllowedE3Url(finalUrl);
+    return false;
+  } catch {
+    trackedE3Downloads.delete(downloadId);
+    chrome.downloads.cancel(downloadId, () => {
+      void chrome.runtime.lastError;
+      if (chrome.downloads.removeFile) {
+        chrome.downloads.removeFile(downloadId, () => void chrome.runtime.lastError);
+      }
+    });
+    console.warn(`E3 Helper: 已取消重新導向至非 E3 網域的下載 - ${finalUrl}`);
+    return true;
+  }
+}
+
+function validateTrackedDownload(downloadId) {
+  chrome.downloads.search({ id: downloadId }, items => {
+    if (chrome.runtime.lastError) return;
+    const item = items?.[0];
+    if (item?.finalUrl) cancelDownloadIfFinalUrlDisallowed(downloadId, item.finalUrl);
+  });
+}
+
+chrome.downloads?.onChanged?.addListener(delta => {
+  if (!trackedE3Downloads.has(delta.id)) return;
+  if (delta.finalUrl?.current && cancelDownloadIfFinalUrlDisallowed(delta.id, delta.finalUrl.current)) return;
+  if (delta.state?.current === 'complete' || delta.error) {
+    validateTrackedDownload(delta.id);
+    trackedE3Downloads.delete(delta.id);
+  }
+});
+
 // 監聽來自 content script 的訊息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'updateDailyDigestCache') {
@@ -183,6 +219,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         console.error('E3 Helper: 下載失敗', chrome.runtime.lastError);
         sendResponse({ success: false, error: chrome.runtime.lastError.message });
       } else {
+        trackedE3Downloads.add(downloadId);
+        validateTrackedDownload(downloadId);
         console.log(`E3 Helper: 下載已開始，ID: ${downloadId}`);
         sendResponse({ success: true, downloadId: downloadId });
       }
@@ -1560,13 +1598,14 @@ async function callCustomAPI(config, prompt) {
 async function fetchContentFromE3(url) {
   console.log(`E3 Helper: 開始抓取內容 - ${url}`);
 
-  // 驗證初始 URL；重新導向完成後會再次驗證 response.url。
+  // 驗證初始 URL；禁止自動重新導向，response.url 再做防禦性檢查。
   parseAllowedE3Url(url);
 
   try {
     const response = await fetchWithTimeout(url, {
       method: 'GET',
-      credentials: 'include'
+      credentials: 'include',
+      redirect: 'error'
     }, 15000); // 15 秒超時
 
     parseAllowedE3Url(response.url);
