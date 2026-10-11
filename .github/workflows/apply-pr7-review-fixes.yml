@@ -17,7 +17,9 @@ jobs:
           ref: fix/pre-release-hardening
 
       - name: Apply review fixes
-        run: python3 .github/scripts/apply-pr7-review-fixes.py
+        run: |
+          sed -i 's/pattern.subn(new_sanitizer, content, count=1)/pattern.subn(lambda _: new_sanitizer, content, count=1)/' .github/scripts/apply-pr7-review-fixes.py
+          python3 .github/scripts/apply-pr7-review-fixes.py
 
       - name: Validate
         run: |
