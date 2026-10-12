@@ -243,7 +243,7 @@ e3_helper/
 #### Manifest V3
 - Service Worker 架構
 - 非持久性背景頁面
-- 支援 Chrome 88+
+- 支援 Chrome 93+
 
 #### 資料同步
 - 使用 Moodle REST API

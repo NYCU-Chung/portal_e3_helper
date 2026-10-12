@@ -335,19 +335,63 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+function getRichContentUrlScheme(value) {
+  const normalized = String(value || '').trim().replace(/[\u0000-\u0020\u007f]+/g, '');
+  const match = normalized.match(/^([a-z][a-z0-9+.-]*):/i);
+  return match ? match[1].toLowerCase() : '';
+}
+
+function isSafeRichContentUrl(value, attributeName) {
+  const scheme = getRichContentUrlScheme(value);
+  if (!scheme) return true;
+  if (attributeName === 'href') return ['http', 'https', 'mailto', 'tel'].includes(scheme);
+  if (attributeName === 'src') {
+    if (scheme === 'http' || scheme === 'https') return true;
+    if (scheme === 'data') {
+      return /^data:image\/(?:png|jpeg|gif|webp);base64,/i.test(String(value).trim());
+    }
+  }
+  return false;
+}
+
+const RICH_CONTENT_BLOCKED_TAGS = new Set([
+  'script', 'style', 'iframe', 'form', 'object', 'embed', 'applet', 'link', 'meta', 'base',
+  'svg', 'math', 'template', 'button', 'input', 'select', 'textarea', 'option',
+  'optgroup', 'fieldset', 'label', 'datalist', 'output'
+]);
+const RICH_CONTENT_BLOCKED_ATTRIBUTES = new Set([
+  'id', 'name', 'form', 'formaction', 'formenctype', 'formmethod', 'formnovalidate',
+  'formtarget', 'action', 'method', 'enctype', 'srcdoc', 'style', 'contenteditable',
+  'autofocus'
+]);
+
+function sanitizeRichContentElement(el) {
+  const tagName = String(el.tagName || '').toLowerCase();
+  if (RICH_CONTENT_BLOCKED_TAGS.has(tagName)) {
+    el.remove();
+    return false;
+  }
+  Array.from(el.attributes).forEach(attr => {
+    const name = attr.name.toLowerCase();
+    if (name.startsWith('on') || RICH_CONTENT_BLOCKED_ATTRIBUTES.has(name) ||
+        ((name === 'href' || name === 'src') && !isSafeRichContentUrl(attr.value, name))) {
+      el.removeAttribute(attr.name);
+    }
+  });
+  if (tagName === 'a' && el.getAttribute('target') === '_blank') {
+    const rel = new Set((el.getAttribute('rel') || '').split(/\s+/).filter(Boolean));
+    rel.add('noopener');
+    rel.add('noreferrer');
+    el.setAttribute('rel', [...rel].join(' '));
+  }
+  return true;
+}
+
 // HTML 白名單清理（用於公告/信件等 rich content）
 function sanitizeHtml(html) {
   const div = document.createElement('div');
   div.innerHTML = html;
-  // 移除危險標籤
-  div.querySelectorAll('script,style,iframe,form,object,embed,applet,link,meta,base,svg').forEach(el => el.remove());
-  // 移除所有 on* 事件屬性和危險屬性
-  div.querySelectorAll('*').forEach(el => {
-    [...el.attributes].forEach(attr => {
-      if (attr.name.startsWith('on') || attr.name === 'srcdoc') el.removeAttribute(attr.name);
-      if (attr.name === 'href' && el.getAttribute('href')?.startsWith('javascript:')) el.setAttribute('href', '#');
-    });
-  });
+  div.querySelectorAll('*').forEach(el => sanitizeRichContentElement(el));
   return div.innerHTML;
 }
 

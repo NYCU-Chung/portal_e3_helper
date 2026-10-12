@@ -1,6 +1,14 @@
 importScripts('i18n.js', 'notification-api.js', 'desktop-notifications.js', 'notification-engine.js');
 const uiText = E3HelperI18n.text;
 const ui = E3HelperI18n.template;
+const E3_ALLOWED_HOSTS = new Set(['e3.nycu.edu.tw', 'e3p.nycu.edu.tw']);
+function parseAllowedE3Url(value) {
+  const url = new URL(String(value || ''));
+  if (url.protocol !== 'https:' || !E3_ALLOWED_HOSTS.has(url.hostname)) {
+    throw new Error('URL not from allowed E3 domain');
+  }
+  return url;
+}
 // NYCU E3 Helper - Background Script (Service Worker)
 // 處理下載請求和自動同步
 
@@ -13,6 +21,27 @@ const originalConsole = {
   error: console.error.bind(console),
   debug: console.debug.bind(console)
 };
+
+let backgroundLogStorageQueue = Promise.resolve();
+
+function queueBackgroundLog(entry) {
+  const operation = backgroundLogStorageQueue.then(() => new Promise(resolve => {
+    chrome.storage.local.get(['backgroundLogs'], result => {
+      if (chrome.runtime.lastError) {
+        resolve();
+        return;
+      }
+      const logs = result.backgroundLogs || [];
+      logs.push(entry);
+      if (logs.length > 200) logs.splice(0, logs.length - 200);
+      chrome.storage.local.set({ backgroundLogs: logs }, () => {
+        void chrome.runtime.lastError;
+        resolve();
+      });
+    });
+  }));
+  backgroundLogStorageQueue = operation.catch(() => {});
+}
 
 // 儲存日誌到 storage 並通知 content script
 function sendLogToContentScript(type, args) {
@@ -34,21 +63,11 @@ function sendLogToContentScript(type, args) {
   });
 
   // 儲存到 chrome.storage（供後續查詢）
-  chrome.storage.local.get(['backgroundLogs'], (result) => {
-    const logs = result.backgroundLogs || [];
-    logs.push({
-      type: type,
-      args: serializedArgs,
-      timestamp: Date.now(),
-      time: new Date().toLocaleTimeString('zh-TW', { hour12: false })
-    });
-
-    // 只保留最近 200 條日誌
-    if (logs.length > 200) {
-      logs.splice(0, logs.length - 200);
-    }
-
-    chrome.storage.local.set({ backgroundLogs: logs });
+  queueBackgroundLog({
+    type,
+    args: serializedArgs,
+    timestamp: Date.now(),
+    time: new Date().toLocaleTimeString('zh-TW', { hour12: false })
   });
 
   // 廣播日誌到有 E3 Helper sidebar 的 tabs（不廣播到所有 tabs）
@@ -123,6 +142,48 @@ function updateDailyDigestCache(request) {
   return operation;
 }
 
+function isExtensionInitiatedE3Download(item) {
+  if (!item || item.byExtensionId !== chrome.runtime.id) return false;
+  try {
+    parseAllowedE3Url(item.url);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function cancelDownloadIfFinalUrlDisallowed(downloadId, finalUrl) {
+  try {
+    parseAllowedE3Url(finalUrl);
+    return false;
+  } catch {
+    chrome.downloads.cancel(downloadId, () => {
+      void chrome.runtime.lastError;
+      if (chrome.downloads.removeFile) {
+        chrome.downloads.removeFile(downloadId, () => void chrome.runtime.lastError);
+      }
+    });
+    console.warn(`E3 Helper: 已取消重新導向至非 E3 網域的下載 - ${finalUrl}`);
+    return true;
+  }
+}
+
+function validateExtensionE3Download(downloadId) {
+  chrome.downloads.search({ id: downloadId }, items => {
+    if (chrome.runtime.lastError) return;
+    const item = items?.[0];
+    if (!isExtensionInitiatedE3Download(item)) return;
+    if (item.finalUrl) cancelDownloadIfFinalUrlDisallowed(downloadId, item.finalUrl);
+  });
+}
+
+chrome.downloads?.onChanged?.addListener(delta => {
+  if (!delta.finalUrl && !delta.state && !delta.error) return;
+  // Reconstruct ownership from the Downloads API instead of relying on worker
+  // memory, so redirect validation survives Manifest V3 worker suspension.
+  validateExtensionE3Download(delta.id);
+});
+
 // 監聽來自 content script 的訊息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'updateDailyDigestCache') {
@@ -141,20 +202,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'download') {
     console.log(`E3 Helper: 收到下載請求 - ${request.filename}`);
 
-    // 驗證下載 URL 域名
-    const downloadAllowedDomains = ['e3.nycu.edu.tw', 'e3p.nycu.edu.tw'];
+    // 僅允許官方 E3 HTTPS 主機。
     try {
-      const urlObj = new URL(request.url);
-      if (!downloadAllowedDomains.some(d => urlObj.hostname.endsWith(d))) {
-        sendResponse({ success: false, error: 'Download URL not from allowed domain' });
-        return true;
-      }
+      parseAllowedE3Url(request.url);
     } catch {
-      sendResponse({ success: false, error: 'Invalid URL' });
+      sendResponse({ success: false, error: 'Download URL not from allowed domain' });
       return true;
     }
     // 驗證 filename 無路徑遍歷
-    if (request.filename && (request.filename.includes('..') || request.filename.includes('/'))) {
+    if (request.filename && (request.filename.includes('..') || /[\\/]/.test(request.filename))) {
       sendResponse({ success: false, error: 'Invalid filename' });
       return true;
     }
@@ -169,6 +225,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         console.error('E3 Helper: 下載失敗', chrome.runtime.lastError);
         sendResponse({ success: false, error: chrome.runtime.lastError.message });
       } else {
+        validateExtensionE3Download(downloadId);
         console.log(`E3 Helper: 下載已開始，ID: ${downloadId}`);
         sendResponse({ success: true, downloadId: downloadId });
       }
@@ -1300,7 +1357,11 @@ chrome.notifications.onClicked.addListener((notificationId) => {
 
       if (assignment && assignment.url) {
         // 開啟作業頁面
-        chrome.tabs.create({ url: assignment.url });
+        try {
+        chrome.tabs.create({ url: parseAllowedE3Url(assignment.url).href });
+      } catch (error) {
+        console.warn('E3 Helper: 阻擋非 E3 作業連結', error.message);
+      }
       } else {
         // 開啟 E3 首頁
         chrome.tabs.create({ url: 'https://e3p.nycu.edu.tw/' });
@@ -1542,21 +1603,17 @@ async function callCustomAPI(config, prompt) {
 async function fetchContentFromE3(url) {
   console.log(`E3 Helper: 開始抓取內容 - ${url}`);
 
-  // 驗證 URL 域名
-  const fetchAllowedDomains = ['e3.nycu.edu.tw', 'e3p.nycu.edu.tw'];
-  try {
-    const urlObj = new URL(url);
-    if (!fetchAllowedDomains.some(d => urlObj.hostname.endsWith(d))) {
-      throw new Error('URL not from allowed E3 domain');
-    }
-  } catch (e) { throw e; }
+  // 驗證初始 URL；禁止自動重新導向，response.url 再做防禦性檢查。
+  parseAllowedE3Url(url);
 
   try {
     const response = await fetchWithTimeout(url, {
       method: 'GET',
-      credentials: 'include'
+      credentials: 'include',
+      redirect: 'error'
     }, 15000); // 15 秒超時
 
+    parseAllowedE3Url(response.url);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
