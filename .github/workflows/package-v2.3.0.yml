@@ -1,0 +1,49 @@
+name: Package v2.3.0
+
+on:
+  push:
+    branches:
+      - release/v2.3.0-package
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate source
+        run: |
+          node --check background.js
+          node --check content.js
+          node --check notification-engine.js
+          node --test tests/*.test.cjs
+          git diff --check
+
+      - name: Build Chrome Web Store package
+        run: |
+          set -euo pipefail
+          rm -rf dist
+          mkdir -p dist/extension/_locales/en dist/extension/_locales/zh_TW
+          cp manifest.json 128.png background.js content.js desktop-notifications.js \
+             i18n.js jszip.min.js notification-api.js notification-engine.js \
+             notification-settings.css notification-settings.html notification-settings.js \
+             LICENSE dist/extension/
+          cp _locales/en/messages.json dist/extension/_locales/en/messages.json
+          cp _locales/zh_TW/messages.json dist/extension/_locales/zh_TW/messages.json
+          node -e "const m=require('./dist/extension/manifest.json'); if(m.version!=='2.3.0') throw new Error('wrong version'); if(m.manifest_version!==3) throw new Error('not MV3');"
+          cd dist/extension
+          zip -r ../NYCU-E3-Helper-v2.3.0.zip .
+          cd ../..
+          unzip -l dist/NYCU-E3-Helper-v2.3.0.zip
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nycu-e3-helper-v2.3.0
+          path: dist/NYCU-E3-Helper-v2.3.0.zip
+          if-no-files-found: error
+          retention-days: 7
