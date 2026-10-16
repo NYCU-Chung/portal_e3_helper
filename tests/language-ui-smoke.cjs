@@ -9,7 +9,7 @@ const path = require('node:path');
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, hasTouch: true });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    await page.route('http://e3-test.local/**', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><head></head><body></body></html>' }));
+    await page.route('https://e3p.nycu.edu.tw/**', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><head></head><body></body></html>' }));
     await page.addInitScript(() => {
       const changes = [];
       const seed = { interfaceLanguage: 'en', assignments: [{ eventId: 'manual-1', name: '作業中文原文', course: '課程中文原文', deadline: Date.now() + 86400000, manualStatus: 'pending', isManual: true }], courses: [], announcements: [], messages: [{ id: 'msg-1', type: 'message', title: '', courseName: 'Fixture course', author: 'Fixture sender', timestamp: Date.now(), url: 'https://e3p.nycu.edu.tw/mail?m=1' }], lastSyncTime: Date.now(), lastSeenVersion: '2.2.0' };
@@ -31,7 +31,7 @@ const path = require('node:path');
         }
       };
     });
-    await page.goto('http://e3-test.local/');
+    await page.goto('https://e3p.nycu.edu.tw/');
     const inject = async () => {
       await page.addScriptTag({ path: path.join(__dirname, '../i18n.js') });
       await page.addScriptTag({ path: path.join(__dirname, '../content.js') });

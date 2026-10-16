@@ -2,6 +2,12 @@
 // 優化 E3 使用體驗
 (function() {
 'use strict';
+// E3, timetable and portal initialize the sidebar by default. E3 collection stays on E3.
+const isE3Site = location.protocol === 'https:' &&
+  ['e3.nycu.edu.tw', 'e3p.nycu.edu.tw'].includes(location.hostname);
+const isTimetableSite = location.protocol === 'https:' && location.hostname === 'timetable.nycu.edu.tw';
+const isPortalSite = location.protocol === 'https:' && location.hostname === 'portal.nycu.edu.tw';
+if (!isE3Site && !isTimetableSite && !isPortalSite) return;
 const uiText = E3HelperI18n.text;
 const ui = E3HelperI18n.template;
 
@@ -18,10 +24,6 @@ function helperIcon(name) {
   };
   return '<svg class="e3-helper-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + (paths[name] || paths.file) + '</svg>';
 }
-
-
-// 判斷是否為 E3 網站
-const isE3Site = location.hostname.endsWith('nycu.edu.tw');
 
 // ==================== 全局變數 ====================
 // 自動同步定時器

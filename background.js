@@ -71,7 +71,7 @@ function sendLogToContentScript(type, args) {
   });
 
   // 廣播日誌到有 E3 Helper sidebar 的 tabs（不廣播到所有 tabs）
-  chrome.tabs.query({ url: ['*://*.nycu.edu.tw/*'] }, (tabs) => {
+  chrome.tabs.query({ url: ['https://e3.nycu.edu.tw/*', 'https://e3p.nycu.edu.tw/*', 'https://timetable.nycu.edu.tw/*', 'https://portal.nycu.edu.tw/*'] }, (tabs) => {
     tabs.forEach(tab => {
       chrome.tabs.sendMessage(tab.id, {
         action: 'backgroundLog',

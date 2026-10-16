@@ -11,13 +11,13 @@ const fs = require('node:fs');
       const page = await browser.newPage({viewport:{width:1280,height:900}});
       const errors=[];
       page.on('pageerror', e => errors.push(e.message));
-      await page.route('http://e3-test.local/**', route => route.fulfill({contentType:'text/html',body:'<!doctype html><html><head></head><body></body></html>'}));
+      await page.route('https://e3p.nycu.edu.tw/**', route => route.fulfill({contentType:'text/html',body:'<!doctype html><html><head></head><body></body></html>'}));
       await page.addInitScript(language => {
         const listeners=[];
         const data=JSON.parse(localStorage.getItem('fixtureStorage') || 'null') || {interfaceLanguage:language,themePreference:'light',aiSettings:{enabled:false,geminiApiKey:'fixture-gemini',geminiModel:'saved-model',openaiSummaryApiKey:'fixture-openai',openaiSummaryModel:'gpt-5-nano'},assignments:[{eventId:'manual-1',name:'作業中文原文',course:'課程中文原文',deadline:Date.now()+86400000,manualStatus:'pending',isManual:true}],courses:[],announcements:[],lastSyncTime:Date.now(),lastSeenVersion:'2.2.0'};
         window.chrome={i18n:{getUILanguage:()=>language},runtime:{id:'test',getManifest:()=>({version:'2.2.0'}),getURL:p=>p,onMessage:{addListener(){}},sendMessage:(m,cb)=>{window.fixtureRequests ||= [];window.fixtureRequests.push(m);const response=m.action==='listGeminiModels'?(window.fixtureModelFailure?{success:false,error:'HTTP 502'}:{success:true,data:[{id:'future-flash',name:'Future Flash'},{id:'future-pro',name:'Future Pro'}]}):{success:true,data:'fixture summary'};cb?.(response);return Promise.resolve(response);}},storage:{onChanged:{addListener:fn=>listeners.push(fn)},local:{get:async(keys,cb)=>{cb?.(data);return data;},set:async update=>{Object.assign(data,update);localStorage.setItem('fixtureStorage',JSON.stringify(data));listeners.forEach(fn=>fn(Object.fromEntries(Object.entries(update).map(([k,v])=>[k,{newValue:v}])),'local'));}}}};
       },language);
-      await page.goto('http://e3-test.local/');
+      await page.goto('https://e3p.nycu.edu.tw/');
       if(localized) await page.addScriptTag({path:path.join(root,'i18n.js')});
       await page.addScriptTag({path:path.join(root,'content.js')});
       await page.locator('.e3-helper-sidebar-toggle').click();
