@@ -59,3 +59,33 @@ test('manual announcement loading can still create a background tab and cleans u
   await rejected;
   assert.deepEqual(app.removed, [42]);
 });
+function loadParticipantLock(seed = {}) {
+  const lockStart = source.indexOf('let participantCheckQueue');
+  const lockEnd = source.indexOf('\n}', lockStart) + 2;
+  const data = structuredClone(seed);
+  let now = 1_000_000;
+  const context = vm.createContext({ Date: { now: () => now },
+    chrome: { storage: { local: { get: async () => structuredClone(data), set: async value => Object.assign(data, structuredClone(value)) } } } });
+  vm.runInContext(`${source.slice(lockStart, lockEnd)}\nglobalThis.update = updateParticipantCheck;`, context);
+  return { update: context.update, data, advance: ms => { now += ms; } };
+}
+test('concurrent membership checks from several tabs are granted once', async () => {
+  const lock = loadParticipantLock();
+  const results = await Promise.all([1, 2, 3, 4, 5].map(() => lock.update('claim')));
+  assert.deepEqual(results, [true, false, false, false, false]);
+  assert.equal(await lock.update('force'), false, 'a manual check never overlaps a running one');
+  await lock.update('release');
+  assert.equal(await lock.update('claim'), false, 'scheduled checks wait five minutes after the last start');
+  assert.equal(await lock.update('force'), true, 'a manual check may run right after the previous one finished');
+  await lock.update('release');
+  lock.advance(5 * 60000 + 1);
+  assert.equal(await lock.update('claim'), true);
+});
+test('an unreleased membership check stops blocking after ten minutes', async () => {
+  const lock = loadParticipantLock();
+  assert.equal(await lock.update('claim'), true);
+  lock.advance(9 * 60000);
+  assert.equal(await lock.update('force'), false);
+  lock.advance(60000 + 1);
+  assert.equal(await lock.update('claim'), true);
+});
