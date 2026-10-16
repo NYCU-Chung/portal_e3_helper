@@ -78,6 +78,27 @@ const fs = require('node:fs');
       assert.deepEqual(await page.evaluate(() => window.fixture.notificationSettings.events), { assignment: true, grading: true, announcement: false, message: true, participant: false });
       assert.equal(await page.evaluate(() => 'updates' in window.fixture.notificationSettings), false);
       assert.equal(await page.evaluate(() => { const event = new Event('beforeunload', { cancelable: true }); dispatchEvent(event); return event.defaultPrevented; }), false);
+      await page.evaluate(() => {
+        const set = E3NotificationAPI.set;
+        E3NotificationAPI.set = async value => {
+          window.pendingSettings = value.notificationSettings;
+          await new Promise(resolve => { window.finishSettingsSave = resolve; });
+          await set(value);
+          E3NotificationAPI.set = set;
+        };
+      });
+      await page.locator('#event-list input[data-event=grading]').uncheck();
+      await page.locator('#save').click();
+      await page.waitForFunction(() => window.finishSettingsSave);
+      await page.locator('#event-list input[data-event=grading]').check();
+      await page.evaluate(() => window.finishSettingsSave());
+      await page.waitForFunction(() => document.getElementById('save').textContent === E3HelperI18n.text('儲存設定'));
+      assert.equal(await page.evaluate(() => window.fixture.notificationSettings.events.grading), false);
+      assert.equal(await page.locator('#save').isEnabled(), true);
+      assert.equal(await page.locator('#status').getAttribute('data-state'), 'pending');
+      assert.equal(await page.evaluate(() => { const event = new Event('beforeunload', { cancelable: true }); dispatchEvent(event); return event.defaultPrevented; }), true);
+      await page.locator('#save').click();
+      await page.waitForFunction(() => window.fixture.notificationSettings.events.grading === true);
       await page.evaluate(() => window.storageListeners.forEach(fn => fn({ notificationDeliveryError: { newValue: '' }, notificationLog: { newValue: [] } }, 'local')));
       assert.equal(await page.locator('#delivery-error').isVisible(), false);
       assert.equal(await page.locator('#history-empty').isVisible(), true);

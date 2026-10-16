@@ -6749,10 +6749,8 @@ async function checkAllCoursesParticipants({ force = false } = {}) {
     }
 
     // 儲存新的數量和檢測時間
-    await chrome.storage.local.set({
-      participantCounts: newCounts,
-      lastParticipantCheckTime: Date.now()
-    });
+    const committed = await sendParticipantCheckMessage({ action: 'commitParticipantCheck', token: claim.token, counts: newCounts });
+    if (!committed?.granted) return [];
 
     // 如果有變動，發送通知並儲存到通知中心
     if (changes.length > 0) {
@@ -6782,7 +6780,7 @@ async function checkAllCoursesParticipants({ force = false } = {}) {
     console.error('E3 Helper: 檢查課程成員時發生錯誤:', error);
     return [];
   } finally {
-    sendParticipantCheckMessage({ action: 'releaseParticipantCheck' });
+    await sendParticipantCheckMessage({ action: 'releaseParticipantCheck', token: claim.token });
   }
 }
 

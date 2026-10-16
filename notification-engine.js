@@ -116,6 +116,7 @@
           history.push(item.id); continue;
         }
       }
+      if (item.deadline && !item.attempts && !item.delivered.desktop && item.due > now) item.due = now;
       if (item.due > now) { remaining.push(item); continue; }
       ready.push(item);
     }

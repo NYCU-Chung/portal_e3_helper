@@ -94,19 +94,26 @@ console.log('E3 Helper Background Script 已載入');
 
 // Every open E3 tab can start a membership check; only one may run at a time so a change is reported once.
 let participantCheckQueue = Promise.resolve();
-function updateParticipantCheck(update) {
+function updateParticipantCheck(update, token, counts) {
   const result = participantCheckQueue.then(async () => {
     const now = Date.now();
     const { participantCheckLock: lock = {} } = await chrome.storage.local.get('participantCheckLock');
-    if (update === 'release') {
+    if (update === 'release' || update === 'commit') {
+      if (!token || token !== lock.token || lock.finishedAt >= lock.startedAt || now - lock.startedAt >= 10 * 60000) return false;
+      if (update === 'commit') {
+        if (!counts || typeof counts !== 'object' || Array.isArray(counts)) return false;
+        await chrome.storage.local.set({ participantCounts: counts, lastParticipantCheckTime: now });
+        return true;
+      }
       await chrome.storage.local.set({ participantCheckLock: { ...lock, finishedAt: now } });
       return true;
     }
     // A check that never released (closed tab) stops blocking after 10 minutes.
     const running = lock.startedAt && !(lock.finishedAt >= lock.startedAt) && now - lock.startedAt < 10 * 60000;
     if (running || (update !== 'force' && now - (lock.startedAt || 0) < 5 * 60000)) return false;
-    await chrome.storage.local.set({ participantCheckLock: { startedAt: now } });
-    return true;
+    const owner = `${now}-${Math.random().toString(36).slice(2)}`;
+    await chrome.storage.local.set({ participantCheckLock: { startedAt: now, token: owner } });
+    return owner;
   });
   participantCheckQueue = result.catch(() => {});
   return result;
@@ -285,9 +292,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }, request.url).then(() => sendResponse({ success: true }), () => sendResponse({ success: false }));
 
     return true;
-  } else if (request.action === 'claimParticipantCheck' || request.action === 'releaseParticipantCheck') {
-    updateParticipantCheck(request.action === 'releaseParticipantCheck' ? 'release' : request.force ? 'force' : 'claim')
-      .then(granted => sendResponse({ success: true, granted }), () => sendResponse({ success: false, granted: false }));
+  } else if (['claimParticipantCheck', 'releaseParticipantCheck', 'commitParticipantCheck'].includes(request.action)) {
+    updateParticipantCheck(request.action === 'releaseParticipantCheck' ? 'release' : request.action === 'commitParticipantCheck' ? 'commit' : request.force ? 'force' : 'claim', request.token, request.counts)
+      .then(result => sendResponse({ success: true, granted: Boolean(result), token: typeof result === 'string' ? result : undefined }), () => sendResponse({ success: false, granted: false }));
     return true;
   } else if (request.action === 'checkParticipants') {
     // 手動觸發成員檢測

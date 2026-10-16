@@ -38,6 +38,27 @@ function load(seed = {}, now = new Date(2026, 9, 1, 10).getTime(), desktopSuppor
   return { engine: context.E3Notifications, data, desktop, requests, advance: ms => { now += ms; }, failDesktop: value => { failDesktop = value; }, listener, clicked, opened, cleared, context };
 }
 const options = { type: 'basic', title: 'Test', message: 'Content' };
+test('upgrading releases saved daily deadline reminders without accelerating retries', async () => {
+  const now = new Date(2026, 9, 1, 10).getTime();
+  for (const callbackOnly of [false, true]) {
+    for (const attempts of [0, 1]) {
+      const deadline = now + 3600000;
+      const app = load({
+        assignments: [{ eventId: 'saved', name: 'Saved task', deadline }],
+        notificationSettings: { mode: 'daily', time: '20:00', reminders: [1] },
+        notificationQueue: [{ id: `deadline-saved-${deadline}-1`, options, deadline: { eventId: 'saved', timestamp: deadline, hours: 1 }, due: now + 120000, created: now - 60000, delivered: {}, attempts }]
+      }, now, true, callbackOnly);
+      await app.engine.tick();
+      assert.equal(app.desktop.length, attempts === 0 ? 1 : 0);
+      if (attempts) {
+        assert.equal(app.data.notificationQueue[0].due, now + 120000);
+        app.advance(120000);
+        await app.engine.tick();
+        assert.equal(app.desktop.length, 1);
+      }
+    }
+  }
+});
 test('immediate desktop delivery is deduplicated across worker restarts', async () => {
   const app = load();
   await app.engine.enqueue('one', options, 'https://e3p.nycu.edu.tw/test');

@@ -16,6 +16,10 @@ The settings page shows the system notification permission, keeps delivery error
 
 Course membership checks may start from several E3 tabs and the background alarm at once. The background worker grants one check at a time (scheduled checks wait five minutes; a manual check may follow a finished one), and each change uses a stable notification ID, so one change produces one alert.
 
+Each granted check owns a token for ten minutes. The worker accepts a count snapshot and releases the lock only for its current, unexpired owner. A delayed tab discards its results before generating alerts if another check has replaced it.
+
+On upgrade, saved deadline reminders that have never attempted delivery are eligible immediately; failed-delivery retries retain their backoff. Editing notification settings during a pending save keeps the newer edits marked unsaved and preserves the leave-page warning until those edits are saved too.
+
 ## Validation
 
 Storage, delivery, permission checks, settings navigation and notification clicks use callback-compatible APIs for Chrome 93–94 as well as Promise implementations.

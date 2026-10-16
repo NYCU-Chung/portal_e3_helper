@@ -72,20 +72,61 @@ function loadParticipantLock(seed = {}) {
 test('concurrent membership checks from several tabs are granted once', async () => {
   const lock = loadParticipantLock();
   const results = await Promise.all([1, 2, 3, 4, 5].map(() => lock.update('claim')));
-  assert.deepEqual(results, [true, false, false, false, false]);
+  assert.equal(typeof results[0], 'string');
+  assert.deepEqual(results.slice(1), [false, false, false, false]);
   assert.equal(await lock.update('force'), false, 'a manual check never overlaps a running one');
-  await lock.update('release');
+  await lock.update('release', results[0]);
   assert.equal(await lock.update('claim'), false, 'scheduled checks wait five minutes after the last start');
-  assert.equal(await lock.update('force'), true, 'a manual check may run right after the previous one finished');
-  await lock.update('release');
+  const manual = await lock.update('force');
+  assert.equal(typeof manual, 'string', 'a manual check may run right after the previous one finished');
+  await lock.update('release', manual);
   lock.advance(5 * 60000 + 1);
-  assert.equal(await lock.update('claim'), true);
+  assert.equal(typeof await lock.update('claim'), 'string');
 });
 test('an unreleased membership check stops blocking after ten minutes', async () => {
   const lock = loadParticipantLock();
-  assert.equal(await lock.update('claim'), true);
+  assert.equal(typeof await lock.update('claim'), 'string');
   lock.advance(9 * 60000);
   assert.equal(await lock.update('force'), false);
   lock.advance(60000 + 1);
-  assert.equal(await lock.update('claim'), true);
+  assert.equal(typeof await lock.update('claim'), 'string');
+});
+test('expired membership owners cannot release or publish over a replacement check', async () => {
+  const lock = loadParticipantLock();
+  const first = await lock.update('claim');
+  lock.advance(10 * 60000 + 1);
+  const second = await lock.update('claim');
+  assert.notEqual(first, second);
+  assert.equal(await lock.update('release', first), false);
+  assert.equal(await lock.update('commit', first, { course: { count: 1 } }), false);
+  assert.equal(lock.data.participantCounts, undefined);
+  assert.equal(await lock.update('force'), false);
+  assert.equal(await lock.update('commit', second, { course: { count: 2 } }), true);
+  assert.equal(lock.data.participantCounts.course.count, 2);
+  assert.equal(await lock.update('release', second), true);
+});
+test('a delayed tab discards its counts and alerts after another tab acquires the lease', async () => {
+  const lock = loadParticipantLock({ courses: [{ id: 'course', fullname: 'Course' }], participantCounts: { course: { count: 1 } } });
+  const content = fs.readFileSync(path.join(__dirname, '../content.js'), 'utf8');
+  const extract = name => {
+    const start = content.search(new RegExp(`(?:async )?function ${name}\\(`));
+    return content.slice(start, content.indexOf('\n}', start) + 2);
+  };
+  const notifications = [];
+  const context = vm.createContext({ console: { log() {}, error() {} }, setTimeout: resolve => resolve(),
+    chrome: { runtime: { sendMessage: (request, callback) => {
+      const action = request.action === 'releaseParticipantCheck' ? 'release' : request.action === 'commitParticipantCheck' ? 'commit' : 'claim';
+      lock.update(action, request.token, request.counts).then(result => callback({ granted: Boolean(result), token: typeof result === 'string' ? result : undefined }));
+    } }, storage: { local: { get: async () => structuredClone(lock.data), set: async value => Object.assign(lock.data, value) } } },
+    fetchCourseParticipants: async () => {
+      lock.advance(10 * 60000 + 1);
+      const owner = await lock.update('claim');
+      await lock.update('commit', owner, { course: { count: 3 } });
+      return { count: 2 };
+    }, saveParticipantChangeNotifications: async changes => notifications.push(...changes), updateNotificationBadge() {}, updateLastCheckTimeDisplay() {} });
+  vm.runInContext(extract('sendParticipantCheckMessage') + extract('checkAllCoursesParticipants'), context);
+  await context.checkAllCoursesParticipants();
+  assert.equal(lock.data.participantCounts.course.count, 3);
+  assert.deepEqual(notifications, []);
+  assert.equal(await lock.update('force'), false);
 });

@@ -58,6 +58,8 @@
   const test = document.getElementById('test');
   const presets = [168, 72, 48, 24, 12, 6, 3, 1, 0.5];
   let dirty = false;
+  let revision = 0;
+  let saving = false;
   function label(hours) {
     if (hours === 0.5) return english ? '30 minutes before' : '截止前 30 分鐘';
     if (hours % 24 === 0) return english ? `${hours / 24} day${hours === 24 ? '' : 's'} before` : `截止前 ${hours / 24} 天`;
@@ -92,7 +94,7 @@
       ? `${daily ? `Daily at ${document.getElementById('time').value}` : 'Notify immediately'}. ${reminders ? `Reminders: ${reminders}.` : 'Deadline reminders are off.'}${off ? ` Not notifying: ${off}.` : ''}`
       : `${daily ? `每天 ${document.getElementById('time').value} 通知` : '即時通知'}。${reminders ? `作業${reminders.replaceAll('截止前 ', '截止前')}提醒。` : '截止提醒已關閉。'}${off ? `不通知：${off}。` : ''}`);
     document.getElementById('add-reminder').disabled = !enabled || presets.every(value => values().includes(value));
-    if (changed) { dirty = true; save.disabled = false; status.dataset.state = 'pending'; status.textContent = t('尚未儲存'); }
+    if (changed) { revision++; dirty = true; save.disabled = saving; status.dataset.state = 'pending'; status.textContent = t('尚未儲存'); }
   }
   function addReminder(hours) {
     const row = document.createElement('div'); row.className = 'reminder-row';
@@ -164,19 +166,23 @@
     if (changes.notificationLog) showHistory(changes.notificationLog.newValue);
   });
   document.getElementById('form').addEventListener('submit', async event => {
-    event.preventDefault(); save.disabled = true; save.textContent = t('儲存中...');
+    event.preventDefault();
+    if (saving) return;
+    saving = true; save.disabled = true; save.textContent = t('儲存中...');
+    const savedRevision = revision;
+    const notificationSettings = {
+      desktop: desktop.checked, mode: document.querySelector('input[name=mode]:checked').value, time: document.getElementById('time').value, reminders: values(),
+      events: Object.fromEntries(eventInputs.map(input => [input.dataset.event, input.checked]))
+    };
     try {
-      if (desktop.checked && E3DesktopNotifications.native && await E3DesktopNotifications.authorize() !== 'granted') {
+      if (notificationSettings.desktop && E3DesktopNotifications.native && await E3DesktopNotifications.authorize() !== 'granted') {
         throw new Error(t('請在瀏覽器與系統設定允許通知。'));
       }
-      await E3NotificationAPI.set({ notificationSettings: {
-        desktop: desktop.checked, mode: document.querySelector('input[name=mode]:checked').value, time: document.getElementById('time').value, reminders: values(),
-        events: Object.fromEntries(eventInputs.map(input => [input.dataset.event, input.checked]))
-      } });
-      dirty = false;
-      status.textContent = t('設定已儲存！'); status.dataset.state = 'success';
+      await E3NotificationAPI.set({ notificationSettings });
+      dirty = revision !== savedRevision;
+      status.textContent = t(dirty ? '尚未儲存' : '設定已儲存！'); status.dataset.state = dirty ? 'pending' : 'success';
     } catch (error) { status.textContent = error.message || t('儲存失敗，請再試一次。'); status.dataset.state = 'error'; save.disabled = false; }
-    finally { save.textContent = t('儲存設定'); showPermission(); }
+    finally { saving = false; save.disabled = !dirty; save.textContent = t('儲存設定'); showPermission(); }
   });
   test.addEventListener('click', async () => {
     test.disabled = true; test.textContent = t('測試中...');
