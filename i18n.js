@@ -2,6 +2,10 @@
 (function () {
   'use strict';
   const english = {
+  "時間未知": "Unknown time",
+  "AI 請求逾時，請重試": "AI request timed out. Please retry.",
+  "OpenAI 串流中斷，請重試": "OpenAI stream interrupted. Please retry.",
+  "Gemini 串流中斷，請重試": "Gemini stream interrupted. Please retry.",
   "AI 摘要與今日總覽": "AI summaries and daily digest",
   "選擇 Gemini 或 OpenAI 生成公告與信件摘要與今日總覽；翻譯則使用 Google Translate 免費服務。": "Choose Gemini or OpenAI for summaries and daily digests. Translation uses Google Translate.",
   "摘要與今日總覽供應商": "Summary and daily digest provider",
