@@ -5120,7 +5120,7 @@ async function loadAllCoursesList() {
 
         try {
           console.log('E3 Helper: 手動觸發成員檢測');
-          const changes = await checkAllCoursesParticipants();
+          const changes = await checkAllCoursesParticipants({ force: true });
 
           if (changes && changes.length > 0) {
             checkParticipantsBtn.textContent = ui`✓ 發現 ${changes.length} 個變動`;
@@ -6683,9 +6683,27 @@ async function fetchCourseParticipants(courseId, courseName) {
   }
 }
 
+// 背景無回應（例如擴充功能剛重新載入）時視為未取得檢測權。
+function sendParticipantCheckMessage(message) {
+  return new Promise(resolve => {
+    try {
+      chrome.runtime.sendMessage(message, response => resolve(chrome.runtime.lastError ? null : response));
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
 // 檢查所有課程的成員變動
-async function checkAllCoursesParticipants() {
+async function checkAllCoursesParticipants({ force = false } = {}) {
   console.log('E3 Helper: 開始檢查課程成員變動...');
+
+  // 多個 E3 分頁與背景排程可能同時觸發；由背景只放行一輪，避免同一變動重複通知。
+  const claim = await sendParticipantCheckMessage({ action: 'claimParticipantCheck', force });
+  if (!claim?.granted) {
+    console.log('E3 Helper: 另一輪成員檢測進行中或剛完成，略過');
+    return [];
+  }
 
   try {
     // 載入課程列表
@@ -6713,6 +6731,8 @@ async function checkAllCoursesParticipants() {
         if (oldData && oldData.count !== result.count) {
           const diff = result.count - oldData.count;
           changes.push({
+            // 同一筆變動（相同舊快照與人數）只會有一個 key，重複偵測時由通知去重。
+            key: `participant-${course.id}-${oldData.count}-${result.count}-${oldData.timestamp || 0}`,
             courseId: course.id,
             courseName: course.fullname,
             oldCount: oldData.count,
@@ -6729,10 +6749,8 @@ async function checkAllCoursesParticipants() {
     }
 
     // 儲存新的數量和檢測時間
-    await chrome.storage.local.set({
-      participantCounts: newCounts,
-      lastParticipantCheckTime: Date.now()
-    });
+    const committed = await sendParticipantCheckMessage({ action: 'commitParticipantCheck', token: claim.token, counts: newCounts });
+    if (!committed?.granted) return [];
 
     // 如果有變動，發送通知並儲存到通知中心
     if (changes.length > 0) {
@@ -6744,6 +6762,7 @@ async function checkAllCoursesParticipants() {
         const changeText = change.diff > 0 ? ui`增加 ${change.diff} 人` : ui`減少 ${Math.abs(change.diff)} 人`;
         chrome.runtime.sendMessage({
           action: 'showNotification',
+          notificationId: change.key,
           title: ui` 課程成員變動`,
           message: `${change.courseName}\n${changeText} (${change.oldCount} → ${change.newCount})`
         });
@@ -6760,6 +6779,8 @@ async function checkAllCoursesParticipants() {
   } catch (error) {
     console.error('E3 Helper: 檢查課程成員時發生錯誤:', error);
     return [];
+  } finally {
+    await sendParticipantCheckMessage({ action: 'releaseParticipantCheck', token: claim.token });
   }
 }
 
@@ -6769,10 +6790,11 @@ async function saveParticipantChangeNotifications(changes) {
     const storage = await chrome.storage.local.get(['participantChangeNotifications']);
     const notifications = storage.participantChangeNotifications || [];
 
-    // 加入新的變動通知
+    // 加入新的變動通知（同一筆變動只保留一則）
     for (const change of changes) {
+      if (notifications.some(n => n.id === change.key)) continue;
       notifications.push({
-        id: `participant-${change.courseId}-${change.timestamp}`,
+        id: change.key,
         type: 'participant-change',
         courseId: change.courseId,
         courseName: change.courseName,
