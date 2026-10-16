@@ -6152,6 +6152,7 @@ async function updateNotificationBadge() {
 
 // 輔助函數：計算時間差文字
 function getTimeAgoText(timestamp) {
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return uiText('時間未知');
   const now = Date.now();
   const diff = now - timestamp;
 
@@ -6169,6 +6170,40 @@ function getTimeAgoText(timestamp) {
 }
 
 // 載入信件
+function parseE3Timestamp(value) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  if (/^\d{10}(?:\d{3})?$/.test(text)) return Number(text) * (text.length === 10 ? 1000 : 1);
+  const local = text.match(/(\d{4})\s*(?:年|[/.\-])\s*(\d{1,2})\s*(?:月|[/.\-])\s*(\d{1,2})(?:日)?[^\d]*(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  // Preserve explicit timezone offsets in machine-readable ISO dates.
+  if (/T.*(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)) {
+    const parsed = Date.parse(text);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  if (local) {
+    const [, y, m, d, h, min, sec = '0'] = local;
+    const date = new Date(+y, +m - 1, +d, +h, +min, +sec);
+    return date.getFullYear() === +y && date.getMonth() === +m - 1 && date.getDate() === +d &&
+      date.getHours() === +h && date.getMinutes() === +min && date.getSeconds() === +sec ? date.getTime() : null;
+  }
+  // English Moodle titles may contain a weekday and a month name.
+  if (!/[a-z]{3}/i.test(text)) return null;
+  const parsed = Date.parse(text);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getMessageTimestamp(element) {
+  if (!element) return null;
+  const time = element.querySelector('time');
+  for (const value of [element.getAttribute('data-timestamp'), time?.getAttribute('datetime'),
+    element.getAttribute('datetime'), element.getAttribute('title'),
+    element.getAttribute('data-original-title'), element.textContent]) {
+    const parsed = parseE3Timestamp(value);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
 async function loadMessages() {
   console.log('E3 Helper: 開始載入信件...');
 
@@ -6285,22 +6320,7 @@ async function loadMessages() {
 
             // 取得日期
             const dateEl = row.querySelector('.mail_date');
-            const dateTitle = dateEl?.getAttribute('title') || '';
-            let timestamp = Date.now();
-
-            if (dateTitle) {
-              // dateTitle 格式: "2025年11月13日,21:02"
-              try {
-                // 轉換為標準格式
-                const dateMatch = dateTitle.match(/(\d{4})年(\d{1,2})月(\d{1,2})日,(\d{1,2}):(\d{2})/);
-                if (dateMatch) {
-                  const [_, year, month, day, hour, minute] = dateMatch;
-                  timestamp = new Date(year, month - 1, day, hour, minute).getTime();
-                }
-              } catch (e) {
-                console.warn(`E3 Helper: 無法解析日期 "${dateTitle}":`, e);
-              }
-            }
+            const timestamp = getMessageTimestamp(dateEl);
 
             // 檢查未讀狀態
             const isUnread = row.classList.contains('mail_unread');
@@ -6764,9 +6784,11 @@ let dailyDigestInFlight = false;
 function getCurrentDailyDigestItems() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
   return [...allAnnouncements.map(item => ({ ...item, type: 'announcement' })),
     ...allMessages.map(item => ({ ...item, type: 'message' }))]
-    .filter(item => item.timestamp >= today.getTime())
+    .filter(item => Number.isFinite(item.timestamp) && item.timestamp >= today.getTime() && item.timestamp < tomorrow.getTime())
     .sort((a, b) => b.timestamp - a.timestamp).slice(0, 40);
 }
 
@@ -7261,7 +7283,7 @@ async function translateWithGoogleFree(text, sourceLang, targetLang) {
 
 // 供應商呼叫一律交給背景服務。
 async function callSummaryProvider(content, config, maxOutputTokens = 4096) {
-  if (!config.apiKey || !config.model) throw new Error('請設定所選 AI 供應商的 API Key 與模型');
+  if (!config.apiKey || !config.model) throw new Error(uiText('請設定所選 AI 供應商的 API Key 與模型'));
   const result = await new Promise((resolve, reject) => {
     chrome.runtime.sendMessage({
       action: config.provider === 'gemini' ? 'callGeminiApi' : 'callOpenAIResponsesApi',
@@ -7272,7 +7294,7 @@ async function callSummaryProvider(content, config, maxOutputTokens = 4096) {
       else resolve(response);
     });
   });
-  if (!result?.success) throw new Error(result?.error || 'AI API 請求失敗');
+  if (!result?.success) throw new Error(uiText(result?.error || 'AI API 請求失敗'));
   return result.data;
 }
 
@@ -7400,7 +7422,7 @@ async function showAnnouncementDetails(itemId, itemType) {
         </div>
         <div style="" class="e3-helper-small-text e3-helper-muted-text">
           <span> ${escapeHtml(item.author)}</span>
-          <span style="margin-left: 12px;"> ${new Date(item.timestamp).toLocaleString(E3HelperI18n.language)}</span>
+          <span style="margin-left: 12px;"> ${Number.isFinite(item.timestamp) ? new Date(item.timestamp).toLocaleString(E3HelperI18n.language) : uiText('時間未知')}</span>
           ${!isRead ? uiText('<span style="margin-left: 12px;" class="e3-helper-danger-text">● 未讀</span>') : ''}
         </div>
       </div>

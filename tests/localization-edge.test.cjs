@@ -81,7 +81,7 @@ test('sync stores missing message subjects as raw empty data and renders in the 
   const context = await app('en', data, { allCourses: [{ id: 1, fullname: '課程原文' }], allMessages: [], isOnE3Site: () => true,
     document: { querySelector: () => ({}) }, showTemporaryMessage() {}, fetch: async () => ({ ok: true, text: async () => 'fixture' }),
     DOMParser: class { parseFromString() { return { querySelectorAll: () => [row] }; } } });
-  vm.runInContext(fn('loadMessages'), context);
+  vm.runInContext(fn('parseE3Timestamp') + fn('getMessageTimestamp') + fn('loadMessages'), context);
   await context.loadMessages();
   assert.equal(data.messages[0].title, '');
   vm.runInContext(fn('getItemTitle'), context);

@@ -285,7 +285,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           model,
           input: content,
           max_output_tokens: maxOutputTokens,
-          store: false
+          store: false,
+          stream: true
         };
 
         // GPT-5 摘要使用最低推理強度，避免短摘要耗盡輸出 token 額度。
@@ -293,16 +294,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           requestBody.reasoning = { effort: 'minimal' };
         }
 
-        const response = await fetch('https://api.openai.com/v1/responses', {
+        const data = await fetchAIResponse('https://api.openai.com/v1/responses', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`
           },
           body: JSON.stringify(requestBody)
-        });
-
-        const data = await readAIResponse(response, 'OpenAI');
+        }, 'OpenAI');
         if (data.status === 'incomplete' || data.status === 'failed' || data.error) {
           throw new Error(data.error?.message || data.incomplete_details?.reason || `OpenAI response ${data.status}`);
         }
@@ -358,12 +357,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         } else {
           const model = String(request.model || '').replace(/^models\//, '');
           if (!/^[a-zA-Z0-9._-]+$/.test(model)) throw new Error('請選擇或輸入 Gemini 模型 ID');
-          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+          const data = await fetchAIResponse(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`, {
             method: 'POST', headers,
             body: JSON.stringify({ contents: [{ parts: [{ text: content }] }],
               ...(generationConfig ? { generationConfig } : {}) })
-          });
-          const data = await readAIResponse(response, 'Gemini');
+          }, 'Gemini');
           const candidate = data.candidates?.[0];
           const text = candidate?.content?.parts?.filter(part => !part.thought && typeof part.text === 'string')
             .map(part => part.text).join('').trim();
@@ -399,6 +397,70 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // 網關可能回傳 HTML；解析失敗不能遮蔽 HTTP 狀態。
+async function fetchAIResponse(url, options, provider) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120000);
+  const keepAlive = setInterval(() => {
+    try { chrome.runtime.getPlatformInfo?.()?.catch?.(() => {}); } catch { /* Safari may omit this API. */ }
+  }, 20000);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    if (!response.ok || !response.headers?.get('content-type')?.includes('text/event-stream')) {
+      return await readAIResponse(response, provider);
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '', completed = null, geminiFinished = false;
+    const parts = [];
+    const consume = event => {
+      const data = event.split('\n').filter(line => line.startsWith('data:'))
+        .map(line => line.slice(5).trimStart()).join('\n');
+      if (!data || data === '[DONE]') return;
+      const chunk = JSON.parse(data);
+      if (chunk.error || chunk.type === 'error') throw new Error(chunk.error?.message || chunk.message || `${provider} API 返回錯誤`);
+      if (provider === 'OpenAI') {
+        if (['response.completed', 'response.incomplete', 'response.failed'].includes(chunk.type)) completed = chunk.response;
+      } else {
+        const candidate = chunk.candidates?.[0];
+        if (chunk.promptFeedback?.blockReason) throw new Error(chunk.promptFeedback.blockReason);
+        if (candidate?.finishReason && !['STOP', 'MAX_TOKENS'].includes(candidate.finishReason)) throw new Error(candidate.finishReason);
+        if (candidate?.finishReason === 'STOP') geminiFinished = true;
+        if (candidate?.finishReason === 'MAX_TOKENS') throw new Error('max_output_tokens');
+        parts.push(...(candidate?.content?.parts || []).filter(part => !part.thought && typeof part.text === 'string'));
+      }
+    };
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        buffer += decoder.decode(value, { stream: !done });
+        // Normalize CRLF after combining chunks, including split CR/LF pairs.
+        buffer = buffer.replace(/\r\n/g, '\n');
+        let boundary;
+        while ((boundary = buffer.indexOf('\n\n')) >= 0) {
+          consume(buffer.slice(0, boundary));
+          buffer = buffer.slice(boundary + 2);
+        }
+        if (done) { if (buffer.trim()) consume(buffer); break; }
+      }
+    } finally {
+      await reader.cancel().catch(() => {});
+      reader.releaseLock();
+    }
+    if (provider === 'OpenAI') {
+      if (!completed) throw new Error('OpenAI 串流中斷，請重試');
+      return completed;
+    }
+    if (!geminiFinished) throw new Error('Gemini 串流中斷，請重試');
+    return { candidates: [{ content: { parts } }] };
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error('AI 請求逾時，請重試');
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+    clearInterval(keepAlive);
+  }
+}
+
 async function readAIResponse(response, provider) {
   let data;
   try { data = await response.json(); } catch { data = null; }
