@@ -235,3 +235,146 @@ test('weekly tables in Word syllabi yield exams without AI', () => {
     ['quiz', '2026-09-14', 13, 'syllabusFile'], ['quiz', '2026-11-02', 13, 'syllabusFile'], ['final', '2026-12-21', 13, 'syllabusFile']]);
   assert.equal(found[1].excerpt, '9 · 2026-11-02(一) · Corporate Finance and Event study Method · Quiz 6 ·');
 });
+
+test('confirmed exams prompt for a corrected start time without downgrading to an unknown time', () => {
+  const original = { courseId: '1', course: 'Course', examType: 'final', deadline: at(2026, 12, 23, 9), timeKnown: 'exact', source: 'syllabusFile', url: 'pdf', confidence: 'high' };
+  const suggestions = exams.mergeSuggestions([], [original], [], now);
+  const assignment = exams.toExamAssignment(suggestions[0], original);
+  suggestions[0].state = 'accepted';
+  suggestions[0].resolvedFingerprint = exams.fingerprint([original]);
+  const changed = exams.mergeSuggestions(suggestions, [{ ...original, deadline: at(2026, 12, 23, 14) }], [assignment], now);
+  assert.equal(changed[0].state, 'update');
+  assert.equal(assignment.deadline, original.deadline);
+  assert.equal(exams.mergeSuggestions(suggestions, [{ ...original, timeKnown: 'date-only', deadline: at(2026, 12, 23, 8) }], [assignment], now)[0].state, 'accepted');
+  const dateOnly = { ...assignment, timeKnown: 'date-only', deadline: at(2026, 12, 23, 8) };
+  assert.equal(exams.mergeSuggestions(suggestions, [original], [dateOnly], now)[0].state, 'accepted');
+  const unresolvedTime = { ...suggestions[0], resolvedFingerprint: exams.fingerprint([{ ...original, timeKnown: 'date-only' }]) };
+  assert.equal(exams.mergeSuggestions([unresolvedTime], [original], [dateOnly], now)[0].state, 'update');
+});
+
+test('rescanning a moved quiz retains its identity and other quizzes from the same source', () => {
+  const quiz = day => ({ courseId: '1', course: 'Course', examType: 'quiz', deadline: at(2026, 11, day, 9), timeKnown: 'exact', source: 'syllabusFile', url: 'pdf', confidence: 'high' });
+  const original = [quiz(5), quiz(19)];
+  const suggestions = exams.mergeSuggestions([], original, [], now);
+  const assignments = suggestions.map(suggestion => exams.toExamAssignment(suggestion, suggestion.candidates[0]));
+  suggestions.forEach(suggestion => { suggestion.state = 'accepted'; suggestion.resolvedFingerprint = exams.fingerprint(suggestion.candidates); });
+  const rescanned = exams.mergeSuggestions(suggestions, [quiz(12), quiz(19)], assignments, now, candidate => candidate.url === 'pdf');
+  assert.equal(rescanned.length, 2);
+  assert.equal(rescanned.find(suggestion => suggestion.id === suggestions[0].id).state, 'update');
+  assert.equal(rescanned.find(suggestion => suggestion.id === suggestions[1].id).state, 'accepted');
+  const repeated = exams.mergeSuggestions(rescanned, [quiz(12), quiz(19)], assignments, now, candidate => candidate.url === 'pdf');
+  assert.deepEqual(repeated.map(suggestion => suggestion.id), rescanned.map(suggestion => suggestion.id));
+});
+
+test('numbered quizzes retain identity when several dates change in one syllabus', () => {
+  const rows = dates => dates.map((day, index) => `${index + 1} | 2026-11-${day} | Quiz ${index + 1}`).join('\n');
+  const course = { courseId: '1', course: 'Course', url: 'docx' };
+  const original = exams.detectScheduleTextExams(rows(['05', '12']), course);
+  const suggestions = exams.mergeSuggestions([], original, [], now);
+  const assignments = suggestions.map(suggestion => exams.toExamAssignment(suggestion, suggestion.candidates[0]));
+  suggestions.forEach(suggestion => { suggestion.state = 'accepted'; suggestion.resolvedFingerprint = exams.fingerprint(suggestion.candidates); });
+  const changed = exams.mergeSuggestions(suggestions, exams.detectScheduleTextExams(rows(['12', '19']), course), assignments, now, candidate => candidate.url === 'docx');
+  assert.equal(changed.length, 2);
+  assert.deepEqual(changed.map(suggestion => suggestion.id), suggestions.map(suggestion => suggestion.id));
+  assert.ok(changed.every(suggestion => suggestion.state === 'update'));
+  const distinct = exams.detectScheduleTextExams('1 | 2026-11-19 | Quiz 3', course);
+  const replacement = exams.mergeSuggestions([suggestions[0]], distinct, assignments, now, candidate => candidate.url === 'docx');
+  assert.equal(replacement[0].state, 'new');
+  assert.notEqual(replacement[0].id, suggestions[0].id);
+});
+
+const contentSource = fs.readFileSync(path.join(__dirname, '../content.js'), 'utf8');
+function contentFunction(name) {
+  const start = contentSource.indexOf(`async function ${name}(`);
+  return contentSource.slice(start, contentSource.indexOf('\n}\n', start) + 2);
+}
+
+test('two stale tabs accept exams without replacing each other or newly synced assignments', async () => {
+  const candidates = ['A', 'B'].map(courseId => ({ courseId, course: courseId, examType: 'final', deadline: at(2099, 12, 23, 9), timeKnown: 'exact', source: 'timetable', url: '' }));
+  const storage = { assignments: [{ eventId: 'synced', name: 'New synced assignment' }], examSuggestions: exams.mergeSuggestions([], candidates) };
+  const worker = loadWorker(storage, () => { throw new Error('Unexpected fetch'); });
+  function tab() {
+    const context = vm.createContext({ allAssignments: [], examSuggestions: structuredClone(storage.examSuggestions), E3ExamDetection: exams,
+      clearTimeout, saveAssignmentsTimeout: null, saveAssignmentsPending: false, console,
+      chrome: { storage: { local: { set: async update => Object.assign(storage, structuredClone(update)) } } },
+      sendExamMessage: request => worker.resolveExamSuggestion(request.id, request.decision, request.candidateIndex, request.fingerprint),
+      showTemporaryMessage() {}, uiText: text => text, refreshExamViews: async () => {} });
+    vm.runInContext(contentFunction('saveAssignmentsImmediate') + contentFunction('resolveExamSuggestionFromCard'), context);
+    return context;
+  }
+  const tabs = [tab(), tab()];
+  const card = courseId => ({ dataset: { examSuggestion: `exam:${courseId}:final` }, querySelector: () => ({ value: '0' }) });
+  await Promise.all(tabs.map((context, index) => context.resolveExamSuggestionFromCard(card(index === 0 ? 'A' : 'B'), 'accept')));
+  assert.equal(storage.assignments.length, 3);
+  assert.ok(storage.assignments.some(assignment => assignment.eventId === 'synced'));
+  assert.deepEqual(storage.assignments.filter(assignment => assignment.kind === 'exam').map(assignment => assignment.courseId).sort(), ['A', 'B']);
+  await tabs[0].resolveExamSuggestionFromCard(card('A'), 'accept');
+  assert.equal(storage.assignments.length, 3);
+});
+
+test('accepting a quiz revision updates the existing assignment and rejects stale choices', async () => {
+  const original = { courseId: '1', course: 'Course', examType: 'quiz', deadline: at(2099, 11, 5, 9), timeKnown: 'exact', source: 'syllabusFile', url: 'pdf', confidence: 'high' };
+  const suggestions = exams.mergeSuggestions([], [original]);
+  const assignment = exams.toExamAssignment(suggestions[0], original);
+  suggestions[0].state = 'accepted';
+  suggestions[0].resolvedFingerprint = exams.fingerprint([original]);
+  const changed = { ...original, deadline: at(2099, 11, 12, 9) };
+  const storage = { assignments: [assignment], examSuggestions: exams.mergeSuggestions(suggestions, [changed], [assignment], Date.now(), candidate => candidate.url === 'pdf') };
+  const worker = loadWorker(storage, () => {});
+  const id = suggestions[0].id;
+  await assert.rejects(worker.resolveExamSuggestion(id, 'accept', 0, exams.fingerprint([original])), /changed/i);
+  await worker.resolveExamSuggestion(id, 'accept', 0, exams.fingerprint([changed]));
+  assert.equal(storage.assignments.length, 1);
+  assert.equal(storage.assignments[0].eventId, assignment.eventId);
+  assert.equal(storage.assignments[0].deadline, changed.deadline);
+});
+
+test('announcement scans refresh edited, expired and forced sources and retry failed reads', async () => {
+  const item = { id: 'post', title: 'Final exam', courseId: '1', timestamp: Date.now(), url: 'https://e3p.nycu.edu.tw/post/1' };
+  const storage = {};
+  let text = 'Final exam 12/23 09:00', reads = 0, failed = false, lastMerge;
+  const context = vm.createContext({ Date, console, E3ExamDetection: exams, allAnnouncements: [item], allMessages: [], allCourses: [],
+    chrome: { storage: { local: { get: async () => structuredClone(storage), set: async update => Object.assign(storage, structuredClone(update)) } } },
+    getAISummaryConfig: () => ({}), fetchExamSourceText: async () => { reads++; if (failed) throw new Error('offline'); return text; },
+    sendExamMessage: async request => { lastMerge = request; } });
+  vm.runInContext(contentFunction('scanAnnouncementExams'), context);
+  await context.scanAnnouncementExams();
+  await context.scanAnnouncementExams();
+  assert.equal(reads, 1);
+  text = 'Final exam 12/30 14:00';
+  item.title = 'Final exam rescheduled';
+  await context.scanAnnouncementExams();
+  assert.equal(reads, 2);
+  assert.equal(new Date(lastMerge.candidates[0].deadline).getDate(), 30);
+  await context.scanAnnouncementExams({ force: true });
+  assert.equal(reads, 3);
+  storage.examExtractionCache['announcement:post'].at -= 86400001;
+  await context.scanAnnouncementExams();
+  assert.equal(reads, 4);
+  delete storage.examExtractionCache['announcement:post'];
+  failed = true;
+  await assert.rejects(context.scanAnnouncementExams(), /offline/);
+  assert.equal(storage.examExtractionCache['announcement:post'], undefined);
+  assert.deepEqual(Array.from(lastMerge.replace), []);
+  failed = false;
+  await context.scanAnnouncementExams();
+  assert.equal(reads, 6);
+  assert.equal(lastMerge.candidates.length, 1);
+});
+
+test('converting submitted coursework to an exam resets both submission statuses', async () => {
+  const storage = { assignmentStatuses: { manual: 'submitted', other: 'submitted' } };
+  const context = vm.createContext({ console,
+    chrome: { storage: { local: {
+      get: (keys, callback) => callback(structuredClone(storage)),
+      set: async update => Object.assign(storage, structuredClone(update))
+    } } } });
+  vm.runInContext(contentFunction('loadAssignmentStatuses') + contentFunction('saveAssignmentStatus') + contentFunction('convertAssignmentToExam'), context);
+  const assignment = { eventId: 'manual', isManual: true, manualStatus: 'submitted' };
+  await context.convertAssignmentToExam(assignment, 'midterm');
+  assert.equal(assignment.manualStatus, 'pending');
+  assert.equal(assignment.kind, 'exam');
+  assert.equal(storage.assignmentStatuses.manual, 'pending');
+  assert.equal(storage.assignmentStatuses.other, 'submitted');
+  assert.match(contentSource, /await convertAssignmentToExam\(assignment, examType\)/);
+});

@@ -201,7 +201,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
   if (request.action === 'resolveExamSuggestion') {
-    resolveExamSuggestion(request.id, request.decision).then(
+    resolveExamSuggestion(request.id, request.decision, request.candidateIndex, request.fingerprint).then(
       suggestions => sendResponse({ success: true, suggestions }),
       error => sendResponse({ success: false, error: error.message })
     );
@@ -513,8 +513,9 @@ function updateExamSuggestions(mutate) {
   const operation = examSuggestionQueue.then(async () => {
     const { examSuggestions = [], assignments = [] } = await chrome.storage.local.get(['examSuggestions', 'assignments']);
     const next = await mutate(examSuggestions, assignments);
-    await chrome.storage.local.set({ examSuggestions: next });
-    return next;
+    const update = Array.isArray(next) ? { examSuggestions: next } : next;
+    await chrome.storage.local.set(update);
+    return update.examSuggestions;
   });
   examSuggestionQueue = operation.catch(() => {});
   return operation;
@@ -579,13 +580,26 @@ async function mergeExamCandidates(candidates, replace) {
     c => sources.has(String(c.url))));
 }
 
-async function resolveExamSuggestion(id, decision) {
-  return updateExamSuggestions(existing => existing.map(suggestion => {
-    if (suggestion.id !== id) return suggestion;
+async function resolveExamSuggestion(id, decision, candidateIndex, fingerprint) {
+  if (!['accept', 'dismiss'].includes(decision)) throw new Error('Invalid exam decision');
+  return updateExamSuggestions((existing, assignments) => {
+    const suggestion = existing.find(item => item.id === id);
+    if (!suggestion) throw new Error('Exam suggestion changed; scan again');
     const resolvedFingerprint = E3ExamDetection.fingerprint(suggestion.candidates || []);
-    if (decision === 'accept') return { ...suggestion, state: 'accepted', resolvedFingerprint };
-    return { ...suggestion, state: suggestion.state === 'update' ? 'accepted' : 'dismissed', resolvedFingerprint };
-  }));
+    if (fingerprint !== undefined && fingerprint !== resolvedFingerprint) throw new Error('Exam suggestion changed; scan again');
+    const update = { examSuggestions: existing.map(item => item.id === id ? {
+      ...item, state: decision === 'accept' || item.state === 'update' ? 'accepted' : 'dismissed', resolvedFingerprint
+    } : item) };
+    if (decision === 'accept') {
+      const chosen = candidateIndex === undefined ? E3ExamDetection.preferredCandidate(suggestion.candidates)
+        : Number.isInteger(candidateIndex) ? suggestion.candidates[candidateIndex] : null;
+      if (!chosen) throw new Error('Invalid exam choice');
+      const confirmed = assignments.find(item => E3ExamDetection.isExam(item) && item.examKey === id);
+      const exam = E3ExamDetection.toExamAssignment(suggestion, chosen, confirmed ? { eventId: confirmed.eventId, name: confirmed.name } : {});
+      update.assignments = confirmed ? assignments.map(item => item === confirmed ? { ...item, ...exam } : item) : [...assignments, exam];
+    }
+    return update;
+  });
 }
 
 // Send a course PDF (read by the E3 page) to the selected AI provider.

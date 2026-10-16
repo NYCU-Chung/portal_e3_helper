@@ -2029,6 +2029,11 @@ async function saveAssignmentStatus(eventId, status) {
   console.log('E3 Helper: 當前所有手動狀態:', statuses);
 }
 
+async function convertAssignmentToExam(assignment, examType) {
+  Object.assign(assignment, { kind: 'exam', examType, timeKnown: 'exact', endTime: null, manualStatus: 'pending' });
+  await saveAssignmentStatus(assignment.eventId, 'pending');
+}
+
 // 從儲存空間讀取作業列表
 async function loadAssignments() {
   return new Promise((resolve) => {
@@ -3197,7 +3202,7 @@ function createSidebar() {
           assignment.course = course;
           assignment.deadline = deadlineTimestamp;
           if (isExamEntry) {
-            Object.assign(assignment, { kind: 'exam', examType, timeKnown: 'exact', endTime: null });
+            await convertAssignmentToExam(assignment, examType);
           } else {
             delete assignment.kind;
             delete assignment.examType;
@@ -3235,7 +3240,7 @@ function createSidebar() {
       }
 
       // 儲存到 storage
-      await saveAssignments();
+      await saveAssignmentsImmediate();
 
       // 更新顯示
       await updateSidebarContent();
@@ -7015,6 +7020,8 @@ function renderExamSuggestionPanel(context) {
 
 async function refreshExamViews() {
   await loadExamSuggestions();
+  const { assignments = [] } = await chrome.storage.local.get(['assignments']);
+  allAssignments = assignments;
   if (document.querySelector('.e3-helper-content[data-content="assignments"].active')) await updateSidebarContent();
   const digestExams = document.getElementById('e3-helper-digest-exams');
   if (digestExams) digestExams.innerHTML = renderExamSuggestionPanel('digest');
@@ -7026,12 +7033,9 @@ async function acceptAllExamSuggestions() {
   if (!pending.length || !confirm(ui`要加入 ${pending.length} 個考試嗎？每個都會使用預選的日期。`)) return;
   for (const suggestion of pending) {
     const chosen = E3ExamDetection.preferredCandidate(suggestion.candidates);
-    const existing = allAssignments.find(a => E3ExamDetection.isExam(a) && a.examKey === suggestion.id);
-    if (existing) Object.assign(existing, E3ExamDetection.toExamAssignment(suggestion, chosen, { eventId: existing.eventId, name: existing.name }));
-    else allAssignments.push(E3ExamDetection.toExamAssignment(suggestion, chosen));
+    await sendExamMessage({ action: 'resolveExamSuggestion', id: suggestion.id, decision: 'accept',
+      candidateIndex: suggestion.candidates.indexOf(chosen), fingerprint: E3ExamDetection.fingerprint(suggestion.candidates) });
   }
-  await saveAssignmentsImmediate();
-  for (const suggestion of pending) await sendExamMessage({ action: 'resolveExamSuggestion', id: suggestion.id, decision: 'accept' });
   showTemporaryMessage(uiText('考試已加入作業清單'));
   await refreshExamViews();
 }
@@ -7039,19 +7043,10 @@ async function acceptAllExamSuggestions() {
 async function resolveExamSuggestionFromCard(card, decision) {
   const suggestion = examSuggestions.find(s => s.id === card.dataset.examSuggestion);
   if (!suggestion) return;
-  if (decision === 'accept') {
-    const checked = card.querySelector('input[type="radio"]:checked');
-    const chosen = suggestion.candidates[Number(checked?.value)] || E3ExamDetection.preferredCandidate(suggestion.candidates);
-    const existing = allAssignments.find(a => E3ExamDetection.isExam(a) && a.examKey === suggestion.id);
-    if (existing) {
-      const updated = E3ExamDetection.toExamAssignment(suggestion, chosen, { eventId: existing.eventId, name: existing.name });
-      Object.assign(existing, updated);
-    } else {
-      allAssignments.push(E3ExamDetection.toExamAssignment(suggestion, chosen));
-    }
-    await saveAssignmentsImmediate();
-  }
-  await sendExamMessage({ action: 'resolveExamSuggestion', id: suggestion.id, decision });
+  const checked = card.querySelector('input[type="radio"]:checked');
+  const chosen = suggestion.candidates[Number(checked?.value)] || E3ExamDetection.preferredCandidate(suggestion.candidates);
+  await sendExamMessage({ action: 'resolveExamSuggestion', id: suggestion.id, decision,
+    candidateIndex: suggestion.candidates.indexOf(chosen), fingerprint: E3ExamDetection.fingerprint(suggestion.candidates) });
   showTemporaryMessage(uiText(decision === 'accept' ? '考試已加入作業清單' : '已忽略此考試建議'));
   await refreshExamViews();
 }
@@ -7078,7 +7073,7 @@ async function fetchExamSourceText(item) {
 }
 
 // 公告與信件：有 AI 時讀內文抽取考試；沒有 AI 時用文字中的日期產生低信心建議。
-async function scanAnnouncementExams() {
+async function scanAnnouncementExams({ force = false } = {}) {
   const DAY = 24 * 60 * 60 * 1000;
   const storage = await chrome.storage.local.get(['aiSettings', 'examExtractionCache']);
   const aiSettings = storage.aiSettings || {};
@@ -7087,20 +7082,31 @@ async function scanAnnouncementExams() {
   const mode = useAI ? 'ai' : 'regex';
   const cache = storage.examExtractionCache || {};
   const keyOf = item => `${item.type}:${item.id}`;
+  const sourceKey = item => JSON.stringify([item.title, item.timestamp, item.url, item.courseId, item.courseName]);
   const items = [...allAnnouncements.map(item => ({ ...item, type: 'announcement' })), ...allMessages.map(item => ({ ...item, type: 'message' }))]
     .filter(item => item.timestamp >= Date.now() - 45 * DAY && item.url && E3ExamDetection.hasExamKeyword(item.title))
     .sort((a, b) => b.timestamp - a.timestamp);
-  // AI 結果不重做；之前只用文字推測的項目，在設定 AI 後重新判讀。
-  const todo = items.filter(item => !cache[keyOf(item)] || (useAI && cache[keyOf(item)].mode !== 'ai')).slice(0, 8);
+  const todo = items.filter(item => {
+    const entry = cache[keyOf(item)];
+    return force || !entry || entry.sourceKey !== sourceKey(item) || Date.now() - entry.at >= DAY || (useAI && entry.mode !== 'ai');
+  }).slice(0, 8);
+  const readItems = [];
+  let readError;
   if (todo.length) {
     const texts = [];
-    for (const item of todo) texts.push(await fetchExamSourceText(item).catch(() => ''));
-    const sources = todo.map(item => ({ ...E3ExamDetection.resolveCourse(item, allCourses), type: item.type, url: item.url, label: item.title, seenAt: item.timestamp }));
+    for (const item of todo) {
+      try {
+        const text = await fetchExamSourceText(item);
+        if (!text) throw new Error('Empty exam source');
+        readItems.push(item); texts.push(text);
+      } catch (error) { readError ||= error; }
+    }
+    const sources = readItems.map(item => ({ ...E3ExamDetection.resolveCourse(item, allCourses), type: item.type, url: item.url, label: item.title, seenAt: item.timestamp }));
     let found = null;
     let usedMode = mode;
-    if (useAI) {
+    if (useAI && readItems.length) {
       try {
-        const records = todo.map((item, index) => ({ source: index + 1, type: item.type, course: item.courseName || '', title: item.title || '',
+        const records = readItems.map((item, index) => ({ source: index + 1, type: item.type, course: item.courseName || '', title: item.title || '',
           posted: E3ExamDetection.dayKey(item.timestamp), text: texts[index] }));
         const prompt = E3ExamDetection.buildExtractionPrompt(records, { language: E3HelperI18n.language });
         found = E3ExamDetection.parseExamExtraction(await callSummaryProvider(prompt, config, 2048), sources);
@@ -7109,9 +7115,9 @@ async function scanAnnouncementExams() {
         usedMode = 'regex';
       }
     }
-    if (!found) found = E3ExamDetection.detectAnnouncementExams(todo.map((item, index) => ({ ...item, text: texts[index] })), allCourses);
-    todo.forEach(item => {
-      cache[keyOf(item)] = { mode: usedMode, at: Date.now(), candidates: found.filter(candidate => candidate.url === item.url) };
+    if (!found) found = E3ExamDetection.detectAnnouncementExams(readItems.map((item, index) => ({ ...item, text: texts[index] })), allCourses);
+    readItems.forEach(item => {
+      cache[keyOf(item)] = { mode: usedMode, at: Date.now(), sourceKey: sourceKey(item), candidates: found.filter(candidate => candidate.url === item.url) };
     });
   }
   for (const [key, entry] of Object.entries(cache)) {
@@ -7119,7 +7125,8 @@ async function scanAnnouncementExams() {
   }
   await chrome.storage.local.set({ examExtractionCache: cache });
   const candidates = items.flatMap(item => cache[keyOf(item)]?.candidates || []);
-  await sendExamMessage({ action: 'mergeExamCandidates', candidates, replace: todo.map(item => item.url) });
+  await sendExamMessage({ action: 'mergeExamCandidates', candidates, replace: readItems.map(item => item.url) });
+  if (readError) throw readError;
 }
 
 async function runExamScan({ force = true } = {}) {
@@ -7130,7 +7137,7 @@ async function runExamScan({ force = true } = {}) {
   try {
     await sendExamMessage({ action: 'scanTimetableExams', force }).catch(error => errors.push(error.message));
     if (!allAnnouncements.length && !allMessages.length) await Promise.all([loadAnnouncements(), loadMessages()]).catch(() => {});
-    await scanAnnouncementExams().catch(error => errors.push(error.message));
+    await scanAnnouncementExams({ force }).catch(error => errors.push(error.message));
   } finally {
     examScanInFlight = false;
     await refreshExamViews();
