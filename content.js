@@ -6235,6 +6235,8 @@ async function loadMessages() {
     }
 
     console.log(`E3 Helper: 準備從 ${allCourses.length} 個課程載入信件`);
+    const cachedMessages = allMessages.map(item => item.timestampVersion === 1 ? item : { ...item, timestamp: null });
+    const refreshedCourseIds = new Set();
     allMessages = [];
 
     for (const course of allCourses) {
@@ -6258,6 +6260,8 @@ async function loadMessages() {
         const mailRows = doc.querySelectorAll('.mail_list .mail_item');
 
         if (!mailRows || mailRows.length === 0) {
+          // A confirmed mailbox can be empty; a login/error page cannot replace saved mail.
+          if (doc.querySelector('.mail_list')) refreshedCourseIds.add(String(course.id));
           console.log(`E3 Helper: 課程 ${course.id} 未找到信件列表（可能是動態載入）`);
 
           // 嘗試查找所有可能的容器
@@ -6351,11 +6355,20 @@ async function loadMessages() {
           }
         });
 
+        if (parsedCount === mailRows.length) refreshedCourseIds.add(String(course.id));
         console.log(`E3 Helper: 課程 ${course.id} 成功解析 ${parsedCount} 個信件`);
       } catch (error) {
         console.error(`E3 Helper: 載入課程 ${course.id} 信件時發生錯誤:`, error);
       }
     }
+
+    // Preserve saved mail for courses that failed, returned a login page, or only
+    // partially parsed. Freshly fetched IDs win without discarding unread state.
+    const fetchedIds = new Set(allMessages.map(item => item.id));
+    allMessages.push(...cachedMessages.filter(item => {
+      const courseId = String(item.id).match(/^msg-(\d+)-/)?.[1];
+      return !refreshedCourseIds.has(courseId) && !fetchedIds.has(item.id);
+    }));
 
     // 按時間排序
     allMessages.sort((a, b) => b.timestamp - a.timestamp);

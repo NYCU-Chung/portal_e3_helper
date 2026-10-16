@@ -77,3 +77,44 @@ test('digest cache with legacy mail is invalidated even if its fabricated date i
   vm.runInContext(fn('getSavedDailyDigestHTML'), context);
   assert.equal(context.getSavedDailyDigestHTML(), '');
 });
+
+test('upgrade refresh keeps saved mail with unknown dates when the network fails', async () => {
+  const app = await load('14 October 2026, 12:08 PM');
+  app.fetch = async () => { throw new Error('offline'); };
+  let saved;
+  app.chrome.storage.local.set = async data => { saved = data; };
+  await app.restoreMessagesFromStorage([{ id: 'msg-1-8', title: 'saved', timestamp: Date.now(), isRead: true }]);
+  assert.equal(app.allMessages.length, 1);
+  assert.equal(app.allMessages[0].title, 'saved');
+  assert.equal(app.allMessages[0].timestamp, null);
+  assert.equal(app.allMessages[0].isRead, true);
+  assert.equal(saved.messages[0].title, 'saved');
+});
+test('an E3 login page cannot overwrite saved mail with an empty mailbox', async () => {
+  const app = await load('14 October 2026, 12:08 PM');
+  app.DOMParser = class { parseFromString() { return { querySelectorAll: () => [], querySelector: () => null, body: { textContent: 'Log in', innerHTML: '<form>Log in</form>' } }; } };
+  await app.restoreMessagesFromStorage([{ id: 'msg-1-8', title: 'saved', timestamp: Date.now() }]);
+  assert.equal(app.allMessages.length, 1);
+  assert.equal(app.allMessages[0].timestamp, null);
+  assert.equal(app.allMessages[0].title, 'saved');
+});
+test('a partial course refresh replaces fetched mail and preserves the failed course', async () => {
+  const app = await load('14 October 2026, 12:08 PM');
+  app.allCourses = [{ id: 1, fullname: 'works' }, { id: 2, fullname: 'fails' }];
+  app.fetch = async url => ({ ok: url.includes('c=1&'), status: 503, text: async () => '' });
+  await app.restoreMessagesFromStorage([
+    { id: 'msg-1-8', title: 'removed from successful course', timestamp: Date.now() },
+    { id: 'msg-2-9', title: 'saved from failed course', timestamp: Date.now(), isRead: false }
+  ]);
+  assert.equal(app.allMessages.length, 2);
+  assert.equal(app.allMessages.find(item => item.id === 'msg-1-1').timestampVersion, 1);
+  assert.equal(app.allMessages.find(item => item.id === 'msg-2-9').timestamp, null);
+  assert.equal(app.allMessages.find(item => item.id === 'msg-2-9').isRead, false);
+});
+
+test('a confirmed empty mailbox removes the saved mail for that course', async () => {
+  const app = await load('14 October 2026, 12:08 PM');
+  app.DOMParser = class { parseFromString() { return { querySelectorAll: () => [], querySelector: selector => selector === '.mail_list' ? {} : null, body: { textContent: 'No messages', innerHTML: '<div class="mail_list"></div>' } }; } };
+  await app.restoreMessagesFromStorage([{ id: 'msg-1-8', title: 'removed mail', timestamp: Date.now() }]);
+  assert.equal(app.allMessages.length, 0);
+});
