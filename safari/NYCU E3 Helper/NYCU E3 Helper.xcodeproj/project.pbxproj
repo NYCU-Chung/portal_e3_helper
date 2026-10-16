@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		E30300000000000000000001 /* notification-api.js in Resources */ = {isa = PBXBuildFile; fileRef = E30300000000000000000002 /* notification-api.js */; };
+		E30600000000000000000001 /* CHANGELOG.md in Resources */ = {isa = PBXBuildFile; fileRef = E30600000000000000000002 /* CHANGELOG.md */; };
         E30100000000000000000001 /* desktop-notifications.js in Resources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000002 /* desktop-notifications.js */; };
 		47019749306E4721001631FD /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47019748306E4721001631FD /* AppDelegate.swift */; };
 		4701974D306E4721001631FD /* Main.html in Resources */ = {isa = PBXBuildFile; fileRef = 4701974B306E4721001631FD /* Main.html */; };
@@ -56,6 +57,7 @@
 
 /* Begin PBXFileReference section */
 		E30300000000000000000002 /* notification-api.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "notification-api.js"; path = "Resources/notification-api.js"; sourceTree = "<group>"; };
+		E30600000000000000000002 /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = text; name = "CHANGELOG.md"; path = "Resources/CHANGELOG.md"; sourceTree = "<group>"; };
         E30100000000000000000002 /* desktop-notifications.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "desktop-notifications.js"; path = "Resources/desktop-notifications.js"; sourceTree = "<group>"; };
 		47019745306E4721001631FD /* NYCU E3 Helper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "NYCU E3 Helper.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		47019748306E4721001631FD /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -161,6 +163,7 @@
 				47019777306E4722001631FD /* manifest.json */,
 				47019778306E4722001631FD /* notification-engine.js */,
 				E30300000000000000000002 /* notification-api.js */,
+				E30600000000000000000002 /* CHANGELOG.md */,
 				47019779306E4722001631FD /* notification-settings.css */,
 				4701977A306E4722001631FD /* _locales */,
 				4701977B306E4722001631FD /* content.js */,
@@ -271,6 +274,7 @@
 				47019787306E4722001631FD /* i18n.js in Resources */,
 				47019783306E4722001631FD /* notification-engine.js in Resources */,
 				E30300000000000000000001 /* notification-api.js in Resources */,
+				E30600000000000000000001 /* CHANGELOG.md in Resources */,
 				E30100000000000000000001 /* desktop-notifications.js in Resources */,
                 4701977D306E4722001631FD /* notification-settings.js in Resources */,
 			);
@@ -458,7 +462,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 2.2.0;
+				MARKETING_VERSION = 2.3.0;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
@@ -493,7 +497,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 2.2.0;
+				MARKETING_VERSION = 2.3.0;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
@@ -533,7 +537,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 2.2.0;
+				MARKETING_VERSION = 2.3.0;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
@@ -576,7 +580,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 2.2.0;
+				MARKETING_VERSION = 2.3.0;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "minimum_chrome_version": "93",
   "name": "NYCU E3 Helper",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "__MSG_extensionDescription__",
   "permissions": [
     "storage",

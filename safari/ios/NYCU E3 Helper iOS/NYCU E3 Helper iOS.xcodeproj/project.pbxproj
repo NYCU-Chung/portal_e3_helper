@@ -50,6 +50,7 @@
 				<string>47360621306EC70900F0925A</string>
 				<string>E30200000000000000000005</string>
 				<string>E30300000000000000000001</string>
+				<string>E30600000000000000000001</string>
 			</array>
 		</dict>
 		<key>473605F9306EC70900F0925A</key>
@@ -170,6 +171,7 @@
 				<string>4736061C306EC70900F0925A</string>
 				<string>E30200000000000000000004</string>
 				<string>E30300000000000000000002</string>
+				<string>E30600000000000000000002</string>
 			</array>
 			<key>sourceTree</key>
 			<string>SOURCE_ROOT</string>
@@ -370,7 +372,7 @@
 				<key>SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY</key>
 				<string>YES</string>
 				<key>MARKETING_VERSION</key>
-				<string>2.2.0</string>
+				<string>2.3.0</string>
 				<key>INFOPLIST_FILE</key>
 				<string>NYCU E3 Helper iOS Extension/Info.plist</string>
 				<key>SKIP_INSTALL</key>
@@ -585,7 +587,7 @@
 				<key>INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad</key>
 				<string>UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight</string>
 				<key>MARKETING_VERSION</key>
-				<string>2.2.0</string>
+				<string>2.3.0</string>
 				<key>INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone</key>
 				<string>UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight</string>
 				<key>CURRENT_PROJECT_VERSION</key>
@@ -676,7 +678,7 @@
 				<key>SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY</key>
 				<string>YES</string>
 				<key>MARKETING_VERSION</key>
-				<string>2.2.0</string>
+				<string>2.3.0</string>
 				<key>INFOPLIST_FILE</key>
 				<string>NYCU E3 Helper iOS Extension/Info.plist</string>
 				<key>SKIP_INSTALL</key>
@@ -932,7 +934,7 @@
 				<key>INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad</key>
 				<string>UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight</string>
 				<key>MARKETING_VERSION</key>
-				<string>2.2.0</string>
+				<string>2.3.0</string>
 				<key>INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone</key>
 				<string>UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight</string>
 				<key>CURRENT_PROJECT_VERSION</key>
@@ -1304,6 +1306,26 @@
 			<string>sourcecode.javascript</string>
 			<key>sourceTree</key>
 			<string>&lt;group&gt;</string>
+		</dict>
+		<key>E30600000000000000000002</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>text</string>
+			<key>name</key>
+			<string>CHANGELOG.md</string>
+			<key>path</key>
+			<string>Resources/CHANGELOG.md</string>
+			<key>sourceTree</key>
+			<string>&lt;group&gt;</string>
+		</dict>
+		<key>E30600000000000000000001</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+			<key>fileRef</key>
+			<string>E30600000000000000000002</string>
 		</dict>
 	</dict>
 	<key>rootObject</key>

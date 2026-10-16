@@ -335,19 +335,63 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+function getRichContentUrlScheme(value) {
+  const normalized = String(value || '').trim().replace(/[\u0000-\u0020\u007f]+/g, '');
+  const match = normalized.match(/^([a-z][a-z0-9+.-]*):/i);
+  return match ? match[1].toLowerCase() : '';
+}
+
+function isSafeRichContentUrl(value, attributeName) {
+  const scheme = getRichContentUrlScheme(value);
+  if (!scheme) return true;
+  if (attributeName === 'href') return ['http', 'https', 'mailto', 'tel'].includes(scheme);
+  if (attributeName === 'src') {
+    if (scheme === 'http' || scheme === 'https') return true;
+    if (scheme === 'data') {
+      return /^data:image\/(?:png|jpeg|gif|webp);base64,/i.test(String(value).trim());
+    }
+  }
+  return false;
+}
+
+const RICH_CONTENT_BLOCKED_TAGS = new Set([
+  'script', 'style', 'iframe', 'form', 'object', 'embed', 'applet', 'link', 'meta', 'base',
+  'svg', 'math', 'template', 'button', 'input', 'select', 'textarea', 'option',
+  'optgroup', 'fieldset', 'label', 'datalist', 'output'
+]);
+const RICH_CONTENT_BLOCKED_ATTRIBUTES = new Set([
+  'id', 'name', 'form', 'formaction', 'formenctype', 'formmethod', 'formnovalidate',
+  'formtarget', 'action', 'method', 'enctype', 'srcdoc', 'style', 'contenteditable',
+  'autofocus'
+]);
+
+function sanitizeRichContentElement(el) {
+  const tagName = String(el.tagName || '').toLowerCase();
+  if (RICH_CONTENT_BLOCKED_TAGS.has(tagName)) {
+    el.remove();
+    return false;
+  }
+  Array.from(el.attributes).forEach(attr => {
+    const name = attr.name.toLowerCase();
+    if (name.startsWith('on') || RICH_CONTENT_BLOCKED_ATTRIBUTES.has(name) ||
+        ((name === 'href' || name === 'src') && !isSafeRichContentUrl(attr.value, name))) {
+      el.removeAttribute(attr.name);
+    }
+  });
+  if (tagName === 'a' && el.getAttribute('target') === '_blank') {
+    const rel = new Set((el.getAttribute('rel') || '').split(/\s+/).filter(Boolean));
+    rel.add('noopener');
+    rel.add('noreferrer');
+    el.setAttribute('rel', [...rel].join(' '));
+  }
+  return true;
+}
+
 // HTML 白名單清理（用於公告/信件等 rich content）
 function sanitizeHtml(html) {
   const div = document.createElement('div');
   div.innerHTML = html;
-  // 移除危險標籤
-  div.querySelectorAll('script,style,iframe,form,object,embed,applet,link,meta,base,svg').forEach(el => el.remove());
-  // 移除所有 on* 事件屬性和危險屬性
-  div.querySelectorAll('*').forEach(el => {
-    [...el.attributes].forEach(attr => {
-      if (attr.name.startsWith('on') || attr.name === 'srcdoc') el.removeAttribute(attr.name);
-      if (attr.name === 'href' && el.getAttribute('href')?.startsWith('javascript:')) el.setAttribute('href', '#');
-    });
-  });
+  div.querySelectorAll('*').forEach(el => sanitizeRichContentElement(el));
   return div.innerHTML;
 }
 
@@ -2759,7 +2803,7 @@ function createSidebar() {
         }
       }
       if (allMessages.length === 0 && storage.messages && storage.messages.length > 0) {
-        allMessages = storage.messages;
+        await restoreMessagesFromStorage(storage.messages);
         if (storage.readMessages) {
           readMessages = new Set(storage.readMessages);
         }
@@ -2857,7 +2901,7 @@ function createSidebar() {
                       // 從 storage 重新載入資料並顯示
                       const storage = await chrome.storage.local.get(['announcements', 'messages']);
                       if (storage.announcements) allAnnouncements = storage.announcements;
-                      if (storage.messages) allMessages = storage.messages;
+                      if (storage.messages) await restoreMessagesFromStorage(storage.messages);
                       displayAnnouncements();
                       reloadBtn.textContent = uiText(' 載入完成');
                     } else {
@@ -6127,6 +6171,7 @@ async function updateNotificationBadge() {
 
 // 輔助函數：計算時間差文字
 function getTimeAgoText(timestamp) {
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return uiText('時間未知');
   const now = Date.now();
   const diff = now - timestamp;
 
@@ -6144,6 +6189,48 @@ function getTimeAgoText(timestamp) {
 }
 
 // 載入信件
+function parseE3Timestamp(value) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  if (/^\d{10}(?:\d{3})?$/.test(text)) return Number(text) * (text.length === 10 ? 1000 : 1);
+  const local = text.match(/(\d{4})\s*(?:年|[/.\-])\s*(\d{1,2})\s*(?:月|[/.\-])\s*(\d{1,2})(?:日)?[^\d]*(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  // Preserve explicit timezone offsets in machine-readable ISO dates.
+  if (/T.*(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)) {
+    const parsed = Date.parse(text);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  if (local) {
+    const [, y, m, d, h, min, sec = '0'] = local;
+    const date = new Date(+y, +m - 1, +d, +h, +min, +sec);
+    return date.getFullYear() === +y && date.getMonth() === +m - 1 && date.getDate() === +d &&
+      date.getHours() === +h && date.getMinutes() === +min && date.getSeconds() === +sec ? date.getTime() : null;
+  }
+  // English Moodle titles may contain a weekday and a month name.
+  if (!/[a-z]{3}/i.test(text)) return null;
+  const parsed = Date.parse(text);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getMessageTimestamp(element) {
+  if (!element) return null;
+  const time = element.querySelector('time');
+  for (const value of [element.getAttribute('data-timestamp'), time?.getAttribute('datetime'),
+    element.getAttribute('datetime'), element.getAttribute('title'),
+    element.getAttribute('data-original-title'), element.textContent]) {
+    const parsed = parseE3Timestamp(value);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
+// Cached mail from older versions may contain fabricated sync timestamps.
+// Hide those dates immediately, then refresh using the logged-in E3 page.
+async function restoreMessagesFromStorage(messages) {
+  const legacy = messages.some(item => item.timestampVersion !== 1);
+  allMessages = messages.map(item => item.timestampVersion === 1 ? item : { ...item, timestamp: null });
+  if (legacy && isOnE3Site()) await loadMessages();
+}
+
 async function loadMessages() {
   console.log('E3 Helper: 開始載入信件...');
 
@@ -6167,6 +6254,8 @@ async function loadMessages() {
     }
 
     console.log(`E3 Helper: 準備從 ${allCourses.length} 個課程載入信件`);
+    const cachedMessages = allMessages.map(item => item.timestampVersion === 1 ? item : { ...item, timestamp: null });
+    const refreshedCourseIds = new Set();
     allMessages = [];
 
     for (const course of allCourses) {
@@ -6190,6 +6279,8 @@ async function loadMessages() {
         const mailRows = doc.querySelectorAll('.mail_list .mail_item');
 
         if (!mailRows || mailRows.length === 0) {
+          // A confirmed mailbox can be empty; a login/error page cannot replace saved mail.
+          if (doc.querySelector('.mail_list')) refreshedCourseIds.add(String(course.id));
           console.log(`E3 Helper: 課程 ${course.id} 未找到信件列表（可能是動態載入）`);
 
           // 嘗試查找所有可能的容器
@@ -6260,22 +6351,7 @@ async function loadMessages() {
 
             // 取得日期
             const dateEl = row.querySelector('.mail_date');
-            const dateTitle = dateEl?.getAttribute('title') || '';
-            let timestamp = Date.now();
-
-            if (dateTitle) {
-              // dateTitle 格式: "2025年11月13日,21:02"
-              try {
-                // 轉換為標準格式
-                const dateMatch = dateTitle.match(/(\d{4})年(\d{1,2})月(\d{1,2})日,(\d{1,2}):(\d{2})/);
-                if (dateMatch) {
-                  const [_, year, month, day, hour, minute] = dateMatch;
-                  timestamp = new Date(year, month - 1, day, hour, minute).getTime();
-                }
-              } catch (e) {
-                console.warn(`E3 Helper: 無法解析日期 "${dateTitle}":`, e);
-              }
-            }
+            const timestamp = getMessageTimestamp(dateEl);
 
             // 檢查未讀狀態
             const isUnread = row.classList.contains('mail_unread');
@@ -6287,6 +6363,7 @@ async function loadMessages() {
               courseName: course.fullname,
               author: sender,
               timestamp: timestamp,
+              timestampVersion: 1,
               url: link.href,
               isRead: !isUnread
             });
@@ -6297,11 +6374,20 @@ async function loadMessages() {
           }
         });
 
+        if (parsedCount === mailRows.length) refreshedCourseIds.add(String(course.id));
         console.log(`E3 Helper: 課程 ${course.id} 成功解析 ${parsedCount} 個信件`);
       } catch (error) {
         console.error(`E3 Helper: 載入課程 ${course.id} 信件時發生錯誤:`, error);
       }
     }
+
+    // Preserve saved mail for courses that failed, returned a login page, or only
+    // partially parsed. Freshly fetched IDs win without discarding unread state.
+    const fetchedIds = new Set(allMessages.map(item => item.id));
+    allMessages.push(...cachedMessages.filter(item => {
+      const courseId = String(item.id).match(/^msg-(\d+)-/)?.[1];
+      return !refreshedCourseIds.has(courseId) && !fetchedIds.has(item.id);
+    }));
 
     // 按時間排序
     allMessages.sort((a, b) => b.timestamp - a.timestamp);
@@ -6739,9 +6825,11 @@ let dailyDigestInFlight = false;
 function getCurrentDailyDigestItems() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
   return [...allAnnouncements.map(item => ({ ...item, type: 'announcement' })),
     ...allMessages.map(item => ({ ...item, type: 'message' }))]
-    .filter(item => item.timestamp >= today.getTime())
+    .filter(item => Number.isFinite(item.timestamp) && item.timestamp >= today.getTime() && item.timestamp < tomorrow.getTime())
     .sort((a, b) => b.timestamp - a.timestamp).slice(0, 40);
 }
 
@@ -6793,6 +6881,7 @@ function getSavedDailyDigestHTML() {
       dailyDigestCache.language !== E3HelperI18n.language ||
       typeof dailyDigestCache.text !== 'string' || !Array.isArray(dailyDigestCache.items) ||
       !dailyDigestCache.items.length) return '';
+  if (dailyDigestCache.items.some(item => item.type === 'message' && item.timestampVersion !== 1)) return '';
   try {
     if (getDailyDigestSourceKey(dailyDigestCache.items) !== getDailyDigestSourceKey(getCurrentDailyDigestItems())) return '';
     return renderDailyDigest(dailyDigestCache.text, dailyDigestCache.items);
@@ -7236,7 +7325,7 @@ async function translateWithGoogleFree(text, sourceLang, targetLang) {
 
 // 供應商呼叫一律交給背景服務。
 async function callSummaryProvider(content, config, maxOutputTokens = 4096) {
-  if (!config.apiKey || !config.model) throw new Error('請設定所選 AI 供應商的 API Key 與模型');
+  if (!config.apiKey || !config.model) throw new Error(uiText('請設定所選 AI 供應商的 API Key 與模型'));
   const result = await new Promise((resolve, reject) => {
     chrome.runtime.sendMessage({
       action: config.provider === 'gemini' ? 'callGeminiApi' : 'callOpenAIResponsesApi',
@@ -7247,7 +7336,7 @@ async function callSummaryProvider(content, config, maxOutputTokens = 4096) {
       else resolve(response);
     });
   });
-  if (!result?.success) throw new Error(result?.error || 'AI API 請求失敗');
+  if (!result?.success) throw new Error(uiText(result?.error || 'AI API 請求失敗'));
   return result.data;
 }
 
@@ -7375,7 +7464,7 @@ async function showAnnouncementDetails(itemId, itemType) {
         </div>
         <div style="" class="e3-helper-small-text e3-helper-muted-text">
           <span> ${escapeHtml(item.author)}</span>
-          <span style="margin-left: 12px;"> ${new Date(item.timestamp).toLocaleString(E3HelperI18n.language)}</span>
+          <span style="margin-left: 12px;"> ${Number.isFinite(item.timestamp) ? new Date(item.timestamp).toLocaleString(E3HelperI18n.language) : uiText('時間未知')}</span>
           ${!isRead ? uiText('<span style="margin-left: 12px;" class="e3-helper-danger-text">● 未讀</span>') : ''}
         </div>
       </div>
@@ -9094,7 +9183,7 @@ function updatePDFList() {
 // Safari has no downloads API. Use a browser-managed link without fetching large files into memory.
 async function downloadE3File(url, filename) {
   const parsed = new URL(url);
-  if (!['https:', 'http:'].includes(parsed.protocol) ||
+  if (parsed.protocol !== 'https:' ||
       !['e3.nycu.edu.tw', 'e3p.nycu.edu.tw'].includes(parsed.hostname)) {
     throw new Error('Download URL not from allowed domain');
   }
@@ -9111,6 +9200,50 @@ async function downloadE3File(url, filename) {
   document.body.appendChild(link);
   link.click();
   link.remove();
+}
+
+// Each Safari link must be activated by the user; asynchronous batch clicks can
+// lose popup permission. Preparing links does not mean a file was downloaded.
+function showSafariDownloadLinks() {
+  const status = document.querySelector('.e3-helper-download-status');
+  if (!status) return;
+  let list = document.getElementById('e3-helper-safari-download-links');
+  if (!list) {
+    list = document.createElement('div');
+    list.id = 'e3-helper-safari-download-links';
+    list.className = 'e3-helper-surface';
+    list.style.cssText = 'padding: 12px; display: grid; gap: 8px;';
+    status.insertAdjacentElement('afterend', list);
+  }
+  list.replaceChildren();
+  const instruction = document.createElement('p');
+  instruction.textContent = uiText('請逐一點擊下方連結，Safari 會下載檔案或開啟預覽。');
+  list.appendChild(instruction);
+  for (const index of selectedPDFs) {
+    const pdf = allPDFs[index];
+    if (!pdf) continue;
+    let allowed = false;
+    try {
+      const url = new URL(pdf.url);
+      allowed = url.protocol === 'https:' && (
+        ['e3.nycu.edu.tw', 'e3p.nycu.edu.tw'].includes(url.hostname) ||
+        (pdf.isIframe && ['youtube.com', 'www.youtube.com', 'youtu.be', 'vimeo.com', 'www.vimeo.com', 'player.vimeo.com'].includes(url.hostname))
+      );
+    } catch { /* Invalid scanned links are shown as unavailable. */ }
+    const entry = document.createElement(allowed ? 'a' : 'span');
+    entry.textContent = `${pdf.course} — ${pdf.filename}`;
+    entry.style.cssText = 'display: block; padding: 10px; overflow-wrap: anywhere;';
+    if (allowed) {
+      entry.href = pdf.url;
+      entry.target = '_blank';
+      entry.rel = 'noopener noreferrer';
+      entry.className = 'e3-helper-link';
+    } else {
+      entry.textContent += ` (${uiText('無法下載')})`;
+    }
+    list.appendChild(entry);
+  }
+  status.textContent = uiText('下載連結已備妥，請逐一點擊。');
 }
 
 // 綁定下載按鈕事件
@@ -9157,6 +9290,11 @@ function bindDownloadButtons() {
 async function downloadSeparately() {
   if (selectedPDFs.size === 0) {
     showTemporaryMessage(uiText('請先選取要下載的檔案'), 'warning');
+    return;
+  }
+
+  if (!chrome.runtime.getManifest().permissions?.includes('downloads')) {
+    showSafariDownloadLinks();
     return;
   }
 

@@ -24,9 +24,9 @@ test('Safari starts a browser-managed file link without using downloads API', as
   assert.equal(app.links[0].target, '_blank');
   assert.equal(app.links[0].rel, 'noopener noreferrer');
 });
-test('downloads reject untrusted hosts and non-HTTP schemes before browser actions', async () => {
+test('downloads reject untrusted hosts and non-HTTPS schemes before browser actions', async () => {
   const app = load([]);
-  for (const url of ['https://evile3p.nycu.edu.tw/file', 'https://e3p.nycu.edu.tw.evil.test/file', 'javascript:alert(1)']) {
+  for (const url of ['http://e3.nycu.edu.tw/file', 'https://evile3p.nycu.edu.tw/file', 'https://e3p.nycu.edu.tw.evil.test/file', 'javascript:alert(1)']) {
     await assert.rejects(app.download(url, 'test.pdf'));
   }
   assert.equal(app.links.length, 0);

@@ -1,6 +1,14 @@
 importScripts('i18n.js', 'notification-api.js', 'desktop-notifications.js', 'notification-engine.js');
 const uiText = E3HelperI18n.text;
 const ui = E3HelperI18n.template;
+const E3_ALLOWED_HOSTS = new Set(['e3.nycu.edu.tw', 'e3p.nycu.edu.tw']);
+function parseAllowedE3Url(value) {
+  const url = new URL(String(value || ''));
+  if (url.protocol !== 'https:' || !E3_ALLOWED_HOSTS.has(url.hostname)) {
+    throw new Error('URL not from allowed E3 domain');
+  }
+  return url;
+}
 // NYCU E3 Helper - Background Script (Service Worker)
 // 處理下載請求和自動同步
 
@@ -13,6 +21,27 @@ const originalConsole = {
   error: console.error.bind(console),
   debug: console.debug.bind(console)
 };
+
+let backgroundLogStorageQueue = Promise.resolve();
+
+function queueBackgroundLog(entry) {
+  const operation = backgroundLogStorageQueue.then(() => new Promise(resolve => {
+    chrome.storage.local.get(['backgroundLogs'], result => {
+      if (chrome.runtime.lastError) {
+        resolve();
+        return;
+      }
+      const logs = result.backgroundLogs || [];
+      logs.push(entry);
+      if (logs.length > 200) logs.splice(0, logs.length - 200);
+      chrome.storage.local.set({ backgroundLogs: logs }, () => {
+        void chrome.runtime.lastError;
+        resolve();
+      });
+    });
+  }));
+  backgroundLogStorageQueue = operation.catch(() => {});
+}
 
 // 儲存日誌到 storage 並通知 content script
 function sendLogToContentScript(type, args) {
@@ -34,21 +63,11 @@ function sendLogToContentScript(type, args) {
   });
 
   // 儲存到 chrome.storage（供後續查詢）
-  chrome.storage.local.get(['backgroundLogs'], (result) => {
-    const logs = result.backgroundLogs || [];
-    logs.push({
-      type: type,
-      args: serializedArgs,
-      timestamp: Date.now(),
-      time: new Date().toLocaleTimeString('zh-TW', { hour12: false })
-    });
-
-    // 只保留最近 200 條日誌
-    if (logs.length > 200) {
-      logs.splice(0, logs.length - 200);
-    }
-
-    chrome.storage.local.set({ backgroundLogs: logs });
+  queueBackgroundLog({
+    type,
+    args: serializedArgs,
+    timestamp: Date.now(),
+    time: new Date().toLocaleTimeString('zh-TW', { hour12: false })
   });
 
   // 廣播日誌到有 E3 Helper sidebar 的 tabs（不廣播到所有 tabs）
@@ -59,7 +78,7 @@ function sendLogToContentScript(type, args) {
         type: type,
         args: serializedArgs,
         time: new Date().toLocaleTimeString('zh-TW', { hour12: false })
-      }).catch(() => {}); // 忽略錯誤（某些 tab 可能沒有 content script）
+      }, () => { void chrome.runtime.lastError; }); // 某些 tab 沒有 content script；Safari 可能只支援 callback。
     });
   });
 }
@@ -123,6 +142,48 @@ function updateDailyDigestCache(request) {
   return operation;
 }
 
+function isExtensionInitiatedE3Download(item) {
+  if (!item || item.byExtensionId !== chrome.runtime.id) return false;
+  try {
+    parseAllowedE3Url(item.url);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function cancelDownloadIfFinalUrlDisallowed(downloadId, finalUrl) {
+  try {
+    parseAllowedE3Url(finalUrl);
+    return false;
+  } catch {
+    chrome.downloads.cancel(downloadId, () => {
+      void chrome.runtime.lastError;
+      if (chrome.downloads.removeFile) {
+        chrome.downloads.removeFile(downloadId, () => void chrome.runtime.lastError);
+      }
+    });
+    console.warn(`E3 Helper: 已取消重新導向至非 E3 網域的下載 - ${finalUrl}`);
+    return true;
+  }
+}
+
+function validateExtensionE3Download(downloadId) {
+  chrome.downloads.search({ id: downloadId }, items => {
+    if (chrome.runtime.lastError) return;
+    const item = items?.[0];
+    if (!isExtensionInitiatedE3Download(item)) return;
+    if (item.finalUrl) cancelDownloadIfFinalUrlDisallowed(downloadId, item.finalUrl);
+  });
+}
+
+chrome.downloads?.onChanged?.addListener(delta => {
+  if (!delta.finalUrl && !delta.state && !delta.error) return;
+  // Reconstruct ownership from the Downloads API instead of relying on worker
+  // memory, so redirect validation survives Manifest V3 worker suspension.
+  validateExtensionE3Download(delta.id);
+});
+
 // 監聽來自 content script 的訊息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'updateDailyDigestCache') {
@@ -141,20 +202,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'download') {
     console.log(`E3 Helper: 收到下載請求 - ${request.filename}`);
 
-    // 驗證下載 URL 域名
-    const downloadAllowedDomains = ['e3.nycu.edu.tw', 'e3p.nycu.edu.tw'];
+    // 僅允許官方 E3 HTTPS 主機。
     try {
-      const urlObj = new URL(request.url);
-      if (!['https:', 'http:'].includes(urlObj.protocol) || !downloadAllowedDomains.includes(urlObj.hostname)) {
-        sendResponse({ success: false, error: 'Download URL not from allowed domain' });
-        return true;
-      }
+      parseAllowedE3Url(request.url);
     } catch {
-      sendResponse({ success: false, error: 'Invalid URL' });
+      sendResponse({ success: false, error: 'Download URL not from allowed domain' });
       return true;
     }
     // 驗證 filename 無路徑遍歷
-    if (request.filename && (request.filename.includes('..') || request.filename.includes('/'))) {
+    if (request.filename && (request.filename.includes('..') || /[\\/]/.test(request.filename))) {
       sendResponse({ success: false, error: 'Invalid filename' });
       return true;
     }
@@ -174,6 +230,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         console.error('E3 Helper: 下載失敗', chrome.runtime.lastError);
         sendResponse({ success: false, error: chrome.runtime.lastError.message });
       } else {
+        validateExtensionE3Download(downloadId);
         console.log(`E3 Helper: 下載已開始，ID: ${downloadId}`);
         sendResponse({ success: true, downloadId: downloadId });
       }
@@ -233,7 +290,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           model,
           input: content,
           max_output_tokens: maxOutputTokens,
-          store: false
+          store: false,
+          stream: true
         };
 
         // GPT-5 摘要使用最低推理強度，避免短摘要耗盡輸出 token 額度。
@@ -241,16 +299,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           requestBody.reasoning = { effort: 'minimal' };
         }
 
-        const response = await fetch('https://api.openai.com/v1/responses', {
+        const data = await fetchAIResponse('https://api.openai.com/v1/responses', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`
           },
           body: JSON.stringify(requestBody)
-        });
-
-        const data = await readAIResponse(response, 'OpenAI');
+        }, 'OpenAI');
         if (data.status === 'incomplete' || data.status === 'failed' || data.error) {
           throw new Error(data.error?.message || data.incomplete_details?.reason || `OpenAI response ${data.status}`);
         }
@@ -306,12 +362,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         } else {
           const model = String(request.model || '').replace(/^models\//, '');
           if (!/^[a-zA-Z0-9._-]+$/.test(model)) throw new Error('請選擇或輸入 Gemini 模型 ID');
-          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+          const data = await fetchAIResponse(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`, {
             method: 'POST', headers,
             body: JSON.stringify({ contents: [{ parts: [{ text: content }] }],
               ...(generationConfig ? { generationConfig } : {}) })
-          });
-          const data = await readAIResponse(response, 'Gemini');
+          }, 'Gemini');
           const candidate = data.candidates?.[0];
           const text = candidate?.content?.parts?.filter(part => !part.thought && typeof part.text === 'string')
             .map(part => part.text).join('').trim();
@@ -347,6 +402,70 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // 網關可能回傳 HTML；解析失敗不能遮蔽 HTTP 狀態。
+async function fetchAIResponse(url, options, provider) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120000);
+  const keepAlive = setInterval(() => {
+    try { chrome.runtime.getPlatformInfo?.()?.catch?.(() => {}); } catch { /* Safari may omit this API. */ }
+  }, 20000);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    if (!response.ok || !response.headers?.get('content-type')?.includes('text/event-stream')) {
+      return await readAIResponse(response, provider);
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '', completed = null, geminiFinished = false;
+    const parts = [];
+    const consume = event => {
+      const data = event.split('\n').filter(line => line.startsWith('data:'))
+        .map(line => line.slice(5).trimStart()).join('\n');
+      if (!data || data === '[DONE]') return;
+      const chunk = JSON.parse(data);
+      if (chunk.error || chunk.type === 'error') throw new Error(chunk.error?.message || chunk.message || `${provider} API 返回錯誤`);
+      if (provider === 'OpenAI') {
+        if (['response.completed', 'response.incomplete', 'response.failed'].includes(chunk.type)) completed = chunk.response;
+      } else {
+        const candidate = chunk.candidates?.[0];
+        if (chunk.promptFeedback?.blockReason) throw new Error(chunk.promptFeedback.blockReason);
+        if (candidate?.finishReason && !['STOP', 'MAX_TOKENS'].includes(candidate.finishReason)) throw new Error(candidate.finishReason);
+        if (candidate?.finishReason === 'STOP') geminiFinished = true;
+        if (candidate?.finishReason === 'MAX_TOKENS') throw new Error('max_output_tokens');
+        parts.push(...(candidate?.content?.parts || []).filter(part => !part.thought && typeof part.text === 'string'));
+      }
+    };
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        buffer += decoder.decode(value, { stream: !done });
+        // Normalize CRLF after combining chunks, including split CR/LF pairs.
+        buffer = buffer.replace(/\r\n/g, '\n');
+        let boundary;
+        while ((boundary = buffer.indexOf('\n\n')) >= 0) {
+          consume(buffer.slice(0, boundary));
+          buffer = buffer.slice(boundary + 2);
+        }
+        if (done) { if (buffer.trim()) consume(buffer); break; }
+      }
+    } finally {
+      await reader.cancel().catch(() => {});
+      reader.releaseLock();
+    }
+    if (provider === 'OpenAI') {
+      if (!completed) throw new Error('OpenAI 串流中斷，請重試');
+      return completed;
+    }
+    if (!geminiFinished) throw new Error('Gemini 串流中斷，請重試');
+    return { candidates: [{ content: { parts } }] };
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error('AI 請求逾時，請重試');
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+    clearInterval(keepAlive);
+  }
+}
+
 async function readAIResponse(response, provider) {
   let data;
   try { data = await response.json(); } catch { data = null; }
@@ -1350,7 +1469,11 @@ chrome.notifications?.onClicked?.addListener((notificationId) => {
 
       if (assignment && assignment.url) {
         // 開啟作業頁面
-        chrome.tabs.create({ url: assignment.url });
+        try {
+        chrome.tabs.create({ url: parseAllowedE3Url(assignment.url).href });
+      } catch (error) {
+        console.warn('E3 Helper: 阻擋非 E3 作業連結', error.message);
+      }
       } else {
         // 開啟 E3 首頁
         chrome.tabs.create({ url: 'https://e3p.nycu.edu.tw/' });
@@ -1592,21 +1715,17 @@ async function callCustomAPI(config, prompt) {
 async function fetchContentFromE3(url) {
   console.log(`E3 Helper: 開始抓取內容 - ${url}`);
 
-  // 驗證 URL 域名
-  const fetchAllowedDomains = ['e3.nycu.edu.tw', 'e3p.nycu.edu.tw'];
-  try {
-    const urlObj = new URL(url);
-    if (!fetchAllowedDomains.some(d => urlObj.hostname.endsWith(d))) {
-      throw new Error('URL not from allowed E3 domain');
-    }
-  } catch (e) { throw e; }
+  // 驗證初始 URL；禁止自動重新導向，response.url 再做防禦性檢查。
+  parseAllowedE3Url(url);
 
   try {
     const response = await fetchWithTimeout(url, {
       method: 'GET',
-      credentials: 'include'
+      credentials: 'include',
+      redirect: 'error'
     }, 15000); // 15 秒超時
 
+    parseAllowedE3Url(response.url);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }

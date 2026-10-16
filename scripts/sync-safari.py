@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PROJECT = ROOT / 'safari/NYCU E3 Helper'
 FILES = ['background.js', 'content.js', 'i18n.js', 'desktop-notifications.js', 'notification-api.js', 'notification-engine.js',
          'notification-settings.js', 'notification-settings.html',
-         'notification-settings.css', 'jszip.min.js', '128.png', '_locales']
+         'notification-settings.css', 'jszip.min.js', '128.png', '_locales', 'CHANGELOG.md']
 
 def sync_project(project, extension, native_notifications):
     resources = project / extension / 'Resources'

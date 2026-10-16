@@ -5,13 +5,13 @@
 1. 先依 README 完成兩個 target 的 Team 與自動簽署。
 2. 在 Safari 實際驗證：啟用／網站授權、E3 登入、手動同步、背景同步、六個分頁、單檔／批次／ZIP 下載、語言切換、翻譯、摘要。
 3. 在 App Store Connect 建立 macOS App，Bundle ID 必須與 Xcode 的 App target 相同。語言可選繁體中文，SKU 使用自己帳號內唯一的代碼。
-4. App 與 Extension 的版本號在本分支皆保留上游版本號 2.2.0，Build 為 1；每次重新上傳同一版本時增加兩個 target 的 Build。
+4. App 與 Extension 的版本號在本分支皆保留上游版本號 2.3.0，Build 為 1；每次重新上傳同一版本時增加兩個 target 的 Build。
 5. Xcode 選 Product → Archive，Organizer 選 Validate App，再 Distribute App → App Store Connect 上傳。
 6. 填寫商店內容、App Privacy、內容分級及出口合規問項，加入截圖、隱私政策與支援網址，選擇 build 送審。原生通知需在 Safari 實測授權、彈窗及點擊行為後再確認商店功能描述。
 
 ## 仍需準備
 
-- 正式公開的隱私政策 URL：依 `USER_NOTICE.md`、實際資料流及使用的第三方服務撰寫。需涵蓋本機資料／API Key、Google Translate、OpenAI，以及使用者如何刪除資料。
+- 正式公開的隱私政策 URL：依 `PRIVACY_JUSTIFICATION.txt`、實際資料流及使用的第三方服務撰寫。需涵蓋本機資料／API Key、Google Translate、OpenAI，以及使用者如何刪除資料。
 - 支援 URL：可使用專案 GitHub Issues，但需確認可公開使用。
 - App 與 Safari 功能截圖：避免呈現真實學生姓名、信件、成績、API Key 或 Token。
 - App Privacy：依實際資料處理填寫；啟用翻譯和摘要 時會傳送內容給第三方，不能只因沒有自架伺服器便一律宣稱沒有資料傳輸。

@@ -1,5 +1,22 @@
 # 更新日誌 (Changelog)
 
+## [2.3.0] - 2026-10-11
+
+### Added
+- Light, Dark, and System appearance preferences plus Traditional Chinese / English interface selection.
+- Selectable Gemini / OpenAI summaries with cached daily digest and source links.
+- Configurable desktop notifications and assignment deadline reminder offsets.
+
+### Changed
+- Scheduled announcement/message sync now reuses an existing E3 tab and skips when E3 is closed instead of opening a background login tab.
+- Google Translate remains separate from the selected AI summary provider.
+
+### Security
+- Require exact HTTPS E3 hosts for downloads and content fetches, including final redirect validation.
+- Harden rich-content URL sanitization and isolate `target="_blank"` links.
+- Serialize background log persistence and remove an unused localhost host permission.
+
+
 本文件記錄 NYCU E3 Helper 的所有重要變更。
 
 格式基於 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.0.0/)，

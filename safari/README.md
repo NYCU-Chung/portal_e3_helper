@@ -2,7 +2,7 @@
 
 iPad Safari 與 TestFlight 專案請見 [iPad 指南](ios/README.md)。
 
-已建立 macOS App + Safari Web Extension 的 Xcode 專案，最低支援 macOS 14。Web Extension 版本與原始 manifest 同步，本分支保留上游版本號 2.2.0。
+已建立 macOS App + Safari Web Extension 的 Xcode 專案，最低支援 macOS 14。Web Extension 版本與原始 manifest 同步，本分支保留上游版本號 2.3.0。
 
 ## 開啟與簽署
 
@@ -20,7 +20,7 @@ iPad Safari 與 TestFlight 專案請見 [iPad 指南](ios/README.md)。
 
 - 側欄、作業、課程、公告、翻譯與摘要沿用共同程式碼。
 - Safari 的桌面通知透過 `nativeMessaging` 與 Swift `UserNotifications` 原生橋接。儲存啟用設定或點「測試通知」會要求 macOS 通知授權；拒絕後請在「系統設定 → 通知 → NYCU E3 Helper」允許。只有取得系統授權才會送出通知，側欄通知保留。
-- 分開下載使用原始檔案連結，由 Safari 下載或開啟預覽。跨來源的 `download` 檔名可能不生效；實際檔名以伺服器／Safari 為準。
+- 「分開下載」會列出選取檔案的連結，請逐一點擊，由 Safari 下載或開啟預覽；不會自動連開分頁或宣稱下載完成。單檔直接下載仍使用原始連結。跨來源的 `download` 檔名可能不生效；實際檔名以伺服器／Safari 為準。
 - ZIP 保留網頁下載流程；請在 E3 頁面操作，需要有效登入，大型檔案可能占用較多記憶體。
 - Safari 作業／課程同步透過同來源的 E3 分頁發送請求，沿用該分頁登入狀態；需保持已登入的 E3 分頁開啟。未開啟分頁或網路失敗會顯示同步錯誤，不會誤報登入過期。背景 alarm 與同步依 Safari 執行／休眠狀態而定，無法保證準時通知。
 - Safari manifest 移除不支援的 `downloads`、`notifications`、`open_in_tab` 與目前未使用的 localhost 網站權限。

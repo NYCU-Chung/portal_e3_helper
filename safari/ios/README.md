@@ -8,7 +8,7 @@
 - App Bundle ID：`com.yoyo1112.nycu-e3-helper`
 - Extension Bundle ID：`com.yoyo1112.nycu-e3-helper.Extension`
 - Team：`5XHJTS2WUD`（沿用 Mac 版設定）
-- 版本：2.2.0；Build：1
+- 版本：2.3.0；Build：1
 
 App 提供啟用說明、E3 入口與隱私說明；側欄沿用共用 JavaScript，新增手指拖曳入口與調整寬度、取消手勢處理、觸控按鈕高度與窄視窗限制。iPad manifest 沒有 `nativeMessaging`、`notifications` 或 `downloads` 權限；系統通知關閉，側欄通知保留。Safari 的分頁登入 session 轉送沿用 Mac 版實作。
 
@@ -17,7 +17,7 @@ App 提供啟用說明、E3 入口與隱私說明；側欄沿用共用 JavaScrip
 1. 登入 [App Store Connect](https://appstoreconnect.apple.com/)，使用這個 Team 的帳號。
 2. 若已建立相同 Bundle ID 的 macOS App，為該 App 新增 iOS 平台；若沒有相同 App 紀錄，建立 iOS App，名稱 `NYCU E3 Helper`、主要語言繁體中文、Bundle ID `com.yoyo1112.nycu-e3-helper`、SKU 可填 `nycu-e3-helper-ios`。先確認帳號內該 SKU 可用。
 3. 用 Xcode 開啟 `../build/ipad/NYCU E3 Helper.xcarchive`，在 Organizer 選 **Distribute App → App Store Connect → Upload**。也可用 Apple Transporter 上傳 `../build/ipad/export/NYCU E3 Helper iOS.ipa`。
-4. 等 Apple 處理完成，到 App 的 TestFlight 分頁選擇 iOS Build `2.2.0 (1)`，依頁面要求完成出口合規等資訊，再加入內部測試群組。
+4. 等 Apple 處理完成，到 App 的 TestFlight 分頁選擇 iOS Build `2.3.0 (1)`，依頁面要求完成出口合規等資訊，再加入內部測試群組。
 5. 在 iPad 安裝 TestFlight，接受邀請並安裝。外部測試另需填寫測試資訊與 Beta App Review；E3 功能需要獲授權的測試帳號。
 
 上傳到 App Store Connect 不代表 App Store 正式上架。Safari 擴充功能可以透過 TestFlight 測試，見 [Apple 發行說明](https://developer.apple.com/documentation/safariservices/distributing-your-safari-web-extension)。
@@ -30,7 +30,7 @@ App 提供啟用說明、E3 入口與隱私說明；側欄沿用共用 JavaScrip
 4. 用 Safari 登入 E3，重新整理，點右側 E3 Helper → 同步。
 5. 翻譯與 AI 摘要需另允許 Google Translate 與 OpenAI 的網站存取；摘要需自行提供 API Key。
 
-請保持已登入的 E3 分頁開啟。iPad 版沒有系統推播；Safari 關閉或進入背景時無法保證同步與提醒時間。單檔由 Safari 開啟或下載；大型 ZIP 請分批處理。
+請保持已登入的 E3 分頁開啟。iPad 版沒有系統推播；Safari 關閉或進入背景時無法保證同步與提醒時間。單檔由 Safari 開啟或下載；「分開下載」會列出選取檔案的連結，請逐一點擊，不會自動連開分頁或宣稱下載完成。大型 ZIP 請分批處理。
 
 ## 重複建置
 
