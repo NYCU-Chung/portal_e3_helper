@@ -15,12 +15,17 @@
     "https://e3p.nycu.edu.tw/*",
     "https://api.openai.com/*",
     "https://generativelanguage.googleapis.com/*",
-    "https://translate.googleapis.com/*"
+    "https://translate.googleapis.com/*",
+    "https://timetable.nycu.edu.tw/*",
+    "https://portal.nycu.edu.tw/*"
   ],
   "content_scripts": [
     {
       "matches": [
-        "<all_urls>"
+        "https://e3.nycu.edu.tw/*",
+        "https://e3p.nycu.edu.tw/*",
+        "https://timetable.nycu.edu.tw/*",
+        "https://portal.nycu.edu.tw/*"
       ],
       "js": [
         "jszip.min.js",
