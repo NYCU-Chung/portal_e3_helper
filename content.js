@@ -2797,7 +2797,7 @@ function createSidebar() {
         }
       }
       if (allMessages.length === 0 && storage.messages && storage.messages.length > 0) {
-        allMessages = storage.messages;
+        await restoreMessagesFromStorage(storage.messages);
         if (storage.readMessages) {
           readMessages = new Set(storage.readMessages);
         }
@@ -2895,7 +2895,7 @@ function createSidebar() {
                       // 從 storage 重新載入資料並顯示
                       const storage = await chrome.storage.local.get(['announcements', 'messages']);
                       if (storage.announcements) allAnnouncements = storage.announcements;
-                      if (storage.messages) allMessages = storage.messages;
+                      if (storage.messages) await restoreMessagesFromStorage(storage.messages);
                       displayAnnouncements();
                       reloadBtn.textContent = uiText(' 載入完成');
                     } else {
@@ -6204,6 +6204,14 @@ function getMessageTimestamp(element) {
   return null;
 }
 
+// Cached mail from older versions may contain fabricated sync timestamps.
+// Hide those dates immediately, then refresh using the logged-in E3 page.
+async function restoreMessagesFromStorage(messages) {
+  const legacy = messages.some(item => item.timestampVersion !== 1);
+  allMessages = messages.map(item => item.timestampVersion === 1 ? item : { ...item, timestamp: null });
+  if (legacy && isOnE3Site()) await loadMessages();
+}
+
 async function loadMessages() {
   console.log('E3 Helper: 開始載入信件...');
 
@@ -6332,6 +6340,7 @@ async function loadMessages() {
               courseName: course.fullname,
               author: sender,
               timestamp: timestamp,
+              timestampVersion: 1,
               url: link.href,
               isRead: !isUnread
             });
@@ -6840,6 +6849,7 @@ function getSavedDailyDigestHTML() {
       dailyDigestCache.language !== E3HelperI18n.language ||
       typeof dailyDigestCache.text !== 'string' || !Array.isArray(dailyDigestCache.items) ||
       !dailyDigestCache.items.length) return '';
+  if (dailyDigestCache.items.some(item => item.type === 'message' && item.timestampVersion !== 1)) return '';
   try {
     if (getDailyDigestSourceKey(dailyDigestCache.items) !== getDailyDigestSourceKey(getCurrentDailyDigestItems())) return '';
     return renderDailyDigest(dailyDigestCache.text, dailyDigestCache.items);

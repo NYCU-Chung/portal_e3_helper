@@ -7,7 +7,7 @@ const fn = name => { const start = source.search(new RegExp(`(?:async )?function
 async function load(date) {
   const row = { querySelector(selector) { return ({ 'a.mail_link': { href: 'https://e3p.nycu.edu.tw/local/dcpcmail/view.php?m=1' }, '.mail_summary': { textContent: 'Old message', querySelector: () => null }, '.mail_users': { textContent: 'Teacher' }, '.mail_date': { textContent: date, getAttribute: attr => attr === 'title' ? date : null, querySelector: () => null } })[selector]; }, classList: { contains: () => false } };
   const context = vm.createContext({ console: { log() {}, error() {}, warn() {} }, Date, allCourses: [{ id: 1, fullname: 'course' }], allMessages: [], isOnE3Site: () => true, document: { querySelector: () => ({}) }, fetch: async () => ({ ok: true, text: async () => '' }), DOMParser: class { parseFromString() { return { querySelectorAll: () => [row] }; } }, chrome: { storage: { local: { set: async () => {} } } }, uiText: s => s, ui: (s, ...v) => s.reduce((a,p,i)=>a+p+(v[i]??''),''), showTemporaryMessage() {} });
-  vm.runInContext(fn('parseE3Timestamp') + fn('getMessageTimestamp') + fn('loadMessages') + fn('getTimeAgoText'), context);
+  vm.runInContext(fn('parseE3Timestamp') + fn('getMessageTimestamp') + fn('loadMessages') + fn('restoreMessagesFromStorage') + fn('getTimeAgoText'), context);
   await context.loadMessages();
   return context;
 }
@@ -45,4 +45,35 @@ test('daily digest excludes unknown dates, yesterday and future dates', () => {
   ] });
   vm.runInContext(fn('getCurrentDailyDigestItems'), context);
   assert.deepEqual(Array.from(context.getCurrentDailyDigestItems(), item => item.id), ['today']);
+});
+
+test('upgrading cached mail refreshes legacy timestamps before they enter the digest', async () => {
+  const app = await load('30 September 2026, 8:14 PM');
+  await app.restoreMessagesFromStorage([{ id: 'legacy', timestamp: Date.now(), title: 'old mail' }]);
+  assert.equal(app.allMessages[0].timestamp, new Date(2026,8,30,20,14).getTime());
+  assert.equal(app.allMessages[0].timestampVersion, 1);
+});
+test('legacy mail stays unknown off E3 and already parsed cached mail is preserved', async () => {
+  const app = await load('14 October 2026, 12:08 PM');
+  app.isOnE3Site = () => false;
+  const before = Date.now();
+  const old = { id: 'legacy', timestamp: before, title: 'original', isRead: true };
+  await app.restoreMessagesFromStorage([old]);
+  assert.equal(app.allMessages[0].timestamp, null);
+  assert.equal(app.allMessages[0].title, 'original');
+  assert.equal(app.allMessages[0].isRead, true);
+  assert.equal(old.timestamp, before); // Input storage data is not mutated.
+  const parsed = { id: 'parsed', timestamp: new Date(2026,9,14,12,8).getTime(), timestampVersion: 1 };
+  app.loadMessages = () => { throw new Error('Parsed mail should not refresh'); };
+  app.isOnE3Site = () => true;
+  await app.restoreMessagesFromStorage([parsed]);
+  assert.equal(app.allMessages[0].timestamp, parsed.timestamp);
+});
+test('digest cache with legacy mail is invalidated even if its fabricated date is today', () => {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const context = vm.createContext({ Date, E3HelperI18n: { language: 'zh-TW' }, dailyDigestCache: {
+    day: today.getTime(), language: 'zh-TW', text: 'old summary', items: [{ type: 'message', timestamp: Date.now() }]
+  } });
+  vm.runInContext(fn('getSavedDailyDigestHTML'), context);
+  assert.equal(context.getSavedDailyDigestHTML(), '');
 });
