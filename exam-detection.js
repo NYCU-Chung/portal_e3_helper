@@ -271,6 +271,10 @@ ${JSON.stringify(records)}`;
     return [...new Set(candidates.map(c => `${dayKey(c.deadline)}@${c.timeKnown === 'exact' || c.timeKnown === 'class-slot' ? new Date(c.deadline).toTimeString().slice(0, 5) : ''}`))].sort().join('|');
   }
 
+  function selectionFingerprint(candidates) {
+    return JSON.stringify(candidates.map(candidate => [candidate.source, candidate.url, candidate.deadline, candidate.timeKnown]));
+  }
+
   function examOccurrence(value) {
     const text = [value.occurrence, value.excerpt, value.label].filter(Boolean).join(' ');
     const match = text.match(/\b(?:quiz|test)\s*#?\s*(\d+)\b|第\s*(\d+)\s*次(?:小考|測驗)|(?:小考|測驗)\s*(\d+)/i);
@@ -393,7 +397,7 @@ ${JSON.stringify(records)}`;
   const api = {
     PERIODS, EXAM_TYPES, parseCourseCode, parseClassTime, classifyExamText, hasExamKeyword, detectTimetableExams, detectScheduleTextExams,
     extractDatesFromText, detectAnnouncementExams, resolveCourse, buildExtractionPrompt, parseExamExtraction,
-    suggestionId, preferredCandidate, fingerprint, mergeSuggestions, pendingSuggestions, toExamAssignment,
+    suggestionId, preferredCandidate, fingerprint, selectionFingerprint, mergeSuggestions, pendingSuggestions, toExamAssignment,
     examName, isExam, isSyllabusFileName, syllabusFileType, dayKey
   };
   root.E3ExamDetection = api;

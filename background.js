@@ -586,7 +586,7 @@ async function resolveExamSuggestion(id, decision, candidateIndex, fingerprint) 
     const suggestion = existing.find(item => item.id === id);
     if (!suggestion) throw new Error('Exam suggestion changed; scan again');
     const resolvedFingerprint = E3ExamDetection.fingerprint(suggestion.candidates || []);
-    if (fingerprint !== undefined && fingerprint !== resolvedFingerprint) throw new Error('Exam suggestion changed; scan again');
+    if (fingerprint !== undefined && fingerprint !== E3ExamDetection.selectionFingerprint(suggestion.candidates)) throw new Error('Exam suggestion changed; scan again');
     const update = { examSuggestions: existing.map(item => item.id === id ? {
       ...item, state: decision === 'accept' || item.state === 'update' ? 'accepted' : 'dismissed', resolvedFingerprint
     } : item) };

@@ -7034,7 +7034,7 @@ async function acceptAllExamSuggestions() {
   for (const suggestion of pending) {
     const chosen = E3ExamDetection.preferredCandidate(suggestion.candidates);
     await sendExamMessage({ action: 'resolveExamSuggestion', id: suggestion.id, decision: 'accept',
-      candidateIndex: suggestion.candidates.indexOf(chosen), fingerprint: E3ExamDetection.fingerprint(suggestion.candidates) });
+      candidateIndex: suggestion.candidates.indexOf(chosen), fingerprint: E3ExamDetection.selectionFingerprint(suggestion.candidates) });
   }
   showTemporaryMessage(uiText('考試已加入作業清單'));
   await refreshExamViews();
@@ -7046,7 +7046,7 @@ async function resolveExamSuggestionFromCard(card, decision) {
   const checked = card.querySelector('input[type="radio"]:checked');
   const chosen = suggestion.candidates[Number(checked?.value)] || E3ExamDetection.preferredCandidate(suggestion.candidates);
   await sendExamMessage({ action: 'resolveExamSuggestion', id: suggestion.id, decision,
-    candidateIndex: suggestion.candidates.indexOf(chosen), fingerprint: E3ExamDetection.fingerprint(suggestion.candidates) });
+    candidateIndex: suggestion.candidates.indexOf(chosen), fingerprint: E3ExamDetection.selectionFingerprint(suggestion.candidates) });
   showTemporaryMessage(uiText(decision === 'accept' ? '考試已加入作業清單' : '已忽略此考試建議'));
   await refreshExamViews();
 }

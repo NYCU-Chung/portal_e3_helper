@@ -322,8 +322,8 @@ test('accepting a quiz revision updates the existing assignment and rejects stal
   const storage = { assignments: [assignment], examSuggestions: exams.mergeSuggestions(suggestions, [changed], [assignment], Date.now(), candidate => candidate.url === 'pdf') };
   const worker = loadWorker(storage, () => {});
   const id = suggestions[0].id;
-  await assert.rejects(worker.resolveExamSuggestion(id, 'accept', 0, exams.fingerprint([original])), /changed/i);
-  await worker.resolveExamSuggestion(id, 'accept', 0, exams.fingerprint([changed]));
+  await assert.rejects(worker.resolveExamSuggestion(id, 'accept', 0, exams.selectionFingerprint([original])), /changed/i);
+  await worker.resolveExamSuggestion(id, 'accept', 0, exams.selectionFingerprint([changed]));
   assert.equal(storage.assignments.length, 1);
   assert.equal(storage.assignments[0].eventId, assignment.eventId);
   assert.equal(storage.assignments[0].deadline, changed.deadline);
@@ -377,4 +377,19 @@ test('converting submitted coursework to an exam resets both submission statuses
   assert.equal(storage.assignmentStatuses.manual, 'pending');
   assert.equal(storage.assignmentStatuses.other, 'submitted');
   assert.match(contentSource, /await convertAssignmentToExam\(assignment, examType\)/);
+});
+
+test('a rescan reordering the same dates cannot accept the wrong radio option', async () => {
+  const candidates = [5, 12].map(day => ({ courseId: '1', course: 'Course', examType: 'final', deadline: at(2099, 11, day, 9), timeKnown: 'exact', source: 'syllabusFile', url: `pdf-${day}`, confidence: 'high' }));
+  const storage = { assignments: [], examSuggestions: exams.mergeSuggestions([], candidates) };
+  const worker = loadWorker(storage, () => {});
+  const context = vm.createContext({ examSuggestions: structuredClone(storage.examSuggestions), E3ExamDetection: exams,
+    sendExamMessage: request => {
+      storage.examSuggestions[0].candidates.reverse();
+      return worker.resolveExamSuggestion(request.id, request.decision, request.candidateIndex, request.fingerprint);
+    }, showTemporaryMessage() {}, uiText: text => text, refreshExamViews: async () => {} });
+  vm.runInContext(contentFunction('resolveExamSuggestionFromCard'), context);
+  const card = { dataset: { examSuggestion: storage.examSuggestions[0].id }, querySelector: () => ({ value: '0' }) };
+  await assert.rejects(context.resolveExamSuggestionFromCard(card, 'accept'), /changed/i);
+  assert.equal(storage.assignments.length, 0);
 });
