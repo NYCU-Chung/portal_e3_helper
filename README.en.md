@@ -6,7 +6,7 @@ Bring NYCU E3 assignments, courses, announcements, messages and materials togeth
 
 [Chrome Web Store](https://chromewebstore.google.com/detail/nycu-e3-helper/cmagonljljocpkfojkabhiedjafamoef) · [E3](https://e3p.nycu.edu.tw/) · [Changelog (Chinese)](CHANGELOG.md)
 
-This guide describes the source in this repository. The store release may not include the latest changes.
+This guide describes the 2.3.0 source in this repository. The store release may not include the latest changes.
 
 ## Features
 
@@ -22,7 +22,7 @@ This guide describes the source in this repository. The store release may not in
 
 ## Installation
 
-Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/nycu-e3-helper/cmagonljljocpkfojkabhiedjafamoef), or load the source in Chrome, Edge or Brave:
+Chrome 93 is the minimum supported version; use a current stable browser. Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/nycu-e3-helper/cmagonljljocpkfojkabhiedjafamoef), or load the source in Chrome, Edge or Brave:
 
 1. Clone this repository or download its source.
 2. Open `chrome://extensions/`, `edge://extensions/` or `brave://extensions/`.
@@ -49,7 +49,7 @@ Appearance is light by default. To change it, open **More (⋯) → Settings →
 
 Click a card to open its assignment page. Use **Mark as submitted** to change the status, or **Submitted** to mark it as pending again. Use **Add assignment**, **Edit** and **Delete** to manage custom assignments.
 
-Deadlines use your local time zone. Countdowns are red with less than one hour remaining, amber with less than 24 hours remaining, normal otherwise, and gray after the deadline. Submitted assignments disappear after their deadline. Deleted E3 assignments can reappear after syncing.
+Deadlines use your local time zone. Countdowns are red with less than one hour remaining, amber with less than 24 hours remaining, normal otherwise, and gray after the deadline. Submitted assignments are hidden from the list after their deadline. Deleted E3 assignments can reappear after syncing.
 
 ### Announcements and messages
 
@@ -61,7 +61,7 @@ Use **Chinese → English**, **English → Chinese**, **AI summary** or **Show o
 
 Load announcements and messages, then click **Generate digest** at the top of the Announcements tab. Enable AI summaries, select Gemini or OpenAI, and save the selected provider’s API key and model in Settings first.
 
-The digest uses today's local date and up to 40 recent items, regardless of filters. It summarizes titles, courses, senders and timestamps, rather than reading each item's full body. Open the source links for full instructions and deadlines. Retry if generation fails.
+The digest uses today's local date and up to 40 recent items, regardless of filters. It summarizes titles, courses, senders and timestamps, rather than reading each item's full body. Open the source links for full instructions and deadlines. Successful digests are cached locally; a failed regeneration preserves the previous result.
 
 ### Courses and downloads
 
@@ -73,6 +73,10 @@ In **Downloads**, use **Scan this page** on an E3 page, or **Select courses** to
 
 **Alerts** collects assignment, grading, announcement, membership and version notifications. Assignments due within 24 hours also contribute to reminders.
 
+Open **More → Settings → Configure notifications and reminders**, or the extension options page, to configure desktop delivery, announcement/message updates, immediate or daily delivery, a local daily time, and multiple deadline reminder offsets. Remove all offsets to disable deadline reminders. Click **Save settings** to apply changes; **Test notification** checks desktop delivery.
+
+The first announcement/message snapshot establishes a silent baseline. Daily mode delivers pending events separately at the selected time. Submitted, deleted, changed and expired assignment deadlines are skipped. After sleep, only the nearest elapsed reminder threshold is queued. The engine processes its queue every minute while the browser is running, so sleep may delay delivery. Allow notifications in both browser and system settings. Sidebar alerts remain available when desktop delivery is disabled or unsupported. See [Notification preferences](docs/features/notification-preferences.md).
+
 Background sync runs every 60 minutes for assignments, courses and membership checks, and every 30 minutes for announcements and messages. The open sidebar also checks for stale assignment/course data. Manual **Sync** updates assignments and courses; use **Reload** in Announcements for announcements and messages.
 
 The helper can display saved data and load E3 data in the background from ordinary websites. Scheduled announcement and message synchronization only uses existing E3 tabs and skips when none are open. Manual loading may briefly create an inactive E3 tab and close it afterward. Scanning the current page requires opening the relevant E3 page.
@@ -83,6 +87,8 @@ Open **More → Settings**, enable AI summaries, select **Gemini** or **OpenAI**
 
 Course data, read status, settings and API keys are stored locally in your browser. Translation sends content to Google Translate. Individual summaries send the item body to the selected Gemini or OpenAI provider; daily digests send today's titles, courses, senders and timestamps. OpenAI summary requests use the Responses API with `store: false`. The extension uses your existing E3 login and does not ask for your E3 password.
 
+Source content may contain names or other personal information; check that it is appropriate to send to a third party before using translation or AI. Provider data handling follows each service's policies. AI can be disabled while other features remain available. See [Summaries and daily digest](docs/features/openai-digest.md).
+
 ## Troubleshooting
 
 - **Sync or loading fails:** sign in to E3 again, check your connection and retry.
@@ -90,21 +96,23 @@ Course data, read status, settings and API keys are stored locally in your brows
 - **Translation fails:** check your connection and retry. Translation does not require an AI provider key.
 - **The interface is outdated after an update:** reload the extension, then refresh open webpages.
 - **ZIP download fails:** retry with fewer files or use individual downloads.
+- **Desktop alerts do not appear:** save notification settings, check browser/system permissions and use Test notification.
 - **Need to report a problem:** use **More → View logs** or **More → Report an issue**. Review logs for personal information before sharing.
 
 ## Development
 
-`content.js` implements the sidebar and E3 interaction. `background.js` handles downloads, background synchronization and API calls. `i18n.js` contains the shared interface catalog, language preference and static-template translation. `_locales/` supplies localized extension descriptions.
+`content.js` implements the sidebar and E3 interaction. `background.js` handles downloads, background synchronization and API calls. `i18n.js` contains the shared interface catalog, language preference and static-template translation. `_locales/` supplies localized extension descriptions. `notification-engine.js` schedules desktop alerts, and `notification-settings.html` is the standalone settings page.
 
-Translations apply to source-authored text before dynamic values are interpolated, preserving course names, URLs and original content. Keep E3 scraping selectors and parsing rules separate from translated UI text.
+Translations apply to source-authored text before dynamic values are interpolated, preserving course names, URLs and original content. Keep E3 scraping selectors and parsing rules separate from translated UI text. Downloads and content requests require exact HTTPS E3 hosts, including final redirect validation. Preview HTML sanitization removes dangerous tags, event attributes and URLs.
 
-Run the localization checks with:
+Run unit tests and syntax checks with:
 
 ```bash
 node --test tests/*.test.cjs
 node --check i18n.js
 node --check content.js
 node --check background.js
+node --check notification-engine.js
 ```
 
 Optional browser smoke test (requires Playwright and a browser):
@@ -113,6 +121,16 @@ Optional browser smoke test (requires Playwright and a browser):
 node tests/ui-smoke.cjs
 node tests/language-ui-smoke.cjs
 node tests/translation-html-smoke.cjs
+node tests/notification-ui-smoke.cjs
+node tests/notification-extension-smoke.cjs
 ```
 
-Set `CHROME_PATH` to use an existing Chrome executable, or `PLAYWRIGHT_PATH` to use a Playwright installation outside this project. The smoke test uses local fixtures and does not contact E3 or an AI service.
+Set `CHROME_PATH` to use an existing Chrome executable, or `PLAYWRIGHT_PATH` to use a Playwright installation outside this project. The UI fixtures use local data and do not contact E3 or an AI service. The real extension notification fixture requires Playwright Chromium and uses an isolated profile with external DNS blocked.
+
+Implementation guides: [Appearance](docs/features/ui-appearance.md), [AI summaries](docs/features/openai-digest.md), [English interface](docs/features/english-interface.md), [Notifications](docs/features/notification-preferences.md).
+
+Contributions through [Issues](https://github.com/NYCU-Chung/portal_e3_helper/issues) and pull requests are welcome. See [CHANGELOG.md](CHANGELOG.md) for version history.
+
+## License
+
+[MIT License](LICENSE)
