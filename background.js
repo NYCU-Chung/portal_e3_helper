@@ -1,4 +1,4 @@
-importScripts('i18n.js', 'notification-api.js', 'desktop-notifications.js', 'notification-engine.js');
+importScripts('i18n.js', 'notification-api.js', 'desktop-notifications.js', 'notification-engine.js', 'exam-detection.js');
 const uiText = E3HelperI18n.text;
 const ui = E3HelperI18n.template;
 const E3_ALLOWED_HOSTS = new Set(['e3.nycu.edu.tw', 'e3p.nycu.edu.tw']);
@@ -186,6 +186,34 @@ chrome.downloads?.onChanged?.addListener(delta => {
 
 // 監聽來自 content script 的訊息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'scanTimetableExams') {
+    scanTimetableExams({ force: Boolean(request.force) }).then(
+      suggestions => sendResponse({ success: true, suggestions }),
+      error => sendResponse({ success: false, error: error.message })
+    );
+    return true;
+  }
+  if (request.action === 'mergeExamCandidates') {
+    mergeExamCandidates(request.candidates, request.replace).then(
+      suggestions => sendResponse({ success: true, suggestions }),
+      error => sendResponse({ success: false, error: error.message })
+    );
+    return true;
+  }
+  if (request.action === 'resolveExamSuggestion') {
+    resolveExamSuggestion(request.id, request.decision).then(
+      suggestions => sendResponse({ success: true, suggestions }),
+      error => sendResponse({ success: false, error: error.message })
+    );
+    return true;
+  }
+  if (request.action === 'callAIWithFile') {
+    callAIWithFile(request).then(
+      data => sendResponse({ success: true, data }),
+      error => sendResponse({ success: false, error: error.message })
+    );
+    return true;
+  }
   if (request.action === 'updateDailyDigestCache') {
     updateDailyDigestCache(request).then(
       () => sendResponse({ success: true }),
@@ -474,6 +502,139 @@ async function readAIResponse(response, provider) {
   return data;
 }
 
+// ==================== 考試偵測 ====================
+const TIMETABLE_ORIGIN = 'https://timetable.nycu.edu.tw';
+const TIMETABLE_TTL = 7 * 24 * 60 * 60 * 1000;
+const MAX_AI_FILE_BYTES = 15 * 1024 * 1024;
+let examSuggestionQueue = Promise.resolve();
+
+// Serialize suggestion writes from the worker's scans and every tab's accept/dismiss actions.
+function updateExamSuggestions(mutate) {
+  const operation = examSuggestionQueue.then(async () => {
+    const { examSuggestions = [], assignments = [] } = await chrome.storage.local.get(['examSuggestions', 'assignments']);
+    const next = await mutate(examSuggestions, assignments);
+    await chrome.storage.local.set({ examSuggestions: next });
+    return next;
+  });
+  examSuggestionQueue = operation.catch(() => {});
+  return operation;
+}
+
+async function fetchTimetableJson(route, code) {
+  const response = await fetchWithTimeout(`${TIMETABLE_ORIGIN}/?r=main/${route}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    credentials: 'omit',
+    body: new URLSearchParams({ acy: code.acy, sem: code.sem, cos_id: code.cosId, user: '', _token: '' }).toString()
+  }, 15000);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.json();
+}
+
+// The E3 "Introduction" page embeds the official course outline; its weekly schedule lists exam weeks.
+async function scanTimetableExams({ force = false } = {}) {
+  const { courses = [], timetableOutlineCache = {} } = await chrome.storage.local.get(['courses', 'timetableOutlineCache']);
+  const now = Date.now();
+  const cache = {};
+  const candidates = [];
+  const scannedCourses = new Set();
+  for (const course of courses) {
+    const code = E3ExamDetection.parseCourseCode(course.fullname);
+    if (!code) continue;
+    const key = `${code.acy}-${code.sem}-${code.cosId}`;
+    let entry = timetableOutlineCache[key];
+    if (force || !entry || now - entry.savedAt > TIMETABLE_TTL) {
+      try {
+        const [rows, base] = await Promise.all([
+          fetchTimetableJson('getCrsOutlineSyllabuses', code),
+          fetchTimetableJson('getCrsOutlineBase', code)
+        ]);
+        entry = {
+          savedAt: now,
+          rows: (Array.isArray(rows) ? rows : []).map(({ week_id, class_date, class_data }) => ({ week_id, class_date, class_data })),
+          classTime: String(base?.cos_time || '')
+        };
+      } catch (error) {
+        console.warn(`E3 Helper: 無法讀取課綱進度表 ${key}`, error.message);
+        if (!entry) continue;
+      }
+    }
+    cache[key] = entry;
+    scannedCourses.add(String(course.id));
+    candidates.push(...E3ExamDetection.detectTimetableExams(entry.rows, {
+      courseId: String(course.id), course: course.fullname, classTime: entry.classTime,
+      url: `https://e3p.nycu.edu.tw/local/courseextension/timetable.php?courseid=${course.id}&scopec=1`
+    }));
+  }
+  await chrome.storage.local.set({ timetableOutlineCache: cache });
+  // A rescanned outline replaces its earlier candidates, so removed exam weeks disappear.
+  return updateExamSuggestions((existing, assignments) => E3ExamDetection.mergeSuggestions(existing, candidates, assignments, now,
+    c => c.source === 'timetable' && scannedCourses.has(String(c.courseId))));
+}
+
+async function mergeExamCandidates(candidates, replace) {
+  if (!Array.isArray(candidates)) throw new Error('Invalid exam candidates');
+  const sources = new Set(Array.isArray(replace) ? replace.map(String) : []);
+  return updateExamSuggestions((existing, assignments) => E3ExamDetection.mergeSuggestions(existing, candidates.slice(0, 200), assignments, Date.now(),
+    c => sources.has(String(c.url))));
+}
+
+async function resolveExamSuggestion(id, decision) {
+  return updateExamSuggestions(existing => existing.map(suggestion => {
+    if (suggestion.id !== id) return suggestion;
+    const resolvedFingerprint = E3ExamDetection.fingerprint(suggestion.candidates || []);
+    if (decision === 'accept') return { ...suggestion, state: 'accepted', resolvedFingerprint };
+    return { ...suggestion, state: suggestion.state === 'update' ? 'accepted' : 'dismissed', resolvedFingerprint };
+  }));
+}
+
+// Send a course PDF (read by the E3 page) to the selected AI provider.
+async function callAIWithFile({ provider, apiKey, model, content, file, maxOutputTokens = 2048 }) {
+  if (!apiKey || !model) throw new Error('請設定所選 AI 供應商的 API Key 與模型');
+  if (!file || file.mimeType !== 'application/pdf' || typeof file.data !== 'string' || !/^[A-Za-z0-9+/]+=*$/.test(file.data)) {
+    throw new Error('Unsupported file');
+  }
+  if (file.data.length * 3 / 4 > MAX_AI_FILE_BYTES) throw new Error('檔案過大，無法交給 AI 讀取');
+  const filename = String(file.name || 'syllabus.pdf').replace(/[^\w.\-\u4e00-\u9fff ]/g, '_').slice(0, 120);
+  if (provider === 'gemini') {
+    const id = String(model).replace(/^models\//, '');
+    if (!/^[a-zA-Z0-9._-]+$/.test(id)) throw new Error('請選擇或輸入 Gemini 模型 ID');
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${id}:generateContent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify({ contents: [{ parts: [{ inline_data: { mime_type: 'application/pdf', data: file.data } }, { text: content }] }] })
+    });
+    const data = await readAIResponse(response, 'Gemini');
+    const candidate = data.candidates?.[0];
+    const text = candidate?.content?.parts?.filter(part => !part.thought && typeof part.text === 'string').map(part => part.text).join('').trim();
+    if (!text) throw new Error(data.promptFeedback?.blockReason || candidate?.finishReason || 'Gemini API 返回空結果');
+    return text;
+  }
+  const requestBody = {
+    model,
+    input: [{ role: 'user', content: [
+      { type: 'input_file', filename, file_data: `data:application/pdf;base64,${file.data}` },
+      { type: 'input_text', text: content }
+    ] }],
+    max_output_tokens: maxOutputTokens,
+    store: false
+  };
+  if (['gpt-5', 'gpt-5-mini', 'gpt-5-nano'].includes(model)) requestBody.reasoning = { effort: 'minimal' };
+  const response = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify(requestBody)
+  });
+  const data = await readAIResponse(response, 'OpenAI');
+  if (data.status === 'incomplete' || data.status === 'failed' || data.error) {
+    throw new Error(data.error?.message || data.incomplete_details?.reason || `OpenAI response ${data.status}`);
+  }
+  const text = data.output_text || data.output?.flatMap(item => item.content || [])
+    .filter(part => part.type === 'output_text' && part.text).map(part => part.text).join('').trim();
+  if (!text) throw new Error('OpenAI API 返回空結果');
+  return text;
+}
+
 // ==================== 自動同步功能 ====================
 
 // 只在「不存在」或「週期跟目標不符」時才建立／覆蓋 alarm
@@ -705,6 +866,13 @@ async function syncE3Data() {
     const courses = await syncCourses();
     console.log(`E3 Helper: 課程同步完成，共 ${courses.length} 個`);
     syncResult.courses = courses.length;
+
+    // 課綱進度表的考試週只產生待確認建議；失敗不影響同步。
+    try {
+      await scanTimetableExams();
+    } catch (error) {
+      console.warn('E3 Helper: 課綱考試掃描失敗', error.message);
+    }
 
     // 同步成績資料（僅在手動同步時執行，避免自動同步太慢）
     // 注意：這裡先不同步成績，因為會花很長時間
@@ -992,6 +1160,10 @@ async function syncAssignments() {
 
         // 作業不在新列表中，檢查是否應該保留
         const now = Date.now();
+        // 考試不在 E3 行事曆中，保留到結束後三天。
+        if (oldAssignment.kind === 'exam') {
+          return (Number(oldAssignment.endTime) || Number(oldAssignment.deadline)) > now - 3 * 24 * 60 * 60 * 1000;
+        }
         const isExpired = oldAssignment.deadline < now;
 
         if (!isExpired) {
