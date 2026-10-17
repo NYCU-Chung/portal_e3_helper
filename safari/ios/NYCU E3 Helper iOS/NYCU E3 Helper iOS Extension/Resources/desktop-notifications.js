@@ -18,7 +18,15 @@
     },
     async create(id, options, url) {
       if (!this.supported) throw new Error('Desktop notification service unavailable');
-      if (native) return request('showNotification', { id, title: options.title, message: options.message, url: url || '' });
+      if (native) {
+        const link = !url || url === '#' ? 'https://e3p.nycu.edu.tw/' : url;
+        let target;
+        try { target = new URL(link); } catch { throw new Error('Invalid notification URL'); }
+        if (target.protocol !== 'https:' || !['e3.nycu.edu.tw', 'e3p.nycu.edu.tw'].includes(target.hostname) || target.username || target.password) {
+          throw new Error('Invalid notification URL');
+        }
+        return request('showNotification', { id, title: options.title, message: options.message, url: target.href });
+      }
       return E3NotificationAPI.create(id, options);
     }
   };

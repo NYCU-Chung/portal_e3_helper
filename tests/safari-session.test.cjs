@@ -7,12 +7,12 @@ const root = path.join(__dirname, '..');
 const background = fs.readFileSync(path.join(root, 'background.js'), 'utf8');
 const content = fs.readFileSync(path.join(root, 'content.js'), 'utf8');
 const pageSource = content.slice(content.indexOf('async function fetchE3Session('), content.indexOf('// 監聽來自 background script 的訊息'));
-const workerSource = background.slice(background.indexOf('async function fetchE3FromPage('), background.indexOf('async function syncAssignments('));
+const workerSource = background.slice(background.indexOf('async function getE3SyncOrigin('), background.indexOf('async function syncAssignments('));
 const loginSource = background.slice(background.indexOf('async function checkLoginStatus('), background.indexOf('// 取得 sesskey'));
-function load({ safari = true, tabs = [{ id: 1, active: true }], pageHTML = '<a href="/login/logout.php?sesskey=fixture">Logout</a>', pageError = false, callbackOnly = false } = {}) {
+function load({ safari = true, tabs = [{ id: 1, active: true, url: 'https://e3p.nycu.edu.tw/' }], origin = 'https://e3p.nycu.edu.tw', pageHTML = '<a href="/login/logout.php?sesskey=fixture">Logout</a>', pageError = false, callbackOnly = false } = {}) {
   const pageRequests = [], directRequests = [];
   const page = vm.createContext({ URL, AbortController, setTimeout, clearTimeout,
-    chrome: { runtime: { id: 'e3-extension' } }, location: { origin: 'https://e3p.nycu.edu.tw' },
+    chrome: { runtime: { id: 'e3-extension' } }, location: { origin },
     fetch: async (url, options) => {
       pageRequests.push({ url, options });
       if (pageError) throw new Error('offline');
@@ -23,7 +23,7 @@ function load({ safari = true, tabs = [{ id: 1, active: true }], pageHTML = '<a 
   const worker = vm.createContext({ URL, Response, AbortController, setTimeout, clearTimeout,
     console: { warn() {} },
     chrome: { runtime: { getURL: () => safari ? 'safari-web-extension://fixture/' : 'chrome-extension://fixture/' },
-      tabs: { query: async () => tabs, sendMessage: (_, request, callback) => {
+      tabs: { query: async ({ url }) => tabs.filter(tab => (Array.isArray(url) ? url : [url]).some(pattern => tab.url.startsWith(pattern.replace('/*', '/')))), sendMessage: (_, request, callback) => {
         const response = page.fetchE3Session(request, { id: 'e3-extension' })
           .catch(error => ({ success: false, error: error.message }));
         if (callback) response.then(callback);
@@ -35,7 +35,9 @@ function load({ safari = true, tabs = [{ id: 1, active: true }], pageHTML = '<a 
       return { ok: true, url: 'https://e3p.nycu.edu.tw/login/index.php', text: async () => '<form id="loginform"></form>' };
     }
   });
-  vm.runInContext(workerSource + loginSource, worker);
+  const sesskeyStart = background.indexOf('async function getSesskey(');
+  const sesskeySource = background.slice(sesskeyStart, background.indexOf('\n}\n', sesskeyStart) + 2);
+  vm.runInContext(workerSource + loginSource + sesskeySource, worker);
   return { worker, page, pageRequests, directRequests };
 }
 test('Safari login check uses the signed-in page session despite unauthenticated background fetch', async () => {
@@ -91,4 +93,26 @@ test('Safari waits for callback responses when tabs.sendMessage returns no promi
   assert.equal(await app.worker.checkLoginStatus(), true);
   assert.equal(app.pageRequests.length, 1);
   assert.equal(app.directRequests.length, 0);
+});
+
+test('Safari uses the available E3 origin for login, sesskey and both sync APIs', async () => {
+  const origin = 'https://e3.nycu.edu.tw';
+  const app = load({ origin, tabs: [{ id: 1, active: true, url: origin + '/my/' }], pageHTML: '{"sesskey":"fixture"}' });
+  assert.equal(await app.worker.checkLoginStatus(), true);
+  assert.equal(await app.worker.getSesskey(), 'fixture');
+  assert.ok(app.pageRequests.every(request => new URL(request.url).origin === origin));
+  // Run the real sync functions through their first AJAX request.
+  for (const name of ['syncAssignments', 'syncCourses']) {
+    const start = background.indexOf(`async function ${name}(`);
+    const code = background.slice(start, background.indexOf('\n}\n', start) + 2);
+    vm.runInContext(code, app.worker);
+    app.worker.console = { log() {}, error() {}, warn() {} };
+    app.worker.chrome.storage = { local: { get: async () => ({}) } };
+    app.worker.fetchWithTimeout = async url => {
+      app.pageRequests.push({ url });
+      return { ok: true, text: async () => '{"sesskey":"fixture"}', json: async () => { throw new Error('stop after AJAX'); } };
+    };
+    await assert.rejects(app.worker[name]());
+    assert.ok(app.pageRequests.at(-1).url.startsWith(origin + '/lib/ajax/service.php?'));
+  }
 });

@@ -1,5 +1,11 @@
 # 更新日誌 (Changelog)
 
+## [Unreleased]
+
+### Fixed
+- Keep Safari login, session keys, and sync requests on the available E3 tab origin.
+- Deliver native reminders for manual assignments with placeholder links using the E3 home page.
+
 ## [2.3.0] - 2026-10-11
 
 ### Added

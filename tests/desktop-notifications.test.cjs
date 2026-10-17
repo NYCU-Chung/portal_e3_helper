@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const source = fs.readFileSync(require('node:path').join(__dirname, '../desktop-notifications.js'), 'utf8');
 function load(response = { success: true, permission: 'granted' }, permissions = ['nativeMessaging']) {
   const messages = [];
-  const context = vm.createContext({ chrome: { runtime: {
+  const context = vm.createContext({ URL, chrome: { runtime: {
     getURL: p => `safari-web-extension://test/${p}`,
     getManifest: () => ({ permissions }),
     sendNativeMessage: async (app, value) => { messages.push({ app, value }); return response; }
@@ -32,4 +32,19 @@ test('iPad without nativeMessaging disables desktop delivery despite the Safari 
 test('native errors are surfaced rather than marking delivery successful', async () => {
   const { adapter } = load({ success: false, error: 'permission denied' });
   await assert.rejects(adapter.create('test', { title: 'test', message: '' }), /permission denied/);
+});
+
+test('manual assignment placeholder links use E3 home in native notifications', async () => {
+  const { adapter, messages } = load();
+  for (const url of [undefined, '', '#']) {
+    await adapter.create('manual', { title: 'Manual assignment', message: 'Due soon' }, url);
+    assert.equal(messages.at(-1).value.url, 'https://e3p.nycu.edu.tw/');
+  }
+});
+test('native notification transport rejects unsafe links before dispatch', async () => {
+  const { adapter, messages } = load();
+  for (const url of ['javascript:alert(1)', 'http://e3.nycu.edu.tw/', 'https://evil.test/', 'https://user@e3p.nycu.edu.tw/']) {
+    await assert.rejects(adapter.create('manual', { title: 'Reminder', message: '' }, url), /Invalid notification URL/);
+  }
+  assert.equal(messages.length, 0);
 });

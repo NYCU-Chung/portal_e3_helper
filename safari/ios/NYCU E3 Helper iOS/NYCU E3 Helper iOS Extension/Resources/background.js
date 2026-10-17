@@ -688,8 +688,9 @@ async function syncE3Data() {
   try {
     // 檢查登入狀態
     console.log('E3 Helper: 檢查登入狀態...');
+    const syncOrigin = await getE3SyncOrigin();
     let loginCheckError = '';
-    const isLoggedIn = await checkLoginStatus(error => { loginCheckError = error.message; });
+    const isLoggedIn = await checkLoginStatus(error => { loginCheckError = error.message; }, syncOrigin);
     console.log('E3 Helper: 登入狀態:', isLoggedIn);
 
     if (isLoggedIn === null) throw new Error(`無法確認 E3 登入狀態，請保持已登入的 E3 分頁開啟後重試。${loginCheckError ? `（${loginCheckError}）` : ''}`);
@@ -703,13 +704,13 @@ async function syncE3Data() {
 
     // 同步作業資料
     console.log('E3 Helper: 開始同步作業...');
-    const assignments = await syncAssignments();
+    const assignments = await syncAssignments(syncOrigin);
     console.log(`E3 Helper: 作業同步完成，共 ${assignments.length} 個`);
     syncResult.assignments = assignments.length;
 
     // 同步課程列表
     console.log('E3 Helper: 開始同步課程...');
-    const courses = await syncCourses();
+    const courses = await syncCourses(syncOrigin);
     console.log(`E3 Helper: 課程同步完成，共 ${courses.length} 個`);
     syncResult.courses = courses.length;
 
@@ -741,9 +742,10 @@ async function syncE3Data() {
 }
 
 // 檢查 E3 登入狀態
-async function checkLoginStatus(onError) {
+async function checkLoginStatus(onError, origin) {
   try {
-    const response = await fetchWithTimeout('https://e3p.nycu.edu.tw/', {
+    origin ||= await getE3SyncOrigin();
+    const response = await fetchWithTimeout(`${origin}/`, {
       method: 'GET',
       credentials: 'include'
     }, 10000);
@@ -776,9 +778,10 @@ async function checkLoginStatus(onError) {
 }
 
 // 取得 sesskey
-async function getSesskey() {
+async function getSesskey(origin) {
   try {
-    const response = await fetchWithTimeout('https://e3p.nycu.edu.tw/', {
+    origin ||= await getE3SyncOrigin();
+    const response = await fetchWithTimeout(`${origin}/`, {
       credentials: 'include'
     }, 10000); // 增加到 10秒
     const html = await response.text();
@@ -804,6 +807,18 @@ async function getSesskey() {
 
 // Safari extension-origin requests may not share the E3 tab's authenticated session.
 // Keep requests in that tab's origin; never read or copy session cookies.
+async function getE3SyncOrigin() {
+  if (!chrome.runtime.getURL('').startsWith('safari-web-extension:')) return 'https://e3p.nycu.edu.tw';
+  const tabs = await chrome.tabs.query({ url: ['https://e3.nycu.edu.tw/*', 'https://e3p.nycu.edu.tw/*'] });
+  for (const tab of tabs.sort((a, b) => Number(b.active) - Number(a.active))) {
+    try {
+      const url = new URL(tab.url);
+      if (url.protocol === 'https:' && ['e3.nycu.edu.tw', 'e3p.nycu.edu.tw'].includes(url.hostname) && !url.port && !url.username && !url.password) return url.origin;
+    } catch {}
+  }
+  throw new Error('請保持已登入的 E3 分頁開啟後重試。');
+}
+
 async function fetchE3FromPage(url, options = {}, timeout = 10000) {
   const target = new URL(url);
   const tabs = await chrome.tabs.query({ url: `${target.origin}/*` });
@@ -866,15 +881,16 @@ async function fetchWithTimeout(url, options, timeout = 10000) {
 }
 
 // 同步作業資料
-async function syncAssignments() {
+async function syncAssignments(origin) {
+  origin ||= await getE3SyncOrigin();
   console.log('E3 Helper: 正在同步作業...');
 
-  const sesskey = await getSesskey();
+  const sesskey = await getSesskey(origin);
   if (!sesskey) {
     throw new Error('無法取得 sesskey，請重新登入');
   }
 
-  const url = `https://e3p.nycu.edu.tw/lib/ajax/service.php?sesskey=${sesskey}`;
+  const url = `${origin}/lib/ajax/service.php?sesskey=${sesskey}`;
 
   // 獲取日曆事件（15秒超時）
   const response = await fetchWithTimeout(url, {
@@ -942,7 +958,7 @@ async function syncAssignments() {
 
       for (const assignment of newAssignmentsNeedingDetails) {
         try {
-          const eventDetailUrl = `https://e3p.nycu.edu.tw/lib/ajax/service.php?sesskey=${sesskey}`;
+          const eventDetailUrl = `${origin}/lib/ajax/service.php?sesskey=${sesskey}`;
           const eventResponse = await fetchWithTimeout(eventDetailUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1095,7 +1111,7 @@ async function syncAssignments() {
 
       for (const assignment of keptAssignmentsNeedingDetails) {
         try {
-          const eventDetailUrl = `https://e3p.nycu.edu.tw/lib/ajax/service.php?sesskey=${sesskey}`;
+          const eventDetailUrl = `${origin}/lib/ajax/service.php?sesskey=${sesskey}`;
           const eventResponse = await fetchWithTimeout(eventDetailUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1246,15 +1262,16 @@ async function checkAssignmentSubmissionStatus(assignments, sesskey, statuses) {
 }
 
 // 同步課程列表
-async function syncCourses() {
+async function syncCourses(origin) {
+  origin ||= await getE3SyncOrigin();
   console.log('E3 Helper: 正在同步課程...');
 
-  const sesskey = await getSesskey();
+  const sesskey = await getSesskey(origin);
   if (!sesskey) {
     throw new Error('無法取得 sesskey，請重新登入');
   }
 
-  const url = `https://e3p.nycu.edu.tw/lib/ajax/service.php?sesskey=${sesskey}`;
+  const url = `${origin}/lib/ajax/service.php?sesskey=${sesskey}`;
 
   const response = await fetchWithTimeout(url, {
     method: 'POST',
