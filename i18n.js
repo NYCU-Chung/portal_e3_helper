@@ -2,6 +2,9 @@
 (function () {
   'use strict';
   const english = {
+  "請逐一點擊下方連結，Safari 會下載檔案或開啟預覽。": "Click each link below. Safari will download the file or open a preview.",
+  "下載連結已備妥，請逐一點擊。": "Download links are ready. Click each one.",
+  "無法下載": "Download unavailable",
   "時間未知": "Unknown time",
   "AI 請求逾時，請重試": "AI request timed out. Please retry.",
   "OpenAI 串流中斷，請重試": "OpenAI stream interrupted. Please retry.",

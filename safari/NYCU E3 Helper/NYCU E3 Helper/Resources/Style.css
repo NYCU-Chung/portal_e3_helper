@@ -1,0 +1,11 @@
+:root { color-scheme: light dark; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+body { margin: 0; padding: 28px; line-height: 1.6; }
+main { max-width: 560px; margin: auto; text-align: center; }
+h1 { font-size: 26px; margin: 12px 0; }
+.actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+button { font: inherit; padding: 10px 16px; border-radius: 8px; cursor: pointer; }
+button:focus-visible { outline: 3px solid #6366f1; outline-offset: 3px; }
+.detail { font-size: 13px; text-align: left; }
+body:not(.state-on, .state-off) :is(.state-on, .state-off),
+body.state-on :is(.state-off, .state-unknown),
+body.state-off :is(.state-on, .state-unknown) { display: none; }

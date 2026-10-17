@@ -403,6 +403,7 @@ const style = document.createElement('style');
 style.textContent = `
   /* 側欄樣式 */
   .e3-helper-sidebar {
+    box-sizing: border-box;
     position: fixed;
     top: 0;
     right: 0;
@@ -1554,7 +1555,12 @@ style.textContent += `
   /* Host pages often color bare text elements; keep ours on the theme without outranking our own classes. */
   :where(.e3-helper-sidebar, .e3-helper-log-modal, #e3-helper-add-assignment-modal, #e3-helper-changelog-modal) :is(p, li, h1, h2, h3, h4, h5, td, th, label, small, strong, em, b):not(html) { color: inherit; }
   .e3-helper-icon { display: inline-block; flex: none; vertical-align: middle; }
-  .e3-helper-sidebar { background: var(--e3-bg); border-left: 1px solid var(--e3-border); box-shadow: -8px 0 32px rgb(var(--e3-shadow) / 8%); height: 100dvh; max-width: min(800px, 100vw); }
+  .e3-helper-sidebar { background: var(--e3-bg); border-left: 1px solid var(--e3-border); box-shadow: -8px 0 32px rgb(var(--e3-shadow) / 8%); height: 100dvh; min-width: min(280px, 100vw); max-width: min(800px, 100vw); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .e3-helper-resize-handle, .e3-helper-sidebar-toggle { touch-action: none; }
+  @media (pointer: coarse) {
+    .e3-helper-resize-handle { width: 16px; }
+    .e3-helper-sidebar :is(button, select, input:not([type=checkbox])) { min-height: 44px; }
+  }
   .e3-helper-resize-handle:hover, .e3-helper-resize-handle:active { background: var(--e3-border-strong); }
 
   /* Header */
@@ -2952,7 +2958,9 @@ function createSidebar() {
     let startX = 0;
     let startWidth = 0;
 
-    resizeHandle.addEventListener('mousedown', (e) => {
+    resizeHandle.addEventListener('pointerdown', (e) => {
+      if (!e.isPrimary || e.button !== 0) return;
+      resizeHandle.setPointerCapture(e.pointerId);
       isResizing = true;
       startX = e.clientX;
       startWidth = sidebar.offsetWidth;
@@ -2964,19 +2972,17 @@ function createSidebar() {
       e.preventDefault();
     });
 
-    document.addEventListener('mousemove', (e) => {
-      if (!isResizing) return;
+    resizeHandle.addEventListener('pointermove', (e) => {
+      if (!isResizing || !e.isPrimary) return;
 
       const deltaX = startX - e.clientX; // 向左拖是正值
       const newWidth = startWidth + deltaX;
 
       // 限制寬度範圍
-      if (newWidth >= 280 && newWidth <= 800) {
-        sidebar.style.width = newWidth + 'px';
-      }
+      sidebar.style.width = Math.max(Math.min(280, window.innerWidth), Math.min(newWidth, 800, window.innerWidth)) + 'px';
     });
 
-    document.addEventListener('mouseup', async () => {
+    async function finishResize() {
       if (!isResizing) return;
 
       isResizing = false;
@@ -2987,7 +2993,10 @@ function createSidebar() {
       const width = sidebar.offsetWidth;
       await chrome.storage.local.set({ sidebarWidth: width });
       console.log('E3 Helper: 側邊欄寬度已儲存:', width);
-    });
+    }
+    resizeHandle.addEventListener('pointerup', finishResize);
+    resizeHandle.addEventListener('pointercancel', finishResize);
+    resizeHandle.addEventListener('lostpointercapture', finishResize);
 
     // 載入儲存的寬度設定
     chrome.storage.local.get(['sidebarWidth'], (result) => {
@@ -3265,7 +3274,9 @@ function createSidebar() {
     let hasMoved = false;
 
     // 滑鼠按下
-    toggleBtn.addEventListener('mousedown', (e) => {
+    toggleBtn.addEventListener('pointerdown', (e) => {
+      if (!e.isPrimary || e.button !== 0) return;
+      toggleBtn.setPointerCapture(e.pointerId);
       if (e.target === toggleBtn || toggleBtn.contains(e.target)) {
         initialY = e.clientY - yOffset;
         isDragging = true;
@@ -3278,8 +3289,8 @@ function createSidebar() {
     });
 
     // 滑鼠移動
-    document.addEventListener('mousemove', (e) => {
-      if (!isDragging) return;
+    toggleBtn.addEventListener('pointermove', (e) => {
+      if (!isDragging || !e.isPrimary) return;
 
       e.preventDefault();
       currentY = e.clientY - initialY;
@@ -3297,8 +3308,8 @@ function createSidebar() {
     });
 
     // 滑鼠放開
-    document.addEventListener('mouseup', (e) => {
-      if (!isDragging) return;
+    toggleBtn.addEventListener('pointerup', (e) => {
+      if (!isDragging || !e.isPrimary) return;
 
       // 恢復 transition
       toggleBtn.style.transition = '';
@@ -3316,6 +3327,14 @@ function createSidebar() {
       isDragging = false;
       hasMoved = false;
     });
+
+    function cancelDrag() {
+      toggleBtn.style.transition = '';
+      isDragging = false;
+      hasMoved = false;
+    }
+    toggleBtn.addEventListener('pointercancel', cancelDrag);
+    toggleBtn.addEventListener('lostpointercapture', cancelDrag);
 
     // 設定位置的輔助函數
     function setPosition(el, offset) {
@@ -9151,7 +9170,7 @@ function updatePDFList() {
           window.open(pdf.url, '_blank');
         } else {
           // 使用 Chrome Downloads API 下載
-          await chrome.runtime.sendMessage({ action: 'download', url: pdf.url, filename: fullFilename }).catch(error => {
+          await downloadE3File(pdf.url, fullFilename).catch(error => {
             console.error('E3 Helper: download failed', error);
             showTemporaryMessage(uiText('下載失敗，請查看 Console 了解詳情'), 'error');
           });
@@ -9159,6 +9178,72 @@ function updatePDFList() {
       }
     });
   });
+}
+
+// Safari has no downloads API. Use a browser-managed link without fetching large files into memory.
+async function downloadE3File(url, filename) {
+  const parsed = new URL(url);
+  if (parsed.protocol !== 'https:' ||
+      !['e3.nycu.edu.tw', 'e3p.nycu.edu.tw'].includes(parsed.hostname)) {
+    throw new Error('Download URL not from allowed domain');
+  }
+  if (chrome.runtime.getManifest().permissions?.includes('downloads')) {
+    const response = await chrome.runtime.sendMessage({ action: 'download', url, filename });
+    if (!response?.success) throw new Error(response?.error || 'Download failed');
+    return;
+  }
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+// Each Safari link must be activated by the user; asynchronous batch clicks can
+// lose popup permission. Preparing links does not mean a file was downloaded.
+function showSafariDownloadLinks() {
+  const status = document.querySelector('.e3-helper-download-status');
+  if (!status) return;
+  let list = document.getElementById('e3-helper-safari-download-links');
+  if (!list) {
+    list = document.createElement('div');
+    list.id = 'e3-helper-safari-download-links';
+    list.className = 'e3-helper-surface';
+    list.style.cssText = 'padding: 12px; display: grid; gap: 8px;';
+    status.insertAdjacentElement('afterend', list);
+  }
+  list.replaceChildren();
+  const instruction = document.createElement('p');
+  instruction.textContent = uiText('請逐一點擊下方連結，Safari 會下載檔案或開啟預覽。');
+  list.appendChild(instruction);
+  for (const index of selectedPDFs) {
+    const pdf = allPDFs[index];
+    if (!pdf) continue;
+    let allowed = false;
+    try {
+      const url = new URL(pdf.url);
+      allowed = url.protocol === 'https:' && (
+        ['e3.nycu.edu.tw', 'e3p.nycu.edu.tw'].includes(url.hostname) ||
+        (pdf.isIframe && ['youtube.com', 'www.youtube.com', 'youtu.be', 'vimeo.com', 'www.vimeo.com', 'player.vimeo.com'].includes(url.hostname))
+      );
+    } catch { /* Invalid scanned links are shown as unavailable. */ }
+    const entry = document.createElement(allowed ? 'a' : 'span');
+    entry.textContent = `${pdf.course} — ${pdf.filename}`;
+    entry.style.cssText = 'display: block; padding: 10px; overflow-wrap: anywhere;';
+    if (allowed) {
+      entry.href = pdf.url;
+      entry.target = '_blank';
+      entry.rel = 'noopener noreferrer';
+      entry.className = 'e3-helper-link';
+    } else {
+      entry.textContent += ` (${uiText('無法下載')})`;
+    }
+    list.appendChild(entry);
+  }
+  status.textContent = uiText('下載連結已備妥，請逐一點擊。');
 }
 
 // 綁定下載按鈕事件
@@ -9205,6 +9290,11 @@ function bindDownloadButtons() {
 async function downloadSeparately() {
   if (selectedPDFs.size === 0) {
     showTemporaryMessage(uiText('請先選取要下載的檔案'), 'warning');
+    return;
+  }
+
+  if (!chrome.runtime.getManifest().permissions?.includes('downloads')) {
+    showSafariDownloadLinks();
     return;
   }
 
@@ -9277,7 +9367,7 @@ async function downloadSeparately() {
           window.open(pdf.url, '_blank');
         } else {
           // 使用 Chrome Downloads API 下載
-          await chrome.runtime.sendMessage({ action: 'download', url: pdf.url, filename: fullFilename }).catch(error => {
+          await downloadE3File(pdf.url, fullFilename).catch(error => {
             console.error('E3 Helper: download failed', error);
             showTemporaryMessage(uiText('下載失敗，請查看 Console 了解詳情'), 'error');
           });
@@ -10215,9 +10305,48 @@ async function init() {
   checkVersionUpdate();
 }
 
+// Only the extension's background script can request same-origin E3 reads.
+async function fetchE3Session(request, sender) {
+  if (sender.id !== chrome.runtime.id) throw new Error('Untrusted extension sender');
+  const target = new URL(request.url);
+  if (target.protocol !== 'https:' || target.origin !== location.origin ||
+      !['e3.nycu.edu.tw', 'e3p.nycu.edu.tw'].includes(target.hostname) || target.username || target.password) {
+    throw new Error('E3 session requests must stay on the current E3 origin');
+  }
+  const method = request.method || 'GET';
+  if (!['GET', 'POST'].includes(method)) throw new Error('Unsupported E3 request method');
+  if (method === 'POST') {
+    const allowed = new Set(['core_calendar_get_action_events_by_timesort',
+      'core_calendar_get_calendar_event_by_id', 'core_course_get_enrolled_courses_by_timeline_classification']);
+    const calls = JSON.parse(request.body);
+    if (target.pathname !== '/lib/ajax/service.php' || !Array.isArray(calls) ||
+        !calls.length || !calls.every(call => allowed.has(call.methodname))) {
+      throw new Error('Only read-only E3 sync methods are allowed');
+    }
+  }
+  const controller = new AbortController();
+  const timeout = Math.min(30000, Math.max(1000, Number(request.timeout) || 10000));
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(target.href, {
+      method, credentials: 'same-origin', signal: controller.signal,
+      ...(method === 'POST' ? { body: request.body, headers: { 'Content-Type': 'application/json' } } : {})
+    });
+    // Do not relay third-party login pages or other redirected content to the extension.
+    if (new URL(response.url).origin !== target.origin) throw new Error('E3 redirected to another origin; please sign in to E3');
+    return { success: true, status: response.status, statusText: response.statusText,
+      url: response.url, text: await response.text() };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // 監聽來自 background script 的訊息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'backgroundLog') {
+  if (request.action === 'fetchE3Session') {
+    fetchE3Session(request, sender).then(sendResponse, error => sendResponse({ success: false, error: error.message }));
+    return true;
+  } else if (request.action === 'backgroundLog') {
     // 接收來自 background.js 的日誌
     e3HelperLogs.push({
       id: e3LogIdCounter++,
