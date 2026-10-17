@@ -7089,6 +7089,13 @@ async function scanAnnouncementExams({ force = false } = {}) {
   const todo = items.filter(item => {
     const entry = cache[keyOf(item)];
     return force || !entry || entry.sourceKey !== sourceKey(item) || Date.now() - entry.at >= DAY || (useAI && entry.mode !== 'ai');
+  }).sort((a, b) => {
+    const priority = item => {
+      const entry = cache[keyOf(item)];
+      return !entry || entry.sourceKey !== sourceKey(item) || (useAI && entry.mode !== 'ai') ? 0 : 1;
+    };
+    // Read new/changed sources first, then rotate refreshes by oldest read.
+    return priority(a) - priority(b) || (cache[keyOf(a)]?.at || 0) - (cache[keyOf(b)]?.at || 0);
   }).slice(0, 8);
   const readItems = [];
   let readError;

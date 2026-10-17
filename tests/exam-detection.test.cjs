@@ -393,3 +393,42 @@ test('a rescan reordering the same dates cannot accept the wrong radio option', 
   await assert.rejects(context.resolveExamSuggestionFromCard(card, 'accept'), /changed/i);
   assert.equal(storage.assignments.length, 0);
 });
+
+test('a new quiz on a moved quiz original date gets an unused, stable ID', () => {
+  const quiz = day => ({ courseId: '1', course: 'Course', examType: 'quiz', deadline: at(2026, 11, day, 9), timeKnown: 'exact', source: 'syllabusFile', url: 'pdf', confidence: 'high' });
+  const original = exams.mergeSuggestions([], [quiz(5)], [], now);
+  const assignment = exams.toExamAssignment(original[0], original[0].candidates[0]);
+  const moved = exams.mergeSuggestions(original, [quiz(12)], [assignment], now, c => c.url === 'pdf');
+  const result = exams.mergeSuggestions(moved, [quiz(5), quiz(12)], [assignment], now, c => c.url === 'pdf');
+  assert.equal(result.length, 2);
+  const fresh = result.find(s => s.candidates[0].deadline === quiz(5).deadline);
+  assert.notEqual(fresh.id, assignment.examKey);
+  assert.equal(fresh.state, 'new');
+  assert.equal(result.find(s => s.id === assignment.examKey).candidates[0].deadline, quiz(12).deadline);
+  const again = exams.mergeSuggestions(result, [quiz(5), quiz(12)], [assignment], now, c => c.url === 'pdf');
+  assert.deepEqual(again.map(s => s.id), result.map(s => s.id));
+});
+
+test('bounded exam scans advance through unread and least recently read posts', async () => {
+  for (const force of [true, false]) {
+    let clock = Date.now();
+    class ScanDate extends Date { static now() { return clock; } }
+    const items = Array.from({ length: 20 }, (_, i) => ({ id: String(i), title: 'Final exam', courseId: '1', timestamp: clock - i * 1000, url: `https://e3p.nycu.edu.tw/post/${i}` }));
+    const storage = {}, reads = [];
+    const context = vm.createContext({ Date: ScanDate, console, E3ExamDetection: exams, allAnnouncements: items, allMessages: [], allCourses: [],
+      chrome: { storage: { local: { get: async () => structuredClone(storage), set: async update => Object.assign(storage, structuredClone(update)) } } },
+      getAISummaryConfig: () => ({}), fetchExamSourceText: async item => { reads.push(item.id); return 'Final exam 12/23'; }, sendExamMessage: async () => {} });
+    vm.runInContext(contentFunction('scanAnnouncementExams'), context);
+    for (let i = 0; i < 3; i++) {
+      const before = reads.length;
+      await context.scanAnnouncementExams({ force });
+      assert.ok(reads.length - before <= 8);
+      clock += 86400001;
+    }
+    assert.equal(new Set(reads).size, 20, `force=${force}`);
+    // Once all posts have been read, refresh the oldest batch first.
+    reads.length = 0;
+    await context.scanAnnouncementExams({ force });
+    assert.ok(reads.includes('4'));
+  }
+});

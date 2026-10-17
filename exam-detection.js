@@ -281,7 +281,7 @@ ${JSON.stringify(records)}`;
     return match ? String(Number(match[1] || match[2] || match[3])) : '';
   }
 
-  function revisedSuggestionId(value, existing, candidates) {
+  function revisedSuggestionId(value, existing, candidates, allocated, occupied) {
     if (value.examType === 'midterm' || value.examType === 'final') return suggestionId(value);
     const sameSource = (left, right) => String(left.courseId) === String(right.courseId) && left.examType === right.examType && left.source === right.source && left.url === right.url;
     const sameOccurrence = (left, right) => {
@@ -303,7 +303,17 @@ ${JSON.stringify(records)}`;
     }
     const sameDay = matching.filter(suggestion => suggestion.candidates?.some(old => dayKey(old.deadline) === dayKey(value.deadline) &&
       (!examOccurrence(old) || !examOccurrence(value) || examOccurrence(old) === examOccurrence(value))));
-    return sameDay.length === 1 ? sameDay[0].id : suggestionId(value);
+    if (sameDay.length === 1) return sameDay[0].id;
+    // A retained ID may still name an old date after its quiz has moved.
+    // Reserve it and give the new occurrence a stable, unused ID.
+    const base = suggestionId(value);
+    const key = `${base}|${examOccurrence(value)}`;
+    if (allocated.has(key)) return allocated.get(key);
+    let id = base, suffix = 2;
+    while (occupied.has(id)) id = `${base}:${suffix++}`;
+    occupied.add(id);
+    allocated.set(key, id);
+    return id;
   }
 
   // Merge fresh candidates into stored suggestions. Dismissed suggestions stay hidden until their dates change;
@@ -315,9 +325,11 @@ ${JSON.stringify(records)}`;
       ...s, candidates: (s.candidates || []).filter(c => !(replace && replace(c)))
     }]));
     const replacedSources = new Set();
+    const allocated = new Map();
+    const occupied = new Set([...stored.map(s => s.id), ...assignments.map(a => a.examKey).filter(Boolean)]);
     for (const c of candidates) {
       if (!Number.isFinite(c.deadline)) continue;
-      const id = revisedSuggestionId(c, stored, candidates);
+      const id = revisedSuggestionId(c, stored, candidates, allocated, occupied);
       const current = byId.get(id) || { id, courseId: c.courseId, course: c.course, examType: c.examType, candidates: [], state: 'new', resolvedFingerprint: '' };
       // A fresh scan of a source replaces its earlier candidates for this suggestion.
       const sourceKey = `${id}|${c.source}|${c.url}`;
