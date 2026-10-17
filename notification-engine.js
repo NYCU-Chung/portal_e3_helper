@@ -71,7 +71,7 @@
       if (hours === undefined) continue;
       await add(`deadline-${assignment.eventId}-${assignment.deadline}-${hours}`, {
         type: 'basic', iconUrl: chrome.runtime.getURL('128.png'),
-        title: E3HelperI18n.text('作業即將截止'),
+        title: E3HelperI18n.text(assignment.kind === 'exam' ? '考試即將開始' : '作業即將截止'),
         message: `${assignment.name}\n${assignment.course || ''}\n${new Date(assignment.deadline).toLocaleString(E3HelperI18n.language)}`
       }, assignment.url, now, { eventId: assignment.eventId, timestamp: Number(assignment.deadline), hours });
     }

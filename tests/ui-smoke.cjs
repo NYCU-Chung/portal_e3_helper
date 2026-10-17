@@ -19,6 +19,7 @@ const fs = require('node:fs');
       },language);
       await page.goto('http://e3-test.local/');
       if(localized) await page.addScriptTag({path:path.join(root,'i18n.js')});
+      await page.addScriptTag({path:path.join(root,'exam-detection.js')});
       await page.addScriptTag({path:path.join(root,'content.js')});
       await page.locator('.e3-helper-sidebar-toggle').click();
       for(const width of [280,350,480,800]) {
@@ -108,6 +109,7 @@ const fs = require('node:fs');
       assert.equal(await page.evaluate(async () => (await chrome.storage.local.get(['themePreference'])).themePreference),'dark');
       await page.reload();
       if(localized) await page.addScriptTag({path:path.join(root,'i18n.js')});
+      await page.addScriptTag({path:path.join(root,'exam-detection.js')});
       await page.addScriptTag({path:path.join(root,'content.js')});
       assert.equal(await page.locator('html').getAttribute('data-e3-helper-theme'),'dark');
       assert.equal(await page.locator('.e3-helper-sidebar').evaluate(el => getComputedStyle(el).backgroundColor),'rgb(18, 17, 16)');
