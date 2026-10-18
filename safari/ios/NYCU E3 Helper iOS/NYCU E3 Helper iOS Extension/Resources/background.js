@@ -810,13 +810,22 @@ async function getSesskey(origin) {
 async function getE3SyncOrigin() {
   if (!chrome.runtime.getURL('').startsWith('safari-web-extension:')) return 'https://e3p.nycu.edu.tw';
   const tabs = await chrome.tabs.query({ url: ['https://e3.nycu.edu.tw/*', 'https://e3p.nycu.edu.tw/*'] });
+  const origins = [];
   for (const tab of tabs.sort((a, b) => Number(b.active) - Number(a.active))) {
     try {
       const url = new URL(tab.url);
-      if (url.protocol === 'https:' && ['e3.nycu.edu.tw', 'e3p.nycu.edu.tw'].includes(url.hostname) && !url.port && !url.username && !url.password) return url.origin;
+      if (url.protocol === 'https:' && ['e3.nycu.edu.tw', 'e3p.nycu.edu.tw'].includes(url.hostname) && !url.port && !url.username && !url.password && !origins.includes(url.origin)) origins.push(url.origin);
     } catch {}
   }
-  throw new Error('請保持已登入的 E3 分頁開啟後重試。');
+  let firstSignedOut, lastError;
+  for (const origin of origins) {
+    const loggedIn = await checkLoginStatus(error => { lastError = error; }, origin);
+    if (loggedIn === true) return origin;
+    if (loggedIn === false) firstSignedOut ||= origin;
+  }
+  // Preserve the normal signed-out result when every usable host needs login.
+  if (firstSignedOut) return firstSignedOut;
+  throw lastError || new Error('請保持已登入的 E3 分頁開啟後重試。');
 }
 
 async function fetchE3FromPage(url, options = {}, timeout = 10000) {
