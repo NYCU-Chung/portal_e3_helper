@@ -10286,23 +10286,27 @@ function collectAssignmentInfo() {
           // 載入已儲存的手動標記狀態
           (async () => {
             const statuses = await loadAssignmentStatuses();
+            const currentForStatus = allAssignments.find(item => item.eventId === eventId);
+            if (!currentForStatus) return;
             if (statuses[eventId]) {
-              assignmentData.manualStatus = statuses[eventId];
+              currentForStatus.manualStatus = statuses[eventId];
               console.log(`E3 Helper: 作業 ${eventId} 載入手動標記狀態: ${statuses[eventId]}`);
             }
 
             // 非同步獲取 URL 和課程資訊（不阻塞載入）
             const eventDetails = await getEventDetails(eventId);
+            const current = allAssignments.find(item => item.eventId === eventId);
+            if (!current) return;
             if (eventDetails) {
               let needSave = false;
               if (eventDetails.url) {
-                assignmentData.url = eventDetails.url;
+                current.url = eventDetails.url;
                 console.log(`E3 Helper: 作業 ${eventId} URL: ${eventDetails.url}`);
                 needSave = true;
               }
               // 如果 API 返回了課程資訊，且當前沒有課程名稱，則使用 API 的
-              if (eventDetails.course && eventDetails.course.fullname && !assignmentData.course) {
-                assignmentData.course = eventDetails.course.fullname;
+              if (eventDetails.course && eventDetails.course.fullname && !current.course) {
+                current.course = eventDetails.course.fullname;
                 console.log(`E3 Helper: 作業 ${eventId} 從 API 獲取課程: ${eventDetails.course.fullname}`);
                 needSave = true;
               }

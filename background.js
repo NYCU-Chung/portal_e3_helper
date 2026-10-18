@@ -1333,7 +1333,12 @@ async function syncAssignments() {
     // again here: the network/status work above may have used an older snapshot.
     await updateExamSuggestions((examSuggestions, latest) => {
       const changes = E3ExamDetection.diffAssignments(syncBaseline, latest);
-      const merged = E3ExamDetection.applyAssignmentChanges(assignments, changes);
+      // A user may change an overdue record that the earlier expiry pass omitted.
+      // Keep that fresh record before applying patches; local edits take priority.
+      const mergedIds = new Set(assignments.map(item => item.eventId));
+      const changedIds = new Set(changes.upserts.map(change => change.eventId));
+      const seed = [...assignments, ...latest.filter(item => changedIds.has(item.eventId) && !mergedIds.has(item.eventId))];
+      const merged = E3ExamDetection.applyAssignmentChanges(seed, changes);
       assignments.splice(0, assignments.length, ...merged);
       return { examSuggestions, assignments };
     });

@@ -654,3 +654,57 @@ test('local changes made during a queued save survive without overwriting remote
   assert.equal(storage.assignments[0].deadline, at(2099, 11, 6));
   assert.equal(storage.assignments[1].eventId, 'other-tab');
 });
+
+test('sync preserves an overdue omitted task converted into a future exam', async () => {
+  const storage = { assignments: [{ eventId: 'overdue', isManual: true, name: 'Old task', deadline: Date.now() - 10 * 86400000, manualStatus: 'pending' }] };
+  const worker = loadWorker(storage, () => {});
+  worker.console = { log() {}, error() {} };
+  worker.getSesskey = async () => 'fixture';
+  worker.fetchWithTimeout = async () => ({ ok: true, json: async () => [{ data: { events: [] } }] });
+  worker.checkAssignmentSubmissionStatus = async () => {
+    const { assignments } = await worker.chrome.storage.local.get('assignments');
+    Object.assign(assignments[0], { kind: 'exam', examType: 'quiz', deadline: at(2099, 11, 5) });
+    await worker.chrome.storage.local.set({ assignments });
+    return null;
+  };
+  worker.detectAndNotifyNewAssignments = async () => {};
+  const background = fs.readFileSync(path.join(__dirname, '../background.js'), 'utf8');
+  const start = background.indexOf('async function syncAssignments(');
+  vm.runInContext(background.slice(start, background.indexOf('\n}\n', start) + 2), worker);
+  await worker.syncAssignments();
+  assert.equal(storage.assignments.length, 1);
+  assert.equal(storage.assignments[0].kind, 'exam');
+  assert.equal(storage.assignments[0].deadline, at(2099, 11, 5));
+});
+
+test('slow collected coursework details update the current saved record and never restore deleted records', async () => {
+  for (const deleted of [false, true]) {
+    let release, entered, finished;
+    const gate = new Promise(resolve => { release = resolve; });
+    const waiting = new Promise(resolve => { entered = resolve; });
+    const done = new Promise(resolve => { finished = resolve; });
+    const item = { tagName: 'A', textContent: 'assignment', dataset: { eventId: 'collected' }, href: 'https://e3p.nycu.edu.tw/?time=4070908800', querySelector: () => null };
+    let saves = 0;
+    const context = vm.createContext({ allAssignments: [], console: { log() {}, error(error) { throw error; } },
+      document: { querySelectorAll: () => [item], querySelector: () => null },
+      loadAssignmentStatuses: async () => ({}),
+      getEventDetails: async () => { entered(); await gate; return { url: 'https://e3p.nycu.edu.tw/mod/assign/view.php?id=1', course: { fullname: 'Course details' } }; },
+      saveAssignments: async () => { saves++; context.allAssignments = structuredClone(context.allAssignments); },
+      updateSidebarContent: () => { if (saves > 1 || deleted) finished(); } });
+    const start = contentSource.indexOf('function collectAssignmentInfo(');
+    vm.runInContext(contentSource.slice(start, contentSource.indexOf('\n}\n', start) + 2), context);
+    context.collectAssignmentInfo();
+    await waiting;
+    context.allAssignments = deleted ? [] : structuredClone(context.allAssignments);
+    release();
+    if (deleted) {
+      await new Promise(setImmediate);
+      assert.equal(context.allAssignments.length, 0);
+      assert.equal(saves, 1);
+    } else {
+      await done;
+      assert.equal(context.allAssignments[0].course, 'Course details');
+      assert.match(context.allAssignments[0].url, /mod\/assign/);
+    }
+  }
+});

@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Fixed
+- Retain overdue coursework edited during sync and apply delayed course-detail responses to the current saved record.
 - Save local coursework field changes through the shared queue, preserving concurrent exam acceptance and exam-to-assignment conversions during sync.
 - Preserve accepted exams during assignment sync and pending local coursework edits during exam view refresh.
 - Keep exam timing metadata when editing names, and replace announcement evidence only with complete refreshed source batches.
