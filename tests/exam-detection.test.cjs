@@ -432,3 +432,46 @@ test('bounded exam scans advance through unread and least recently read posts', 
     assert.ok(reads.includes('4'));
   }
 });
+
+test('compatible numbered and unnumbered quiz posts merge within the first batch', () => {
+  const quiz = { courseId: '1', course: 'Course', examType: 'quiz', deadline: at(2026, 11, 5, 9), timeKnown: 'exact', source: 'announcement', url: 'post/1', confidence: 'high' };
+  for (const posts of [
+    [{ ...quiz, occurrence: 'Quiz 1' }, { ...quiz, url: 'post/2' }],
+    [{ ...quiz, url: 'post/2' }, { ...quiz, occurrence: 'Quiz 1' }]
+  ]) {
+    const result = exams.mergeSuggestions([], posts, [], now);
+    assert.equal(result.length, 1);
+    assert.equal(result[0].candidates.length, 2);
+    assert.equal(exams.mergeSuggestions(result, posts, [], now).length, 1);
+  }
+  const distinct = exams.mergeSuggestions([], [{ ...quiz, occurrence: 'Quiz 1' }, { ...quiz, occurrence: 'Quiz 2', url: 'post/2' }], [], now);
+  assert.equal(distinct.length, 2);
+});
+
+test('restored confirmed quizzes reconnect to their original coursework', () => {
+  const quiz = { courseId: '1', course: 'Course', examType: 'quiz', deadline: at(2026, 11, 5, 9), timeKnown: 'exact', source: 'syllabusFile', url: 'pdf', confidence: 'high', occurrence: 'Quiz 1' };
+  const original = exams.mergeSuggestions([], [quiz], [], now);
+  const assignment = exams.toExamAssignment(original[0], quiz);
+  const empty = exams.mergeSuggestions(original, [], [assignment], now, c => c.url === 'pdf');
+  assert.equal(empty.length, 0);
+  const restored = exams.mergeSuggestions(empty, [quiz], [assignment], now, c => c.url === 'pdf');
+  assert.equal(restored.length, 1);
+  assert.equal(restored[0].id, assignment.examKey);
+  assert.equal(restored[0].state, 'accepted');
+  assert.equal(exams.pendingSuggestions(restored).length, 0);
+});
+
+test('confirmed quiz recovery respects occurrence, course and source identity', () => {
+  const quiz = { courseId: '1', course: 'Course', examType: 'quiz', deadline: at(2026, 11, 5, 9), timeKnown: 'exact', source: 'syllabusFile', url: 'pdf', confidence: 'high', occurrence: 'Quiz 1' };
+  const suggestion = exams.mergeSuggestions([], [quiz], [], now)[0];
+  const assignment = exams.toExamAssignment(suggestion, quiz);
+  for (const fresh of [{ ...quiz, occurrence: 'Quiz 2' }, { ...quiz, url: 'other' }, { ...quiz, courseId: '2' }, { ...quiz, deadline: at(2026, 11, 12, 9) }]) {
+    const result = exams.mergeSuggestions([], [fresh], [assignment], now);
+    assert.notEqual(result[0].id, assignment.examKey);
+    assert.equal(result[0].state, 'new');
+  }
+  // A manually changed deadline is retained; restored source evidence offers an update.
+  const restored = exams.mergeSuggestions([], [quiz], [{ ...assignment, deadline: at(2026, 11, 6, 9) }], now);
+  assert.equal(restored[0].id, assignment.examKey);
+  assert.equal(restored[0].state, 'update');
+});

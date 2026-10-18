@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Fixed
+- Merge compatible quiz posts within a scan and reconnect restored quiz evidence to confirmed coursework without creating duplicate reminders.
 - Keep moved quizzes separate from new quizzes scheduled on their original dates.
 - Prioritize unread exam posts and rotate bounded refresh batches to avoid starving older sources.
 

@@ -281,7 +281,7 @@ ${JSON.stringify(records)}`;
     return match ? String(Number(match[1] || match[2] || match[3])) : '';
   }
 
-  function revisedSuggestionId(value, existing, candidates, allocated, occupied) {
+  function revisedSuggestionId(value, existing, candidates, allocated, occupied, currentBatch, assignments) {
     if (value.examType === 'midterm' || value.examType === 'final') return suggestionId(value);
     const sameSource = (left, right) => String(left.courseId) === String(right.courseId) && left.examType === right.examType && left.source === right.source && left.url === right.url;
     const sameOccurrence = (left, right) => {
@@ -304,6 +304,22 @@ ${JSON.stringify(records)}`;
     const sameDay = matching.filter(suggestion => suggestion.candidates?.some(old => dayKey(old.deadline) === dayKey(value.deadline) &&
       (!examOccurrence(old) || !examOccurrence(value) || examOccurrence(old) === examOccurrence(value))));
     if (sameDay.length === 1) return sameDay[0].id;
+    // Include candidates already grouped during this scan, without confusing
+    // different numbered quizzes that happen on the same day.
+    const batchMatches = [...currentBatch.values()].filter(suggestion =>
+      String(suggestion.courseId) === String(value.courseId) && suggestion.examType === value.examType &&
+      suggestion.candidates.some(old => dayKey(old.deadline) === dayKey(value.deadline)) &&
+      suggestion.candidates.every(old => !examOccurrence(old) || !examOccurrence(value) || examOccurrence(old) === examOccurrence(value)));
+    if (batchMatches.length === 1) return batchMatches[0].id;
+    // A source can temporarily remove all evidence while its confirmed exam
+    // remains. Recover that identity only when no saved suggestion owns it.
+    const confirmedMatches = assignments.filter(assignment =>
+      assignment.kind === 'exam' && assignment.examKey && !existing.some(s => s.id === assignment.examKey) &&
+      String(assignment.courseId) === String(value.courseId) && assignment.examType === value.examType &&
+      (assignment.sources || []).some(source => source.type === value.source && source.url === value.url &&
+        dayKey(source.deadline) === dayKey(value.deadline)) &&
+      (!assignment.occurrence || !examOccurrence(value) || assignment.occurrence === examOccurrence(value)));
+    if (confirmedMatches.length === 1) return confirmedMatches[0].examKey;
     // A retained ID may still name an old date after its quiz has moved.
     // Reserve it and give the new occurrence a stable, unused ID.
     const base = suggestionId(value);
@@ -329,7 +345,7 @@ ${JSON.stringify(records)}`;
     const occupied = new Set([...stored.map(s => s.id), ...assignments.map(a => a.examKey).filter(Boolean)]);
     for (const c of candidates) {
       if (!Number.isFinite(c.deadline)) continue;
-      const id = revisedSuggestionId(c, stored, candidates, allocated, occupied);
+      const id = revisedSuggestionId(c, stored, candidates, allocated, occupied, byId, assignments);
       const current = byId.get(id) || { id, courseId: c.courseId, course: c.course, examType: c.examType, candidates: [], state: 'new', resolvedFingerprint: '' };
       // A fresh scan of a source replaces its earlier candidates for this suggestion.
       const sourceKey = `${id}|${c.source}|${c.url}`;
@@ -378,7 +394,7 @@ ${JSON.stringify(records)}`;
   function toExamAssignment(suggestion, chosen, overrides = {}) {
     return {
       eventId: overrides.eventId || `exam-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      kind: 'exam', examType: suggestion.examType, examKey: suggestion.id,
+      kind: 'exam', examType: suggestion.examType, examKey: suggestion.id, occurrence: examOccurrence(chosen),
       name: overrides.name || examName(suggestion.examType, suggestion.course),
       course: suggestion.course || chosen.course || '', courseId: suggestion.courseId,
       deadline: Number(overrides.deadline ?? chosen.deadline), timeKnown: overrides.deadline != null ? 'exact' : chosen.timeKnown,
