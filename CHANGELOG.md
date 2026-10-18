@@ -7,6 +7,10 @@
 - Keep moved quizzes separate from new quizzes scheduled on their original dates.
 - Prioritize unread exam posts and rotate bounded refresh batches to avoid starving older sources.
 
+### ⚡ 改善 (Changed)
+- 新安裝預設僅在 E3（`e3.nycu.edu.tw`、`e3p.nycu.edu.tw`）、課綱網站 `timetable.nycu.edu.tw` 與校務入口 `portal.nycu.edu.tw` 顯示助手，不必手動調整瀏覽器網站存取設定；其他網站不再載入側欄或讀取頁面內容。
+- 網站識別改用 HTTPS 與完整網域白名單，背景日誌亦僅傳送至上述網站；AI／翻譯服務的既有連線權限維持不變。
+
 ## [2.3.0] - 2026-10-11
 
 ### Added
