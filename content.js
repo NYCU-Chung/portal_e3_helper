@@ -2058,6 +2058,32 @@ let saveAssignmentsTimeout = null;
 let saveAssignmentsPending = false;
 let assignmentSaveRevision = 0;
 let assignmentSavesInFlight = 0;
+let savedAssignments = [];
+let assignmentSaveQueue = Promise.resolve();
+
+function mergeSavedAssignments(assignments) {
+  const changes = E3ExamDetection.diffAssignments(savedAssignments, allAssignments);
+  allAssignments = E3ExamDetection.applyAssignmentChanges(assignments, changes);
+  savedAssignments = JSON.parse(JSON.stringify(assignments));
+}
+
+async function persistAssignmentChanges() {
+  const operation = assignmentSaveQueue.then(async () => {
+    assignmentSavesInFlight++;
+    try {
+      const snapshot = JSON.parse(JSON.stringify(allAssignments));
+      const changes = E3ExamDetection.diffAssignments(savedAssignments, snapshot);
+      const response = await sendExamMessage({ action: 'saveAssignmentChanges', changes });
+      const pending = E3ExamDetection.diffAssignments(snapshot, allAssignments);
+      allAssignments = E3ExamDetection.applyAssignmentChanges(response.assignments, pending);
+      savedAssignments = JSON.parse(JSON.stringify(response.assignments));
+    } finally {
+      assignmentSavesInFlight--;
+    }
+  });
+  assignmentSaveQueue = operation.catch(() => {});
+  return operation;
+}
 
 async function saveAssignments() {
   assignmentSaveRevision++;
@@ -2070,13 +2096,14 @@ async function saveAssignments() {
   // 設定防抖延遲
   saveAssignmentsTimeout = setTimeout(async () => {
     try {
-      await chrome.storage.local.set({ assignments: allAssignments });
+      await persistAssignmentChanges();
       console.log(`E3 Helper: 已儲存 ${allAssignments.length} 個作業到 storage`);
     } catch (error) {
       console.error('E3 Helper: 儲存作業失敗', error);
     }
 
     saveAssignmentsTimeout = null;
+    await refreshExamViews();
 
     // 如果在等待期間有新的儲存請求，再次執行
     if (saveAssignmentsPending) {
@@ -2095,14 +2122,11 @@ async function saveAssignmentsImmediate() {
   }
   saveAssignmentsPending = false;
 
-  assignmentSavesInFlight++;
   try {
-    await chrome.storage.local.set({ assignments: allAssignments });
+    await persistAssignmentChanges();
     console.log(`E3 Helper: 已立即儲存 ${allAssignments.length} 個作業到 storage`);
   } catch (error) {
     console.error('E3 Helper: 儲存作業失敗', error);
-  } finally {
-    assignmentSavesInFlight--;
   }
 }
 
@@ -7059,11 +7083,9 @@ function renderExamSuggestionPanel(context) {
 
 async function refreshExamViews() {
   const revision = assignmentSaveRevision;
-  const hadLocalSave = Boolean(saveAssignmentsTimeout || saveAssignmentsPending || assignmentSavesInFlight);
   await loadExamSuggestions();
   const { assignments = [] } = await chrome.storage.local.get(['assignments']);
-  if (!hadLocalSave && revision === assignmentSaveRevision &&
-      !saveAssignmentsTimeout && !saveAssignmentsPending && !assignmentSavesInFlight) allAssignments = assignments;
+  if (revision === assignmentSaveRevision && !assignmentSavesInFlight) mergeSavedAssignments(assignments);
   if (document.querySelector('.e3-helper-content[data-content="assignments"].active')) await updateSidebarContent();
   const digestExams = document.getElementById('e3-helper-digest-exams');
   if (digestExams) digestExams.innerHTML = renderExamSuggestionPanel('digest');
@@ -10522,7 +10544,7 @@ function manualSync() {
           loadAssignments(),
           chrome.storage.local.get(['courses', 'lastSyncTime', 'assignmentStatuses'])
         ]).then(([assignments, storage]) => {
-          allAssignments = assignments;
+          mergeSavedAssignments(assignments);
           console.log(`E3 Helper: 同步後載入了 ${assignments.length} 個作業`);
           console.log('E3 Helper: 作業狀態詳情:', assignments.map(a => ({ id: a.eventId, name: a.name, status: a.manualStatus })));
 
@@ -10705,7 +10727,7 @@ async function init() {
   const storage = await chrome.storage.local.get(['assignments', 'courses', 'gradeData', 'announcements', 'readAnnouncements', 'lastSyncTime']);
 
   if (storage.assignments) {
-    allAssignments = storage.assignments;
+    mergeSavedAssignments(storage.assignments);
     console.log(`E3 Helper: 從 storage 載入了 ${allAssignments.length} 個作業`);
 
     // 檢查作業課程名稱

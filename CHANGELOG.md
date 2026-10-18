@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Fixed
+- Save local coursework field changes through the shared queue, preserving concurrent exam acceptance and exam-to-assignment conversions during sync.
 - Preserve accepted exams during assignment sync and pending local coursework edits during exam view refresh.
 - Keep exam timing metadata when editing names, and replace announcement evidence only with complete refreshed source batches.
 - Merge compatible quiz posts within a scan and reconnect restored quiz evidence to confirmed coursework without creating duplicate reminders.

@@ -407,6 +407,39 @@ ${JSON.stringify(records)}`;
     };
   }
 
+  // Persist only locally changed fields. Unseen coursework from other tabs
+  // stays intact, and editing an existing record cannot resurrect a deleted one.
+  function diffAssignments(before, after) {
+    const old = new Map(before.map(item => [item.eventId, item]));
+    const current = new Map(after.map(item => [item.eventId, item]));
+    const deleted = before.filter(item => !current.has(item.eventId)).map(item => item.eventId);
+    const upserts = [];
+    for (const item of after) {
+      const previous = old.get(item.eventId);
+      const fields = {}, removedFields = [];
+      for (const key of new Set([...Object.keys(previous || {}), ...Object.keys(item)])) {
+        if (key === 'eventId') continue;
+        if (!Object.prototype.hasOwnProperty.call(item, key)) removedFields.push(key);
+        else if (!previous || JSON.stringify(previous[key]) !== JSON.stringify(item[key])) fields[key] = item[key];
+      }
+      if (!previous || Object.keys(fields).length || removedFields.length) upserts.push({ eventId: item.eventId, create: !previous, fields, removedFields });
+    }
+    return { deleted, upserts };
+  }
+
+  function applyAssignmentChanges(assignments, changes) {
+    if (!changes || !Array.isArray(changes.deleted) || !Array.isArray(changes.upserts)) throw new Error('Invalid coursework changes');
+    const removed = new Set(changes.deleted);
+    const byId = new Map(assignments.filter(item => !removed.has(item.eventId)).map(item => [item.eventId, item]));
+    for (const change of changes.upserts) {
+      if (removed.has(change.eventId) || (!change.create && !byId.has(change.eventId))) continue;
+      const item = { ...byId.get(change.eventId), ...change.fields, eventId: change.eventId };
+      for (const key of change.removedFields || []) if (key !== 'eventId') delete item[key];
+      byId.set(item.eventId, item);
+    }
+    return [...byId.values()];
+  }
+
   function isExam(assignment) {
     return assignment?.kind === 'exam';
   }
@@ -427,7 +460,7 @@ ${JSON.stringify(records)}`;
     PERIODS, EXAM_TYPES, parseCourseCode, parseClassTime, classifyExamText, hasExamKeyword, detectTimetableExams, detectScheduleTextExams,
     extractDatesFromText, detectAnnouncementExams, resolveCourse, buildExtractionPrompt, parseExamExtraction,
     suggestionId, preferredCandidate, fingerprint, selectionFingerprint, mergeSuggestions, pendingSuggestions, toExamAssignment,
-    examName, isExam, isSyllabusFileName, syllabusFileType, dayKey
+    examName, diffAssignments, applyAssignmentChanges, isExam, isSyllabusFileName, syllabusFileType, dayKey
   };
   root.E3ExamDetection = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

@@ -227,6 +227,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     );
     return true;
   }
+  if (request.action === 'saveAssignmentChanges') {
+    saveAssignmentChanges(request.changes).then(
+      assignments => sendResponse({ success: true, assignments }),
+      error => sendResponse({ success: false, error: error.message })
+    );
+    return true;
+  }
   if (request.action === 'resolveExamSuggestion') {
     resolveExamSuggestion(request.id, request.decision, request.candidateIndex, request.fingerprint).then(
       suggestions => sendResponse({ success: true, suggestions }),
@@ -550,6 +557,15 @@ function updateExamSuggestions(mutate) {
   });
   examSuggestionQueue = operation.catch(() => {});
   return operation;
+}
+
+async function saveAssignmentChanges(changes) {
+  let saved;
+  await updateExamSuggestions((examSuggestions, assignments) => {
+    saved = E3ExamDetection.applyAssignmentChanges(assignments, changes);
+    return { examSuggestions, assignments: saved };
+  });
+  return saved;
 }
 
 async function fetchTimetableJson(route, code) {
@@ -1146,6 +1162,7 @@ async function syncAssignments() {
     const storage = await chrome.storage.local.get(['assignmentStatuses', 'assignments']);
     const statuses = storage.assignmentStatuses || {};
     const oldAssignments = storage.assignments || [];
+    const syncBaseline = JSON.parse(JSON.stringify(oldAssignments));
     console.log('E3 Helper: 讀取到的手動狀態:', statuses);
     console.log('E3 Helper: 手動狀態數量:', Object.keys(statuses).length);
 
@@ -1315,11 +1332,8 @@ async function syncAssignments() {
     // Acceptance and the final sync merge share a queue. Read confirmed exams
     // again here: the network/status work above may have used an older snapshot.
     await updateExamSuggestions((examSuggestions, latest) => {
-      const exams = latest.filter(a => a.kind === 'exam' &&
-        (Number(a.endTime) || Number(a.deadline)) > Date.now() - 3 * 24 * 60 * 60 * 1000);
-      const examIds = new Set(exams.map(a => a.eventId));
-      const merged = assignments.filter(a => a.kind !== 'exam' && !examIds.has(a.eventId));
-      merged.push(...exams);
+      const changes = E3ExamDetection.diffAssignments(syncBaseline, latest);
+      const merged = E3ExamDetection.applyAssignmentChanges(assignments, changes);
       assignments.splice(0, assignments.length, ...merged);
       return { examSuggestions, assignments };
     });

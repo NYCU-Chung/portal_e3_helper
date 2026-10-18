@@ -517,13 +517,14 @@ test('exam view refresh preserves a pending deletion, including a save started d
   for (const duringRead of [false, true]) {
     const storage = { assignments: [{ eventId: 'deleted' }] };
     const context = vm.createContext({ allAssignments: [], saveAssignmentsTimeout: duringRead ? null : 1, saveAssignmentsPending: false,
-      assignmentSaveRevision: 0, assignmentSavesInFlight: 0,
+      assignmentSaveRevision: 0, assignmentSavesInFlight: 0, savedAssignments: [{ eventId: 'deleted' }], E3ExamDetection: exams,
       loadExamSuggestions: async () => {}, document: { querySelector: () => null, getElementById: () => null },
       chrome: { storage: { local: { get: async () => {
         if (duringRead) vm.runInContext('assignmentSaveRevision++; saveAssignmentsTimeout = 1;', context);
         return structuredClone(storage);
       } } } } });
-    vm.runInContext(contentFunction('refreshExamViews'), context);
+    const helperStart = contentSource.indexOf('function mergeSavedAssignments(');
+    vm.runInContext(contentSource.slice(helperStart, contentSource.indexOf('\n}\n', helperStart) + 2) + contentFunction('refreshExamViews'), context);
     await context.refreshExamViews();
     assert.equal(context.allAssignments.length, 0);
   }
@@ -570,4 +571,86 @@ test('oversized evidence batches reject before deleting stored source evidence',
   const worker = loadWorker(storage, () => {});
   await assert.rejects(worker.mergeExamCandidates(Array(201).fill(candidate), ['post']), /200/);
   assert.deepEqual(storage, before);
+});
+
+test('a pending local deletion preserves exams accepted by another tab', async () => {
+  const base = [{ eventId: 'delete-me', name: 'Delete me' }];
+  const candidate = { courseId: '1', examType: 'final', deadline: at(2099, 11, 5), source: 'timetable', url: 'outline' };
+  const storage = { assignments: structuredClone(base), examSuggestions: exams.mergeSuggestions([], [candidate]) };
+  const worker = loadWorker(storage, () => {});
+  const timers = [];
+  const context = vm.createContext({ allAssignments: [], savedAssignments: structuredClone(base), assignmentSaveQueue: Promise.resolve(),
+    assignmentSaveRevision: 0, assignmentSavesInFlight: 0, saveAssignmentsTimeout: null, saveAssignmentsPending: false,
+    E3ExamDetection: exams, console: { log() {}, error(error) { throw error; } }, setTimeout: fn => { timers.push(fn); return 1; },
+    clearTimeout() {}, refreshExamViews: async () => {},
+    chrome: worker.chrome, sendExamMessage: async request => ({ success: true, assignments: await worker.saveAssignmentChanges(request.changes) }) });
+  for (const name of ['mergeSavedAssignments', 'persistAssignmentChanges', 'saveAssignments']) {
+    if (contentSource.includes('async function ' + name + '(')) vm.runInContext(contentFunction(name), context);
+  }
+  // Synchronous helper is added by the fix; the old whole-list save is the red path.
+  if (contentSource.includes('function mergeSavedAssignments(')) {
+    const start = contentSource.indexOf('function mergeSavedAssignments(');
+    vm.runInContext(contentSource.slice(start, contentSource.indexOf('\n}\n', start) + 2), context);
+  }
+  await context.saveAssignments();
+  await worker.resolveExamSuggestion(storage.examSuggestions[0].id, 'accept', 0);
+  await timers[0]();
+  assert.equal(storage.assignments.length, 1);
+  assert.equal(storage.assignments[0].kind, 'exam');
+  assert.equal(storage.assignments.some(a => a.eventId === 'delete-me'), false);
+});
+
+test('sync retains an exam converted back to ordinary coursework during status checks', async () => {
+  const exam = { eventId: 'converted', kind: 'exam', examType: 'quiz', isManual: true, deadline: at(2099, 11, 5), name: 'Quiz' };
+  const storage = { assignments: [exam], examSuggestions: [] };
+  const worker = loadWorker(storage, () => {});
+  worker.console = { log() {}, error() {} };
+  worker.getSesskey = async () => 'fixture';
+  worker.fetchWithTimeout = async () => ({ ok: true, json: async () => [{ data: { events: [] } }] });
+  worker.checkAssignmentSubmissionStatus = async () => {
+    const { assignments } = await worker.chrome.storage.local.get('assignments');
+    delete assignments[0].kind;
+    delete assignments[0].examType;
+    assignments[0].name = 'Ordinary task';
+    await worker.chrome.storage.local.set({ assignments });
+    return null;
+  };
+  worker.detectAndNotifyNewAssignments = async () => {};
+  const background = fs.readFileSync(path.join(__dirname, '../background.js'), 'utf8');
+  const start = background.indexOf('async function syncAssignments(');
+  vm.runInContext(background.slice(start, background.indexOf('\n}\n', start) + 2), worker);
+  await worker.syncAssignments();
+  assert.equal(storage.assignments.length, 1);
+  assert.equal(storage.assignments[0].kind, undefined);
+  assert.equal(storage.assignments[0].name, 'Ordinary task');
+});
+
+test('local changes made during a queued save survive without overwriting remote fields', async () => {
+  const base = [{ eventId: 'edit', name: 'Old name', course: 'Old course', deadline: at(2099, 11, 5) }];
+  const storage = { assignments: [{ ...base[0], deadline: at(2099, 11, 6) }, { eventId: 'other-tab', kind: 'exam' }] };
+  const worker = loadWorker(storage, () => {});
+  let release, entered;
+  const gate = new Promise(resolve => { release = resolve; });
+  const waiting = new Promise(resolve => { entered = resolve; });
+  const context = vm.createContext({ allAssignments: [{ ...base[0], name: 'New name' }], savedAssignments: structuredClone(base),
+    assignmentSaveQueue: Promise.resolve(), assignmentSavesInFlight: 0, E3ExamDetection: exams,
+    sendExamMessage: async request => {
+      const assignments = await worker.saveAssignmentChanges(request.changes);
+      entered();
+      await gate;
+      return { success: true, assignments };
+    } });
+  vm.runInContext(contentFunction('persistAssignmentChanges'), context);
+  const saving = context.persistAssignmentChanges();
+  await waiting;
+  context.allAssignments[0].course = 'New course';
+  release();
+  await saving;
+  assert.equal(context.allAssignments[0].course, 'New course');
+  assert.equal(context.allAssignments[0].deadline, at(2099, 11, 6));
+  await context.persistAssignmentChanges();
+  assert.equal(storage.assignments[0].name, 'New name');
+  assert.equal(storage.assignments[0].course, 'New course');
+  assert.equal(storage.assignments[0].deadline, at(2099, 11, 6));
+  assert.equal(storage.assignments[1].eventId, 'other-tab');
 });
