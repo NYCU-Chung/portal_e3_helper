@@ -140,3 +140,21 @@ for (const [project, extension] of [
     assert.ok(phase.files.some(id => objects[objects[id].fileRef]?.path === 'Resources/CHANGELOG.md'));
   });
 }
+
+test('starting any new download scan removes prepared links from the previous selection', async () => {
+  for (const name of ['scanSelectedCourses', 'scanCurrentPage', 'scanAllCourses']) {
+    const { app, nodes } = downloadApp();
+    await app.downloadSeparately();
+    nodes.get('e3-helper-safari-download-links').remove = () => nodes.delete('e3-helper-safari-download-links');
+    nodes.set('.e3-helper-pdf-list', {});
+    app.allCourses = [];
+    app.selectedCourses = new Set();
+    app.loadCourseList = async () => {};
+    // Stop current-page scanning immediately after its reset, before fetching any results.
+    app.getCurrentCourseName = () => { throw new Error('scan paused'); };
+    const start = content.indexOf('async function ' + name + '(');
+    vm.runInContext(content.slice(start, content.indexOf('\n}\n', start) + 2), app);
+    await app[name]().catch(error => { assert.equal(error.message, 'scan paused'); });
+    assert.equal(nodes.has('e3-helper-safari-download-links'), false, name);
+  }
+});

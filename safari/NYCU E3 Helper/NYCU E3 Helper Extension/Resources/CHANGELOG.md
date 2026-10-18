@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Fixed
+- Remove stale prepared download links whenever a new Safari file scan starts.
 - Choose an authenticated Safari E3 host even when the active tab on the other host is signed out or unreachable.
 - Keep Safari login, session keys, and sync requests on the available E3 tab origin.
 - Deliver native reminders for manual assignments with placeholder links using the E3 home page.

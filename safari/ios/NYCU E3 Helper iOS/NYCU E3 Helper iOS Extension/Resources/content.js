@@ -7866,6 +7866,7 @@ async function scanSelectedCourses() {
   const downloadStatus = document.querySelector('.e3-helper-download-status');
   if (!pdfListContainer) return;
 
+  document.getElementById('e3-helper-safari-download-links')?.remove();
   allPDFs = [];
   selectedPDFs.clear();
 
@@ -8090,6 +8091,7 @@ async function scanCurrentPage() {
   if (!pdfListContainer) return;
 
   pdfListContainer.innerHTML = uiText('<div class="e3-helper-loading">正在掃描當前頁面...</div>');
+  document.getElementById('e3-helper-safari-download-links')?.remove();
   allPDFs = [];
   selectedPDFs.clear();
 
@@ -8240,6 +8242,7 @@ async function scanAllCourses() {
   const downloadStatus = document.querySelector('.e3-helper-download-status');
   if (!pdfListContainer) return;
 
+  document.getElementById('e3-helper-safari-download-links')?.remove();
   allPDFs = [];
   selectedPDFs.clear();
 

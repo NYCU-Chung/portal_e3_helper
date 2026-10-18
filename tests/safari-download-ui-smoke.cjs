@@ -23,7 +23,7 @@ const path = require('node:path');
           } }
         };
       }, language);
-      await page.goto('http://e3-test.local/');
+      await page.goto('https://e3p.nycu.edu.tw/');
       await page.addScriptTag({ path: path.join(__dirname, '../i18n.js') });
       await page.addScriptTag({ path: path.join(__dirname, '../content.js') });
       await page.locator('.e3-helper-sidebar-toggle').tap();
@@ -45,6 +45,8 @@ const path = require('node:path');
       await page.locator('.e3-helper-pdf-checkbox').nth(1).uncheck();
       await page.locator('#e3-helper-download-separate').tap();
       assert.equal(await list.locator('a').count(), 1);
+      await page.locator('#e3-helper-scan-current').tap();
+      assert.equal(await list.count(), 0, 'a new scan removes old prepared links');
       assert.deepEqual(errors, []);
       if (process.env.SCREENSHOT_PATH && language === 'en') await page.screenshot({ path: process.env.SCREENSHOT_PATH });
       await context.close();
