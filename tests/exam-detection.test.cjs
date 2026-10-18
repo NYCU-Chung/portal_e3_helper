@@ -475,3 +475,16 @@ test('confirmed quiz recovery respects occurrence, course and source identity', 
   assert.equal(restored[0].id, assignment.examKey);
   assert.equal(restored[0].state, 'update');
 });
+
+test('a generic post cannot bridge two differently numbered quizzes on later scans', () => {
+  const quiz = { courseId: '1', course: 'Course', examType: 'quiz', deadline: at(2026, 11, 5, 9), timeKnown: 'exact', source: 'announcement', confidence: 'high' };
+  const posts = [{ ...quiz, occurrence: 'Quiz 1', url: 'post/1' }, { ...quiz, url: 'post/2' }, { ...quiz, occurrence: 'Quiz 2', url: 'post/3' }];
+  let result = exams.mergeSuggestions([], posts, [], now);
+  assert.equal(result.length, 2);
+  const ids = result.map(s => s.id);
+  for (let i = 0; i < 3; i++) {
+    result = exams.mergeSuggestions(result, posts, [], now);
+    assert.equal(result.length, 2);
+    assert.deepEqual(result.map(s => s.id), ids);
+  }
+});

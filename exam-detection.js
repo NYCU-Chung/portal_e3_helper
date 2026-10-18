@@ -301,8 +301,9 @@ ${JSON.stringify(records)}`;
       const previous = removed[0].candidates.find(old => sameSource(old, value));
       if (!examOccurrence(previous) || !examOccurrence(value) || examOccurrence(previous) === examOccurrence(value)) return removed[0].id;
     }
-    const sameDay = matching.filter(suggestion => suggestion.candidates?.some(old => dayKey(old.deadline) === dayKey(value.deadline) &&
-      (!examOccurrence(old) || !examOccurrence(value) || examOccurrence(old) === examOccurrence(value))));
+    const sameDay = matching.filter(suggestion =>
+      suggestion.candidates?.some(old => dayKey(old.deadline) === dayKey(value.deadline)) &&
+      suggestion.candidates.every(old => !examOccurrence(old) || !examOccurrence(value) || examOccurrence(old) === examOccurrence(value)));
     if (sameDay.length === 1) return sameDay[0].id;
     // Include candidates already grouped during this scan, without confusing
     // different numbered quizzes that happen on the same day.
