@@ -2031,9 +2031,17 @@ async function saveAssignmentStatus(eventId, status) {
   console.log('E3 Helper: 當前所有手動狀態:', statuses);
 }
 
-async function convertAssignmentToExam(assignment, examType) {
-  Object.assign(assignment, { kind: 'exam', examType, timeKnown: 'exact', endTime: null, manualStatus: 'pending' });
-  await saveAssignmentStatus(assignment.eventId, 'pending');
+async function convertAssignmentToExam(assignment, examType, deadline = assignment.deadline) {
+  const converting = assignment.kind !== 'exam';
+  if (converting || Number(deadline) !== Number(assignment.deadline)) {
+    assignment.timeKnown = 'exact';
+    assignment.endTime = null;
+  }
+  Object.assign(assignment, { kind: 'exam', examType, deadline });
+  if (converting) {
+    assignment.manualStatus = 'pending';
+    await saveAssignmentStatus(assignment.eventId, 'pending');
+  }
 }
 
 // 從儲存空間讀取作業列表
@@ -2048,8 +2056,11 @@ async function loadAssignments() {
 // 儲存作業列表（防抖版本，避免多次同時寫入）
 let saveAssignmentsTimeout = null;
 let saveAssignmentsPending = false;
+let assignmentSaveRevision = 0;
+let assignmentSavesInFlight = 0;
 
 async function saveAssignments() {
+  assignmentSaveRevision++;
   // 如果已經有待處理的儲存，標記需要再次儲存
   if (saveAssignmentsTimeout) {
     saveAssignmentsPending = true;
@@ -2077,17 +2088,21 @@ async function saveAssignments() {
 
 // 立即儲存作業（用於關鍵操作）
 async function saveAssignmentsImmediate() {
+  assignmentSaveRevision++;
   if (saveAssignmentsTimeout) {
     clearTimeout(saveAssignmentsTimeout);
     saveAssignmentsTimeout = null;
   }
   saveAssignmentsPending = false;
 
+  assignmentSavesInFlight++;
   try {
     await chrome.storage.local.set({ assignments: allAssignments });
     console.log(`E3 Helper: 已立即儲存 ${allAssignments.length} 個作業到 storage`);
   } catch (error) {
     console.error('E3 Helper: 儲存作業失敗', error);
+  } finally {
+    assignmentSavesInFlight--;
   }
 }
 
@@ -3202,10 +3217,10 @@ function createSidebar() {
         if (assignment) {
           assignment.name = name;
           assignment.course = course;
-          assignment.deadline = deadlineTimestamp;
           if (isExamEntry) {
-            await convertAssignmentToExam(assignment, examType);
+            await convertAssignmentToExam(assignment, examType, deadlineTimestamp);
           } else {
+            assignment.deadline = deadlineTimestamp;
             delete assignment.kind;
             delete assignment.examType;
           }
@@ -7043,9 +7058,12 @@ function renderExamSuggestionPanel(context) {
 }
 
 async function refreshExamViews() {
+  const revision = assignmentSaveRevision;
+  const hadLocalSave = Boolean(saveAssignmentsTimeout || saveAssignmentsPending || assignmentSavesInFlight);
   await loadExamSuggestions();
   const { assignments = [] } = await chrome.storage.local.get(['assignments']);
-  allAssignments = assignments;
+  if (!hadLocalSave && revision === assignmentSaveRevision &&
+      !saveAssignmentsTimeout && !saveAssignmentsPending && !assignmentSavesInFlight) allAssignments = assignments;
   if (document.querySelector('.e3-helper-content[data-content="assignments"].active')) await updateSidebarContent();
   const digestExams = document.getElementById('e3-helper-digest-exams');
   if (digestExams) digestExams.innerHTML = renderExamSuggestionPanel('digest');
@@ -7155,7 +7173,7 @@ async function scanAnnouncementExams({ force = false } = {}) {
     if (!entry?.at || entry.at < Date.now() - 90 * DAY) delete cache[key];
   }
   await chrome.storage.local.set({ examExtractionCache: cache });
-  const candidates = items.flatMap(item => cache[keyOf(item)]?.candidates || []);
+  const candidates = readItems.flatMap(item => cache[keyOf(item)]?.candidates || []);
   await sendExamMessage({ action: 'mergeExamCandidates', candidates, replace: readItems.map(item => item.url) });
   if (readError) throw readError;
 }

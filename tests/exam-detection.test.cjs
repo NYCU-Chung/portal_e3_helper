@@ -295,7 +295,7 @@ test('two stale tabs accept exams without replacing each other or newly synced a
   const worker = loadWorker(storage, () => { throw new Error('Unexpected fetch'); });
   function tab() {
     const context = vm.createContext({ allAssignments: [], examSuggestions: structuredClone(storage.examSuggestions), E3ExamDetection: exams,
-      clearTimeout, saveAssignmentsTimeout: null, saveAssignmentsPending: false, console,
+      clearTimeout, saveAssignmentsTimeout: null, saveAssignmentsPending: false, assignmentSaveRevision: 0, assignmentSavesInFlight: 0, console,
       chrome: { storage: { local: { set: async update => Object.assign(storage, structuredClone(update)) } } },
       sendExamMessage: request => worker.resolveExamSuggestion(request.id, request.decision, request.candidateIndex, request.fingerprint),
       showTemporaryMessage() {}, uiText: text => text, refreshExamViews: async () => {} });
@@ -376,7 +376,7 @@ test('converting submitted coursework to an exam resets both submission statuses
   assert.equal(assignment.kind, 'exam');
   assert.equal(storage.assignmentStatuses.manual, 'pending');
   assert.equal(storage.assignmentStatuses.other, 'submitted');
-  assert.match(contentSource, /await convertAssignmentToExam\(assignment, examType\)/);
+  assert.match(contentSource, /await convertAssignmentToExam\(assignment, examType, deadlineTimestamp\)/);
 });
 
 test('a rescan reordering the same dates cannot accept the wrong radio option', async () => {
@@ -487,4 +487,87 @@ test('a generic post cannot bridge two differently numbered quizzes on later sca
     assert.equal(result.length, 2);
     assert.deepEqual(result.map(s => s.id), ids);
   }
+});
+
+test('sync final write preserves exams accepted while status checks are pending', async () => {
+  const c = { courseId: '1', course: 'Course', examType: 'final', deadline: at(2099, 11, 5, 9), timeKnown: 'exact', source: 'timetable', url: 'outline' };
+  const storage = { assignments: [], examSuggestions: exams.mergeSuggestions([], [c]) };
+  const worker = loadWorker(storage, () => {});
+  worker.console = { log() {}, error() {} };
+  worker.getSesskey = async () => 'fixture';
+  worker.fetchWithTimeout = async () => ({ ok: true, json: async () => [{ data: { events: [] } }] });
+  let release, entered;
+  const gate = new Promise(resolve => { release = resolve; });
+  const waiting = new Promise(resolve => { entered = resolve; });
+  worker.checkAssignmentSubmissionStatus = async () => { entered(); await gate; return null; };
+  worker.detectAndNotifyNewAssignments = async () => {};
+  const background = fs.readFileSync(path.join(__dirname, '../background.js'), 'utf8');
+  const start = background.indexOf('async function syncAssignments(');
+  vm.runInContext(background.slice(start, background.indexOf('\n}\n', start) + 2), worker);
+  const syncing = worker.syncAssignments();
+  await waiting;
+  await worker.resolveExamSuggestion(storage.examSuggestions[0].id, 'accept', 0);
+  release();
+  await syncing;
+  assert.equal(storage.assignments.length, 1);
+  assert.equal(storage.assignments[0].kind, 'exam');
+});
+
+test('exam view refresh preserves a pending deletion, including a save started during its read', async () => {
+  for (const duringRead of [false, true]) {
+    const storage = { assignments: [{ eventId: 'deleted' }] };
+    const context = vm.createContext({ allAssignments: [], saveAssignmentsTimeout: duringRead ? null : 1, saveAssignmentsPending: false,
+      assignmentSaveRevision: 0, assignmentSavesInFlight: 0,
+      loadExamSuggestions: async () => {}, document: { querySelector: () => null, getElementById: () => null },
+      chrome: { storage: { local: { get: async () => {
+        if (duringRead) vm.runInContext('assignmentSaveRevision++; saveAssignmentsTimeout = 1;', context);
+        return structuredClone(storage);
+      } } } } });
+    vm.runInContext(contentFunction('refreshExamViews'), context);
+    await context.refreshExamViews();
+    assert.equal(context.allAssignments.length, 0);
+  }
+});
+
+test('editing exam names preserves unknown start times and class-slot durations', async () => {
+  const context = vm.createContext({ saveAssignmentStatus: async () => { throw new Error('Existing status must be preserved'); } });
+  vm.runInContext(contentFunction('convertAssignmentToExam'), context);
+  for (const timeKnown of ['date-only', 'class-slot']) {
+    const assignment = { eventId: timeKnown, kind: 'exam', deadline: at(2099, 11, 5, 8), endTime: at(2099, 11, 5, 11), timeKnown, manualStatus: 'submitted' };
+    await context.convertAssignmentToExam(assignment, 'quiz', assignment.deadline);
+    assert.equal(assignment.timeKnown, timeKnown);
+    assert.equal(assignment.endTime, at(2099, 11, 5, 11));
+    assert.equal(assignment.manualStatus, 'submitted');
+    await context.convertAssignmentToExam(assignment, 'quiz', at(2099, 11, 5, 9));
+    assert.equal(assignment.timeKnown, 'exact');
+    assert.equal(assignment.endTime, null);
+  }
+});
+
+test('refreshing an older announcement keeps its complete evidence beyond 200 cached candidates', async () => {
+  const items = Array.from({ length: 210 }, (_, i) => ({ id: String(i), title: 'Final exam', courseId: String(i), timestamp: Date.now() - i * 1000, url: 'post/' + i }));
+  const cache = Object.fromEntries(items.map(item => ['announcement:' + item.id, { mode: 'regex', at: Date.now(),
+    sourceKey: JSON.stringify([item.title, item.timestamp, item.url, item.courseId, item.courseName]),
+    candidates: [{ courseId: item.courseId, examType: 'final', deadline: at(2099, 11, 5), source: 'announcement', url: item.url }]
+  }]));
+  // Only the oldest source needs a read.
+  cache['announcement:209'].at -= 86400001;
+  const storage = { examExtractionCache: cache, examSuggestions: exams.mergeSuggestions([], Object.values(cache).flatMap(entry => entry.candidates)) };
+  const worker = loadWorker(storage, () => {});
+  const context = vm.createContext({ Date, console, E3ExamDetection: exams, allAnnouncements: items, allMessages: [], allCourses: [],
+    chrome: worker.chrome, getAISummaryConfig: () => ({}), fetchExamSourceText: async () => 'Final exam 12/23',
+    sendExamMessage: request => worker.mergeExamCandidates(request.candidates, request.replace) });
+  vm.runInContext(contentFunction('scanAnnouncementExams'), context);
+  await context.scanAnnouncementExams();
+  assert.ok(storage.examSuggestions.some(s => s.courseId === '209'));
+  assert.equal(storage.examSuggestions.length, 210);
+});
+
+test('oversized evidence batches reject before deleting stored source evidence', async () => {
+  const candidate = { courseId: '1', examType: 'final', deadline: at(2099, 11, 5), source: 'announcement', url: 'post' };
+  const storage = { examSuggestions: exams.mergeSuggestions([], [candidate]) };
+  const before = structuredClone(storage);
+  const worker = loadWorker(storage, () => {});
+  await assert.rejects(worker.mergeExamCandidates(Array(201).fill(candidate), ['post']), /200/);
+  assert.deepEqual(storage, before);
 });

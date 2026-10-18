@@ -606,8 +606,9 @@ async function scanTimetableExams({ force = false } = {}) {
 
 async function mergeExamCandidates(candidates, replace) {
   if (!Array.isArray(candidates)) throw new Error('Invalid exam candidates');
+  if (candidates.length > 200) throw new Error('Exam batch exceeds 200 candidates; send complete sources in smaller batches');
   const sources = new Set(Array.isArray(replace) ? replace.map(String) : []);
-  return updateExamSuggestions((existing, assignments) => E3ExamDetection.mergeSuggestions(existing, candidates.slice(0, 200), assignments, Date.now(),
+  return updateExamSuggestions((existing, assignments) => E3ExamDetection.mergeSuggestions(existing, candidates, assignments, Date.now(),
     c => sources.has(String(c.url))));
 }
 
@@ -1311,8 +1312,17 @@ async function syncAssignments() {
     // 檢測新作業並發送通知
     await detectAndNotifyNewAssignments(assignments, oldAssignments);
 
-    // 儲存作業列表
-    await chrome.storage.local.set({ assignments: assignments });
+    // Acceptance and the final sync merge share a queue. Read confirmed exams
+    // again here: the network/status work above may have used an older snapshot.
+    await updateExamSuggestions((examSuggestions, latest) => {
+      const exams = latest.filter(a => a.kind === 'exam' &&
+        (Number(a.endTime) || Number(a.deadline)) > Date.now() - 3 * 24 * 60 * 60 * 1000);
+      const examIds = new Set(exams.map(a => a.eventId));
+      const merged = assignments.filter(a => a.kind !== 'exam' && !examIds.has(a.eventId));
+      merged.push(...exams);
+      assignments.splice(0, assignments.length, ...merged);
+      return { examSuggestions, assignments };
+    });
     console.log(`E3 Helper: 已同步 ${assignments.length} 個作業（包含 ${keptOldAssignments.length} 個保留的已繳交作業）`);
 
     return assignments;
