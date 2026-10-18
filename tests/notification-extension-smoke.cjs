@@ -156,8 +156,10 @@ const path = require('node:path');
     assert.equal(retried.storage.notificationDeliveryError, '');
     const reminders = await worker.evaluate(async () => {
       const deadline = Date.now() + 1800000;
+      // Save reminders first: a newly added reminder never backfills deadlines already inside it.
+      await chrome.storage.local.set({ notificationSettings: { desktop: true, updates: true, mode: 'instant', reminders: [24, 1] } });
+      await E3Notifications.tick();
       await chrome.storage.local.set({
-        notificationSettings: { desktop: true, updates: true, mode: 'instant', reminders: [24, 1] },
         assignments: [
           { eventId: 'live', name: 'Active deadline', deadline },
           { eventId: 'submitted', name: 'Already submitted', deadline, manualStatus: 'submitted' },
