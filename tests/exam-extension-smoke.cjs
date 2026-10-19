@@ -17,13 +17,15 @@ const path = require('node:path');
     await worker.evaluate(async () => {
       const deadline = Date.now() + 15 * 86400000;
       const candidates = ['A', 'B'].map(courseId => ({ courseId, course: courseId, examType: 'final', deadline, timeKnown: 'exact', source: 'syllabusFile', url: `https://e3p.nycu.edu.tw/file/${courseId}`, confidence: 'high' }));
-      await chrome.storage.local.set({ interfaceLanguage: 'en', lastSeenVersion: chrome.runtime.getManifest().version, lastSyncTime: Date.now(), courses: [], announcements: [], messages: [],
+      await chrome.storage.local.set({ interfaceLanguage: 'en', lastSeenVersion: chrome.runtime.getManifest().version, lastSyncTime: Date.now(), courses: [],
+        announcements: [{ id: 'fixture', title: 'Course news', courseName: 'Fixture course', author: 'Instructor', timestamp: Date.now(), url: 'https://e3p.nycu.edu.tw/mod/forum/discuss.php?d=1' }], messages: [],
         notificationSettings: { desktop: false, reminders: [] }, assignmentStatuses: { manual: 'submitted' },
         assignments: [{ eventId: 'manual', name: 'Submitted manual task', course: 'Manual course', deadline, isManual: true, manualStatus: 'submitted', url: '#' }],
         examSuggestions: E3ExamDetection.mergeSuggestions([], candidates) });
     });
     const pages = await Promise.all([context.newPage(), context.newPage()]);
     for (const page of pages) {
+      page.on('pageerror', error => console.error(error.message));
       await page.goto('https://e3p.nycu.edu.tw/');
       await page.locator('.e3-helper-sidebar-toggle').click();
       await page.locator('[data-exam-suggestion="exam:A:final"]').waitFor();
@@ -40,10 +42,34 @@ const path = require('node:path');
       const { assignments } = await chrome.storage.local.get('assignments');
       await chrome.storage.local.set({ assignments: [...assignments, { eventId: 'synced', name: 'Newly synced task', deadline: Date.now() + 86400000 }] });
     });
-    await pages[0].locator('[data-exam-suggestion="exam:A:final"] [data-exam-action="accept"]').click();
+    const courseworkPanel = '.e3-helper-content[data-content="assignments"]';
+    const digestPanel = '#e3-helper-digest-exams';
+    const assertPanelIds = async (page, expected) => {
+      await page.waitForFunction(({ courseworkPanel, digestPanel, expected }) => {
+        const ids = selector => [...document.querySelectorAll(`${selector} [data-exam-suggestion]`)]
+          .map(card => card.dataset.examSuggestion).sort();
+        return [courseworkPanel, digestPanel].every(selector => JSON.stringify(ids(selector)) === JSON.stringify(expected));
+      }, { courseworkPanel, digestPanel, expected: [...expected].sort() }, { timeout: 10000 });
+    };
+    await pages[0].locator('[data-tab="announcements"]').click();
+    await assertPanelIds(pages[0], ['exam:A:final', 'exam:B:final']);
+    await pages[0].locator(`${digestPanel} [data-exam-suggestion="exam:A:final"] [data-exam-action="accept"]`).click();
     await waitForStorage(data => data.assignments.some(item => item.examKey === 'exam:A:final'));
+    await assertPanelIds(pages[0], ['exam:B:final']);
+    await pages[0].locator('[data-tab="assignments"]').click();
     await pages[1].locator('[data-exam-suggestion="exam:B:final"] [data-exam-action="accept"]').click();
     const accepted = await waitForStorage(data => data.assignments.some(item => item.examKey === 'exam:B:final'));
+    await assertPanelIds(pages[0], []);
+    await worker.evaluate(async () => {
+      await mergeExamCandidates([{ courseId: 'dismiss', course: 'Dismiss', examType: 'final',
+        deadline: Date.now() + 15 * 86400000, timeKnown: 'exact', source: 'timetable', url: '' }]);
+    });
+    await pages[0].locator('[data-tab="announcements"]').click();
+    await assertPanelIds(pages[0], ['exam:dismiss:final']);
+    await pages[0].locator(`${digestPanel} [data-exam-action="dismiss"]`).click();
+    await assertPanelIds(pages[0], []);
+    await pages[0].locator('[data-tab="assignments"]').click();
+    console.log('Passed: digest acceptance, dismissal, and other-tab changes keep hidden coursework cards in sync.');
     assert.equal(accepted.assignments.length, 4);
     assert.ok(accepted.assignments.some(item => item.eventId === 'synced'));
     assert.equal(accepted.assignments.filter(item => item.kind === 'exam').length, 2);

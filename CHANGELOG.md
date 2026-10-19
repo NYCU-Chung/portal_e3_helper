@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Fixed
+- Keep pending exam cards and counts in sync between Coursework and Today's digest, including hidden tabs after accepting or dismissing a suggestion.
 - Retain overdue coursework edited during sync and apply delayed course-detail responses to the current saved record.
 - Save local coursework field changes through the shared queue, preserving concurrent exam acceptance and exam-to-assignment conversions during sync.
 - Preserve accepted exams during assignment sync and pending local coursework edits during exam view refresh.

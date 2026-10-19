@@ -518,7 +518,7 @@ test('exam view refresh preserves a pending deletion, including a save started d
     const storage = { assignments: [{ eventId: 'deleted' }] };
     const context = vm.createContext({ allAssignments: [], saveAssignmentsTimeout: duringRead ? null : 1, saveAssignmentsPending: false,
       assignmentSaveRevision: 0, assignmentSavesInFlight: 0, savedAssignments: [{ eventId: 'deleted' }], E3ExamDetection: exams,
-      loadExamSuggestions: async () => {}, document: { querySelector: () => null, getElementById: () => null },
+      loadExamSuggestions: async () => {}, updateSidebarContent: async () => {}, document: { querySelector: () => null, getElementById: () => null },
       chrome: { storage: { local: { get: async () => {
         if (duringRead) vm.runInContext('assignmentSaveRevision++; saveAssignmentsTimeout = 1;', context);
         return structuredClone(storage);
@@ -528,6 +528,30 @@ test('exam view refresh preserves a pending deletion, including a save started d
     await context.refreshExamViews();
     assert.equal(context.allAssignments.length, 0);
   }
+});
+
+test('exam refresh updates coursework even while the digest tab is active', async () => {
+  const coursework = { innerHTML: '19 pending exams' };
+  const digest = { innerHTML: '19 pending exams' };
+  const context = vm.createContext({ assignmentSaveRevision: 0, assignmentSavesInFlight: 0,
+    examSuggestions: [], mergeSavedAssignments() {},
+    chrome: { storage: { local: { get: async () => ({ assignments: [] }) } } },
+    document: {
+      querySelector: () => null, // Coursework exists, but is hidden by the active digest tab.
+      getElementById: id => id === 'e3-helper-digest-exams' ? digest : null
+    },
+    loadExamSuggestions: async () => { context.examSuggestions = [{ id: 'remaining', state: 'new' }]; },
+    renderExamSuggestionPanel: () => context.examSuggestions.map(s => s.id).join(','),
+    updateSidebarContent: async () => { coursework.innerHTML = context.renderExamSuggestionPanel('assignments'); }
+  });
+  vm.runInContext(contentFunction('refreshExamViews'), context);
+  await context.refreshExamViews();
+  assert.equal(digest.innerHTML, 'remaining');
+  assert.equal(coursework.innerHTML, digest.innerHTML, 'hidden coursework must not retain resolved exam cards');
+  context.loadExamSuggestions = async () => { context.examSuggestions = []; };
+  await context.refreshExamViews();
+  assert.equal(coursework.innerHTML, '', 'the last resolved exam must disappear from both tabs');
+  assert.equal(digest.innerHTML, '');
 });
 
 test('editing exam names preserves unknown start times and class-slot durations', async () => {

@@ -7086,7 +7086,8 @@ async function refreshExamViews() {
   await loadExamSuggestions();
   const { assignments = [] } = await chrome.storage.local.get(['assignments']);
   if (revision === assignmentSaveRevision && !assignmentSavesInFlight) mergeSavedAssignments(assignments);
-  if (document.querySelector('.e3-helper-content[data-content="assignments"].active')) await updateSidebarContent();
+  // Hidden tabs keep their DOM when switching views, so refresh coursework too.
+  await updateSidebarContent();
   const digestExams = document.getElementById('e3-helper-digest-exams');
   if (digestExams) digestExams.innerHTML = renderExamSuggestionPanel('digest');
 }
