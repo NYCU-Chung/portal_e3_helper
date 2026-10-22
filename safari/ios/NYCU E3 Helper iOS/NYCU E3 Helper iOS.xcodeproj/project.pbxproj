@@ -50,6 +50,7 @@
 				<string>47360621306EC70900F0925A</string>
 				<string>E30200000000000000000005</string>
 				<string>E30300000000000000000001</string>
+				<string>E31000000000000000000001</string>
 				<string>E30600000000000000000001</string>
 			</array>
 		</dict>
@@ -171,6 +172,7 @@
 				<string>4736061C306EC70900F0925A</string>
 				<string>E30200000000000000000004</string>
 				<string>E30300000000000000000002</string>
+				<string>E31000000000000000000002</string>
 				<string>E30600000000000000000002</string>
 			</array>
 			<key>sourceTree</key>
@@ -1326,6 +1328,26 @@
 			<string>PBXBuildFile</string>
 			<key>fileRef</key>
 			<string>E30600000000000000000002</string>
+		</dict>
+		<key>E31000000000000000000001</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+			<key>fileRef</key>
+			<string>E31000000000000000000002</string>
+		</dict>
+		<key>E31000000000000000000002</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>path</key>
+			<string>Resources/exam-detection.js</string>
+			<key>name</key>
+			<string>exam-detection.js</string>
+			<key>lastKnownFileType</key>
+			<string>sourcecode.javascript</string>
+			<key>sourceTree</key>
+			<string>&lt;group&gt;</string>
 		</dict>
 	</dict>
 	<key>rootObject</key>

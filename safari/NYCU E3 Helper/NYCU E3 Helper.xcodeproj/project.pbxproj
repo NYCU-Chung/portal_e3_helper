@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		E30300000000000000000001 /* notification-api.js in Resources */ = {isa = PBXBuildFile; fileRef = E30300000000000000000002 /* notification-api.js */; };
+		E31000000000000000000001 /* exam-detection.js in Resources */ = {isa = PBXBuildFile; fileRef = E31000000000000000000002 /* exam-detection.js */; };
 		E30600000000000000000001 /* CHANGELOG.md in Resources */ = {isa = PBXBuildFile; fileRef = E30600000000000000000002 /* CHANGELOG.md */; };
         E30100000000000000000001 /* desktop-notifications.js in Resources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000002 /* desktop-notifications.js */; };
 		47019749306E4721001631FD /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47019748306E4721001631FD /* AppDelegate.swift */; };
@@ -57,6 +58,7 @@
 
 /* Begin PBXFileReference section */
 		E30300000000000000000002 /* notification-api.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "notification-api.js"; path = "Resources/notification-api.js"; sourceTree = "<group>"; };
+		E31000000000000000000002 /* exam-detection.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "exam-detection.js"; path = "Resources/exam-detection.js"; sourceTree = "<group>"; };
 		E30600000000000000000002 /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = text; name = "CHANGELOG.md"; path = "Resources/CHANGELOG.md"; sourceTree = "<group>"; };
         E30100000000000000000002 /* desktop-notifications.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "desktop-notifications.js"; path = "Resources/desktop-notifications.js"; sourceTree = "<group>"; };
 		47019745306E4721001631FD /* NYCU E3 Helper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "NYCU E3 Helper.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -163,6 +165,7 @@
 				47019777306E4722001631FD /* manifest.json */,
 				47019778306E4722001631FD /* notification-engine.js */,
 				E30300000000000000000002 /* notification-api.js */,
+				E31000000000000000000002 /* exam-detection.js */,
 				E30600000000000000000002 /* CHANGELOG.md */,
 				47019779306E4722001631FD /* notification-settings.css */,
 				4701977A306E4722001631FD /* _locales */,
@@ -274,6 +277,7 @@
 				47019787306E4722001631FD /* i18n.js in Resources */,
 				47019783306E4722001631FD /* notification-engine.js in Resources */,
 				E30300000000000000000001 /* notification-api.js in Resources */,
+				E31000000000000000000001 /* exam-detection.js in Resources */,
 				E30600000000000000000001 /* CHANGELOG.md in Resources */,
 				E30100000000000000000001 /* desktop-notifications.js in Resources */,
                 4701977D306E4722001631FD /* notification-settings.js in Resources */,

@@ -64,12 +64,15 @@ test('grade points and countdown minutes have different English units', async ()
 });
 test('urgent alerts localize missing courses while preserving actual course text', async () => {
   const data = {};
-  const context = await app('en', data, { updateNotificationBadge: async () => {} });
+  // The manifest loads exam-detection.js before content.js.
+  const context = await app('en', data, { updateNotificationBadge: async () => {}, E3ExamDetection: require('../exam-detection.js') });
   vm.runInContext(fn('checkUrgentAssignments'), context);
   const now = Date.now();
   await context.checkUrgentAssignments([{ eventId: '1', name: '作業原文', deadline: now + 60000 }, { eventId: '2', name: '另一作業', course: '課程中文原文', deadline: now + 60000 }], now);
   assert.ok(data.urgentAssignmentNotifications[0].message.includes('(Unknown course)'));
   assert.ok(data.urgentAssignmentNotifications[1].message.includes('課程中文原文'));
+  await context.checkUrgentAssignments([{ eventId: '3', kind: 'exam', name: '期中考', deadline: now + 60000 }], now);
+  assert.match(data.urgentAssignmentNotifications.find(n => n.eventId === '3').message, /until start - \(Unknown course\)/);
 });
 test('sync stores missing message subjects as raw empty data and renders in the current language', async () => {
   const data = {};

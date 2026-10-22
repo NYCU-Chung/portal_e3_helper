@@ -29,6 +29,7 @@
       "js": [
         "jszip.min.js",
         "i18n.js",
+        "exam-detection.js",
         "content.js"
       ],
       "run_at": "document_end"

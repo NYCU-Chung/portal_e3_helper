@@ -7,6 +7,14 @@
 - Choose an authenticated Safari E3 host even when the active tab on the other host is signed out or unreachable.
 - Keep Safari login, session keys, and sync requests on the available E3 tab origin.
 - Deliver native reminders for manual assignments with placeholder links using the E3 home page.
+- Keep pending exam cards and counts in sync between Coursework and Today's digest, including hidden tabs after accepting or dismissing a suggestion.
+- Retain overdue coursework edited during sync and apply delayed course-detail responses to the current saved record.
+- Save local coursework field changes through the shared queue, preserving concurrent exam acceptance and exam-to-assignment conversions during sync.
+- Preserve accepted exams during assignment sync and pending local coursework edits during exam view refresh.
+- Keep exam timing metadata when editing names, and replace announcement evidence only with complete refreshed source batches.
+- Merge compatible quiz posts within a scan and reconnect restored quiz evidence to confirmed coursework without creating duplicate reminders.
+- Keep moved quizzes separate from new quizzes scheduled on their original dates.
+- Prioritize unread exam posts and rotate bounded refresh batches to avoid starving older sources.
 
 ### ⚡ 改善 (Changed)
 - 新安裝預設僅在 E3（`e3.nycu.edu.tw`、`e3p.nycu.edu.tw`）、課綱網站 `timetable.nycu.edu.tw` 與校務入口 `portal.nycu.edu.tw` 顯示助手，不必手動調整瀏覽器網站存取設定；其他網站不再載入側欄或讀取頁面內容。

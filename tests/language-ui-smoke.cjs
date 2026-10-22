@@ -34,6 +34,7 @@ const path = require('node:path');
     await page.goto('https://e3p.nycu.edu.tw/');
     const inject = async () => {
       await page.addScriptTag({ path: path.join(__dirname, '../i18n.js') });
+      await page.addScriptTag({ path: path.join(__dirname, '../exam-detection.js') });
       await page.addScriptTag({ path: path.join(__dirname, '../content.js') });
       await page.waitForSelector('.e3-helper-sidebar-toggle');
       await page.locator('.e3-helper-sidebar-toggle').click();
@@ -52,7 +53,7 @@ const path = require('node:path');
       };
     });
     await inject();
-    assert.equal(await page.locator('[data-tab="assignments"]').innerText(), '作業');
+    assert.equal(await page.locator('[data-tab="assignments"]').innerText(), '課業');
     assert.deepEqual(errors, []);
     // Isolate the next scenario from notifications created during default-language startup.
     await page.evaluate(() => localStorage.removeItem('fixture'));
@@ -79,7 +80,7 @@ const path = require('node:path');
       }
     };
     await checkTabLayout();
-    assert.deepEqual((await page.locator('.e3-helper-tab').allTextContents()).map(text => text.replace(/\d+$/, '')), ['Assignments', 'Courses', 'Downloads', 'Announcements', 'Alerts', 'Help']);
+    assert.deepEqual((await page.locator('.e3-helper-tab').allTextContents()).map(text => text.replace(/\d+$/, '')), ['Coursework', 'Courses', 'Downloads', 'Announcements', 'Alerts', 'Help']);
     assert.ok((await page.locator('[data-content="assignments"]').innerText()).includes('作業中文原文'));
     assert.ok((await page.locator('[data-content="assignments"]').innerText()).includes('Mark as submitted'));
     for (const tab of ['grades', 'downloads', 'announcements', 'notifications', 'help']) {
@@ -105,7 +106,7 @@ const path = require('node:path');
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fixture')).interfaceLanguage), 'zh-TW');
     await inject();
     await checkTabLayout();
-    assert.equal(await page.locator('[data-tab="assignments"]').innerText(), '作業');
+    assert.equal(await page.locator('[data-tab="assignments"]').innerText(), '課業');
     assert.ok((await page.locator('[data-content="assignments"]').innerText()).includes('標記為已繳交'));
     await page.locator('[data-tab="announcements"]').click();
     assert.ok((await page.locator('[data-content="announcements"]').innerText()).includes('(無主旨)'));
