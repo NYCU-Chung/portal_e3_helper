@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-10-22
+
+### Added
+- Detect midterms, finals, and quizzes from E3 course outlines, announcements, messages, and selected syllabus documents; require confirmation before creating coursework events.
+- Add individual notification switches, combined daily summaries, delivery history, and more reliable membership change alerts.
+
 ### Fixed
 - Keep pending exam cards and counts in sync between Coursework and Today's digest, including hidden tabs after accepting or dismissing a suggestion.
 - Retain overdue coursework edited during sync and apply delayed course-detail responses to the current saved record.

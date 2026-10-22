@@ -6,12 +6,12 @@ Bring NYCU E3 assignments, courses, announcements, messages and materials togeth
 
 [Chrome Web Store](https://chromewebstore.google.com/detail/nycu-e3-helper/cmagonljljocpkfojkabhiedjafamoef) · [E3](https://e3p.nycu.edu.tw/) · [Changelog (Chinese)](CHANGELOG.md)
 
-This guide describes the 2.3.0 source in this repository. The store release may not include the latest changes.
+This guide describes the 2.4.0 source in this repository. The store release may not include the latest changes.
 
 ## Features
 
 - A resizable sidebar with a draggable floating button, with a light theme by default and optional dark or follow-the-system themes.
-- Assignment countdowns, submission status and custom assignments.
+- Assignment countdowns, submission status, custom assignments, and confirmed exam suggestions.
 - Course lists, membership statistics, membership changes and grades.
 - Course announcements and system messages, with filters, read status and full previews.
 - A daily AI digest of today's announcements and messages, with source links.

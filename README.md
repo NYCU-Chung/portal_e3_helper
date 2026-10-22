@@ -6,12 +6,12 @@
 
 [Chrome 線上應用程式商店](https://chromewebstore.google.com/detail/nycu-e3-helper/cmagonljljocpkfojkabhiedjafamoef) · [E3](https://e3p.nycu.edu.tw/) · [更新日誌](CHANGELOG.md)
 
-本指南對應此 repository 的 2.3.0 原始碼；商店版本可能尚未包含最新變更。
+本指南對應此 repository 的 2.4.0 原始碼；商店版本可能尚未包含最新變更。
 
 ## 功能
 
 - 可調整寬度的側欄與可拖曳浮動按鈕；預設淺色外觀，可切換深色或跟隨系統。
-- 作業倒數、繳交狀態、自訂作業與編輯／刪除。
+- 作業倒數、繳交狀態、自訂作業與編輯／刪除；考試日期偵測與確認後加入行程。
 - 課程列表、成員統計與異動、成績查詢。
 - 公告與信件整合，支援篩選、已讀狀態與完整內容預覽。
 - Google Translate 中英雙向翻譯；可選 Gemini 或 OpenAI 產生摘要與附來源連結的今日總覽。
