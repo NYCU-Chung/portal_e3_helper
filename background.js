@@ -78,7 +78,7 @@ function sendLogToContentScript(type, args) {
         type: type,
         args: serializedArgs,
         time: new Date().toLocaleTimeString('zh-TW', { hour12: false })
-      }).catch(() => {}); // 忽略錯誤（某些 tab 可能沒有 content script）
+      }, () => { void chrome.runtime.lastError; }); // 某些 tab 沒有 content script；Safari 可能只支援 callback。
     });
   });
 }
@@ -277,6 +277,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return true;
     }
 
+    if (!chrome.downloads?.download) {
+      sendResponse({ success: false, error: 'Downloads API unavailable; use the Safari download link.' });
+      return;
+    }
+
     // 使用 Chrome Downloads API 下載檔案
     chrome.downloads.download({
       url: request.url,
@@ -310,7 +315,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (chrome.action) {
       if (count > 0) {
         chrome.action.setBadgeText({ text: count > 99 ? '99+' : count.toString() });
-        chrome.action.setBadgeBackgroundColor({ color: '#dc3545' });
+        chrome.action.setBadgeBackgroundColor?.({ color: '#dc3545' });
       } else {
         chrome.action.setBadgeText({ text: '' });
       }
@@ -863,7 +868,7 @@ async function updateBadgeFromStorage() {
 
     if (unreadCount > 0) {
       chrome.action.setBadgeText({ text: unreadCount > 99 ? '99+' : unreadCount.toString() });
-      chrome.action.setBadgeBackgroundColor({ color: '#dc3545' });
+      chrome.action.setBadgeBackgroundColor?.({ color: '#dc3545' });
     } else {
       chrome.action.setBadgeText({ text: '' });
     }
@@ -906,9 +911,12 @@ async function syncE3Data() {
   try {
     // 檢查登入狀態
     console.log('E3 Helper: 檢查登入狀態...');
-    const isLoggedIn = await checkLoginStatus();
+    const syncOrigin = await getE3SyncOrigin();
+    let loginCheckError = '';
+    const isLoggedIn = await checkLoginStatus(error => { loginCheckError = error.message; }, syncOrigin);
     console.log('E3 Helper: 登入狀態:', isLoggedIn);
 
+    if (isLoggedIn === null) throw new Error(`無法確認 E3 登入狀態，請保持已登入的 E3 分頁開啟後重試。${loginCheckError ? `（${loginCheckError}）` : ''}`);
     if (!isLoggedIn) {
       console.log('E3 Helper: 未登入 E3，無法同步');
       syncResult.loginRequired = true;
@@ -919,13 +927,13 @@ async function syncE3Data() {
 
     // 同步作業資料
     console.log('E3 Helper: 開始同步作業...');
-    const assignments = await syncAssignments();
+    const assignments = await syncAssignments(syncOrigin);
     console.log(`E3 Helper: 作業同步完成，共 ${assignments.length} 個`);
     syncResult.assignments = assignments.length;
 
     // 同步課程列表
     console.log('E3 Helper: 開始同步課程...');
-    const courses = await syncCourses();
+    const courses = await syncCourses(syncOrigin);
     console.log(`E3 Helper: 課程同步完成，共 ${courses.length} 個`);
     syncResult.courses = courses.length;
 
@@ -950,7 +958,7 @@ async function syncE3Data() {
     return syncResult;
 
   } catch (error) {
-    console.error('E3 Helper: 同步失敗', error);
+    console.error('E3 Helper: 同步失敗', error.message);
     syncResult.error = error.message;
 
     // 檢查是否是登入問題
@@ -964,9 +972,10 @@ async function syncE3Data() {
 }
 
 // 檢查 E3 登入狀態
-async function checkLoginStatus() {
+async function checkLoginStatus(onError, origin) {
   try {
-    const response = await fetchWithTimeout('https://e3p.nycu.edu.tw/', {
+    origin ||= await getE3SyncOrigin();
+    const response = await fetchWithTimeout(`${origin}/`, {
       method: 'GET',
       credentials: 'include'
     }, 10000);
@@ -993,14 +1002,16 @@ async function checkLoginStatus() {
   } catch (error) {
     // 網路錯誤時返回 null，由呼叫方決定如何處理
     console.warn('E3 Helper: 檢查登入狀態時網路錯誤', error.message);
+    if (onError) onError(error);
     return null;
   }
 }
 
 // 取得 sesskey
-async function getSesskey() {
+async function getSesskey(origin) {
   try {
-    const response = await fetchWithTimeout('https://e3p.nycu.edu.tw/', {
+    origin ||= await getE3SyncOrigin();
+    const response = await fetchWithTimeout(`${origin}/`, {
       credentials: 'include'
     }, 10000); // 增加到 10秒
     const html = await response.text();
@@ -1024,8 +1035,71 @@ async function getSesskey() {
   }
 }
 
+// Safari extension-origin requests may not share the E3 tab's authenticated session.
+// Keep requests in that tab's origin; never read or copy session cookies.
+async function getE3SyncOrigin() {
+  if (!chrome.runtime.getURL('').startsWith('safari-web-extension:')) return 'https://e3p.nycu.edu.tw';
+  const tabs = await chrome.tabs.query({ url: ['https://e3.nycu.edu.tw/*', 'https://e3p.nycu.edu.tw/*'] });
+  const origins = [];
+  for (const tab of tabs.sort((a, b) => Number(b.active) - Number(a.active))) {
+    try {
+      const url = new URL(tab.url);
+      if (url.protocol === 'https:' && ['e3.nycu.edu.tw', 'e3p.nycu.edu.tw'].includes(url.hostname) && !url.port && !url.username && !url.password && !origins.includes(url.origin)) origins.push(url.origin);
+    } catch {}
+  }
+  let firstSignedOut, lastError;
+  for (const origin of origins) {
+    const loggedIn = await checkLoginStatus(error => { lastError = error; }, origin);
+    if (loggedIn === true) return origin;
+    if (loggedIn === false) firstSignedOut ||= origin;
+  }
+  // Preserve the normal signed-out result when every usable host needs login.
+  if (firstSignedOut) return firstSignedOut;
+  throw lastError || new Error('請保持已登入的 E3 分頁開啟後重試。');
+}
+
+async function fetchE3FromPage(url, options = {}, timeout = 10000) {
+  const target = new URL(url);
+  const tabs = await chrome.tabs.query({ url: `${target.origin}/*` });
+  if (!tabs.length) throw new Error('請保持已登入的 E3 分頁開啟後重試。');
+  let lastError;
+  for (const tab of tabs.sort((a, b) => Number(b.active) - Number(a.active))) {
+    let timer;
+    try {
+      const result = await Promise.race([
+        new Promise((resolve, reject) => {
+          // Safari 的 chrome namespace 可能只透過 callback 提供回覆。
+          // 不能把 sendMessage 的空回傳值當成分頁沒有回應。
+          chrome.tabs.sendMessage(tab.id, {
+            action: 'fetchE3Session', url: target.href,
+            method: options.method || 'GET', body: options.body, timeout
+          }, result => {
+            if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+            else resolve(result);
+          });
+        }),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('E3 分頁請求超時')), timeout + 1000); })
+      ]);
+      if (!result?.success) throw new Error(result?.error || '無法連線至 E3 分頁，請重新整理後重試。');
+      const response = new Response(result.text, { status: result.status, statusText: result.statusText });
+      Object.defineProperty(response, 'url', { value: result.url });
+      return response;
+    } catch (error) {
+      lastError = error;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw lastError;
+}
+
 // 帶超時的 fetch
 async function fetchWithTimeout(url, options, timeout = 10000) {
+  const target = new URL(url);
+  if (chrome.runtime.getURL('').startsWith('safari-web-extension:') &&
+      target.protocol === 'https:' && ['e3.nycu.edu.tw', 'e3p.nycu.edu.tw'].includes(target.hostname)) {
+    return fetchE3FromPage(url, options, timeout);
+  }
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -1046,15 +1120,16 @@ async function fetchWithTimeout(url, options, timeout = 10000) {
 }
 
 // 同步作業資料
-async function syncAssignments() {
+async function syncAssignments(origin) {
+  origin ||= await getE3SyncOrigin();
   console.log('E3 Helper: 正在同步作業...');
 
-  const sesskey = await getSesskey();
+  const sesskey = await getSesskey(origin);
   if (!sesskey) {
     throw new Error('無法取得 sesskey，請重新登入');
   }
 
-  const url = `https://e3p.nycu.edu.tw/lib/ajax/service.php?sesskey=${sesskey}`;
+  const url = `${origin}/lib/ajax/service.php?sesskey=${sesskey}`;
 
   // 獲取日曆事件（15秒超時）
   const response = await fetchWithTimeout(url, {
@@ -1122,7 +1197,7 @@ async function syncAssignments() {
 
       for (const assignment of newAssignmentsNeedingDetails) {
         try {
-          const eventDetailUrl = `https://e3p.nycu.edu.tw/lib/ajax/service.php?sesskey=${sesskey}`;
+          const eventDetailUrl = `${origin}/lib/ajax/service.php?sesskey=${sesskey}`;
           const eventResponse = await fetchWithTimeout(eventDetailUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1280,7 +1355,7 @@ async function syncAssignments() {
 
       for (const assignment of keptAssignmentsNeedingDetails) {
         try {
-          const eventDetailUrl = `https://e3p.nycu.edu.tw/lib/ajax/service.php?sesskey=${sesskey}`;
+          const eventDetailUrl = `${origin}/lib/ajax/service.php?sesskey=${sesskey}`;
           const eventResponse = await fetchWithTimeout(eventDetailUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1442,15 +1517,16 @@ async function checkAssignmentSubmissionStatus(assignments, sesskey, statuses) {
 }
 
 // 同步課程列表
-async function syncCourses() {
+async function syncCourses(origin) {
+  origin ||= await getE3SyncOrigin();
   console.log('E3 Helper: 正在同步課程...');
 
-  const sesskey = await getSesskey();
+  const sesskey = await getSesskey(origin);
   if (!sesskey) {
     throw new Error('無法取得 sesskey，請重新登入');
   }
 
-  const url = `https://e3p.nycu.edu.tw/lib/ajax/service.php?sesskey=${sesskey}`;
+  const url = `${origin}/lib/ajax/service.php?sesskey=${sesskey}`;
 
   const response = await fetchWithTimeout(url, {
     method: 'POST',
@@ -1589,7 +1665,7 @@ async function sendAssignmentNotification(assignment) {
       const unreadCount = notifications.filter(n => !n.read).length;
       if (unreadCount > 0) {
         chrome.action.setBadgeText({ text: unreadCount > 99 ? '99+' : unreadCount.toString() });
-        chrome.action.setBadgeBackgroundColor({ color: '#dc3545' });
+        chrome.action.setBadgeBackgroundColor?.({ color: '#dc3545' });
       }
     }
 
@@ -1642,7 +1718,7 @@ async function sendGradingNotification(assignment) {
       const unreadCount = notifications.filter(n => !n.read).length;
       if (unreadCount > 0) {
         chrome.action.setBadgeText({ text: unreadCount > 99 ? '99+' : unreadCount.toString() });
-        chrome.action.setBadgeBackgroundColor({ color: '#dc3545' });
+        chrome.action.setBadgeBackgroundColor?.({ color: '#dc3545' });
       }
     }
 
@@ -1653,7 +1729,7 @@ async function sendGradingNotification(assignment) {
 }
 
 // 監聽通知點擊事件
-chrome.notifications.onClicked.addListener((notificationId) => {
+chrome.notifications?.onClicked?.addListener((notificationId) => {
   if (notificationId.startsWith('assignment-') || notificationId.startsWith('grading-')) {
     // 提取作業 ID
     const eventId = notificationId.replace('assignment-', '').replace('grading-', '');

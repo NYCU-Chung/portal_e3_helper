@@ -1,0 +1,399 @@
+# 更新日誌 (Changelog)
+
+## [Unreleased]
+
+### Fixed
+- Remove stale prepared download links whenever a new Safari file scan starts.
+- Choose an authenticated Safari E3 host even when the active tab on the other host is signed out or unreachable.
+- Keep Safari login, session keys, and sync requests on the available E3 tab origin.
+- Deliver native reminders for manual assignments with placeholder links using the E3 home page.
+- Keep pending exam cards and counts in sync between Coursework and Today's digest, including hidden tabs after accepting or dismissing a suggestion.
+- Retain overdue coursework edited during sync and apply delayed course-detail responses to the current saved record.
+- Save local coursework field changes through the shared queue, preserving concurrent exam acceptance and exam-to-assignment conversions during sync.
+- Preserve accepted exams during assignment sync and pending local coursework edits during exam view refresh.
+- Keep exam timing metadata when editing names, and replace announcement evidence only with complete refreshed source batches.
+- Merge compatible quiz posts within a scan and reconnect restored quiz evidence to confirmed coursework without creating duplicate reminders.
+- Keep moved quizzes separate from new quizzes scheduled on their original dates.
+- Prioritize unread exam posts and rotate bounded refresh batches to avoid starving older sources.
+
+### ⚡ 改善 (Changed)
+- 新安裝預設僅在 E3（`e3.nycu.edu.tw`、`e3p.nycu.edu.tw`）、課綱網站 `timetable.nycu.edu.tw` 與校務入口 `portal.nycu.edu.tw` 顯示助手，不必手動調整瀏覽器網站存取設定；其他網站不再載入側欄或讀取頁面內容。
+- 網站識別改用 HTTPS 與完整網域白名單，背景日誌亦僅傳送至上述網站；AI／翻譯服務的既有連線權限維持不變。
+
+## [2.3.0] - 2026-10-11
+
+### Added
+- Light, Dark, and System appearance preferences plus Traditional Chinese / English interface selection.
+- Selectable Gemini / OpenAI summaries with cached daily digest and source links.
+- Configurable desktop notifications and assignment deadline reminder offsets.
+
+### Changed
+- Scheduled announcement/message sync now reuses an existing E3 tab and skips when E3 is closed instead of opening a background login tab.
+- Google Translate remains separate from the selected AI summary provider.
+
+### Security
+- Require exact HTTPS E3 hosts for downloads and content fetches, including final redirect validation.
+- Harden rich-content URL sanitization and isolate `target="_blank"` links.
+- Serialize background log persistence and remove an unused localhost host permission.
+
+
+本文件記錄 NYCU E3 Helper 的所有重要變更。
+
+格式基於 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.0.0/)，
+版本號遵循 [語義化版本 2.0.0](https://semver.org/lang/zh-TW/)。
+
+## [2.2.0] - 2026-05-18
+
+### ✨ 新增 (Added)
+- **版本更新通知**：擴充功能升級後第一次打開側邊欄會自動彈 What's New 視窗，秀本版變更內容
+- 通知中心新增「🎉 版本更新」分類，點擊可隨時回看本版變更
+- 首次安裝（不是升級）不會彈窗，避免新使用者一打開就被打擾
+
+### ℹ️ 行為說明 (Notes)
+- v2.1.1 引入「無 E3 分頁時自動開隱藏背景分頁抓公告」的行為說明已補進 [2.1.1] 區塊，若你想了解為什麼會看到 E3 分頁自動開關，請翻下方 [2.1.1]
+
+---
+
+## [2.1.1] - 2026-05-18
+
+### ⚡ 改善 (Changed)
+- **公告/信件即時同步**：定時同步週期從 6 小時縮短為 30 分鐘，避免公告逾期才看到
+- **無 E3 分頁也能同步**：原本沒開 E3 分頁時定時同步整個跳過，現在會自動開隱藏背景分頁抓取，抓完即關
+- 定時器改用 get-then-create，舊用戶的舊週期會被刷新但不重置計時相位
+
+### 🐛 修復 (Fixed)
+- 修復隱藏背景分頁在超時/通訊失敗時未關閉，會逐次累積的問題
+- 新增 in-flight 鎖，避免定時與手動觸發撞在一起時疊開多個背景分頁
+- Service Worker 被中止導致背景分頁殘留時，開機自動清掃
+
+### ℹ️ 行為說明 (Notes)
+- **為什麼會看到 E3 分頁自動打開又馬上關掉？** 這是 v2.1.1 即時公告同步的實作方式：你沒主動開 E3 分頁時，擴充功能會每 30 分鐘在背景偷偷打開一個隱藏分頁去抓最新公告/信件，抓完馬上自動關掉。整個過程在背景進行，不會搶走你當前的焦點分頁、不會干擾你瀏覽其他網站，也不會留下殘留分頁。這不是 bug、不是擴充功能被劫持，是為了讓你不開 E3 也能即時收到公告
+- 如果你**已經開著 E3 分頁**，擴充功能會直接用你那個分頁同步，不會另開新分頁（最省資源的路徑）
+- 看到分頁短暫閃過就消失屬正常現象，正常進行中
+
+---
+
+## [2.1.0] - 2026-04-06
+
+### 🔒 安全強化 (Security)
+- **XSS 防護**：新增 `sanitizeHtml()` 白名單式 HTML 清理，移除所有危險標籤（script/iframe/svg/object 等）和事件屬性（on*）
+- **資料轉義**：14 處動態資料（作業名稱、課程名稱、公告標題等）全面使用 `escapeHtml()` 防止注入
+- **API 金鑰保護**：Gemini API 呼叫改由 background script 代理，金鑰不再暴露於頁面網路請求中；console log 中自動遮蔽金鑰
+- **條件式初始化**：console 攔截和 `window.E3Helper` 僅在 E3 網站啟用，不再影響所有網頁
+- **下載驗證**：下載前驗證 URL 是否來自 E3 域名，filename 防止路徑遍歷攻擊
+- **內容存取驗證**：`fetchContentFromE3` 新增 URL 域名白名單檢查
+
+### ⚡ 效能改善 (Performance)
+- `renderValue` 遞迴深度限制（最大 10 層），防止深層巢狀物件導致頁面卡死
+- 日誌陣列改用批次截斷取代逐筆 `shift()`，降低高頻 log 場景的 CPU 消耗
+- `MutationObserver` 新增 disconnect 機制，離開作業頁面時自動清理
+
+### 🛠️ 程式碼品質 (Code Quality)
+- content.js 整體包裝在 IIFE 中，避免全域變數衝突
+- sesskey 正則表達式改為更精確的匹配模式
+- 網路錯誤時 `checkLoginStatus` 改回傳 null（區分「未登入」和「網路異常」）
+- `function.toString()` 輸出加入 `escapeHtml()` 處理
+- 日誌廣播改為僅針對 E3 分頁，不再廣播到所有 tabs
+
+### 🗑️ 清理 (Housekeeping)
+- 移除內部開發除錯文件（DEBUG.md 等）
+
+---
+
+## [2.0.0] - 2026-03-21
+
+### ✨ 新增 (Added)
+- **作業評分通知**：自動偵測作業是否已評分，第一次偵測到時發送桌面通知及通知中心提醒
+- **新公告通知**：課程公告同步時自動比對新舊資料，有新公告立即發送通知
+- **全 tab 非 E3 支援**：成績查詢、檔案下載 tab 現在在任何網頁都可使用（原僅限 E3 網站）
+
+### 🐛 修復 (Fixed)
+- 修復已登入 E3 但仍顯示「未登入」警告的誤判問題（改以 sesskey 作為登入指標，網路錯誤時不再誤判為未登入）
+
+---
+
+## [1.9.0] - 2025-12-05
+
+### 🐛 修復 (Fixed)
+- 修復重複的 `getTimeAgo` 函數定義導致的時間顯示問題
+- 修復作業儲存競態條件，加入 debounce 機制防止資料遺失
+- 新增 `saveAssignmentsImmediate` 用於關鍵操作確保立即儲存
+
+### 🎨 改進 (Improved)
+- 將所有 `alert()` 彈窗替換為非阻塞式 Toast 通知系統
+- 強化 `showTemporaryMessage` 支援多種類型（success/error/warning/info）
+- 同步超時時加入重試按鈕，提升使用體驗
+- 優化日誌系統效能，加入 throttling 機制
+- 改善信件載入的使用者回饋，顯示載入結果通知
+
+---
+
+## [1.8.0] - 2025-11-25
+
+### ✨ 新增 (Added)
+- 作業繳交狀態自動檢測功能
+- 使用 HTML 解析技術智能判斷作業是否已繳交
+- 擴大同步範圍從 7 天到 30 天，確保較舊作業也能正確檢測
+
+### 🐛 修復 (Fixed)
+- 修復手動改變狀態後作業可能消失的問題
+- 修復已繳交作業在同步後不被保留的問題
+
+### 🎨 改進 (Improved)
+- 優化作業保留邏輯（未過期作業全部保留，已過期只保留已繳交）
+
+---
+
+## [1.7.0] - 2025-11-25
+
+### ✨ 新增 (Added)
+- 手動新增作業功能（支援自訂課程、截止時間）
+- 所有作業（包括 E3 同步作業）支援編輯和刪除
+- 課程欄位改為智能選單（整合 E3 課程與自訂輸入）
+- 臨時訊息提示系統
+- 自動收集課程名稱作為選項
+
+### 🎨 改進 (Improved)
+- 優化作業管理流程與使用體驗
+
+### 🐛 修復 (Fixed)
+- 刪除同步作業時顯示警告提示
+
+---
+
+## [1.6.0] - 2025-11-24
+
+### ✨ 新增 (Added)
+- AI 智能翻譯功能（支援繁體中文，保留格式與連結）
+- AI 智能摘要功能
+- 智能通知徽章系統（浮動按鈕與擴充功能圖示）
+- 24 小時緊急作業通知（紅色警示）
+- 整合 Google Gemini 2.5 Flash API
+- AI 設定頁面（API 金鑰管理）
+- 支援影片與公告附件批次下載
+
+### 🐛 修復 (Fixed)
+- 修復未讀卡片對齊問題
+- 修復翻譯後連結與附件無法點擊問題
+- 修復非 E3 網站重新載入郵件按鈕錯誤
+
+### 🎨 改進 (Improved)
+- 優化使用說明文件
+
+---
+
+## [1.2.0] - 2025-01-23
+
+### 🐛 修復 (Fixed)
+
+#### 重新載入信件按鈕在非 E3 網站無效
+**問題描述**：
+- 在非 E3 網站打開側邊欄時，如果資料不完整（只有公告或只有信件）
+- 原本的「重新載入完整資料」按鈕會被隱藏，取而代之的是「請訪問 E3 網站重新載入」的文字提示
+- 即使顯示按鈕，點擊也無法載入資料，因為 `loadAnnouncements()` 和 `loadMessages()` 函數會檢查 `isOnE3Site()` 並直接返回
+
+**修復內容**：
+
+1. **background.js (新增 87-93 行, 941-1026 行)**
+   - 新增 `loadAnnouncementsAndMessages` message handler
+   - 實作 `loadAnnouncementsAndMessagesInBackground()` 函數
+   - 功能：
+     - 自動尋找已開啟的 E3 標籤頁並在其中執行載入
+     - 若沒有 E3 標籤頁，會在背景開啟新標籤頁
+     - 載入完成後自動關閉背景開啟的標籤頁
+     - 完整錯誤處理與超時機制（30 秒）
+
+2. **content.js (6890-6910 行)**
+   - 新增 `loadAnnouncementsAndMessagesInTab` message listener
+   - 接收來自 background script 的載入請求
+   - 執行 `loadAnnouncements()` 和 `loadMessages()` 並回傳結果
+
+3. **content.js (1513-1523 行)**
+   - 修改按鈕顯示邏輯：
+     - 按鈕現在在所有網站都會顯示（移除 `isOnE3Site()` 判斷）
+     - 在非 E3 網站顯示「將在背景自動連接到 E3 載入」提示
+
+4. **content.js (1530-1571 行)**
+   - 重構按鈕點擊事件：
+     - **在 E3 網站**：直接在當前頁面執行載入
+     - **在非 E3 網站**：
+       - 透過 `chrome.runtime.sendMessage` 請求 background script
+       - background 會尋找或開啟 E3 標籤頁執行載入
+       - 載入完成後從 storage 讀取資料並更新顯示
+     - 新增完整的錯誤處理與狀態顯示
+     - 載入成功後顯示「✅ 載入完成」（2秒後恢復）
+     - 載入失敗顯示「❌ 載入失敗」並彈出錯誤訊息
+
+**技術架構**：
+```
+非 E3 網站                    background.js                E3 標籤頁
+    │                              │                           │
+    │ 點擊按鈕                      │                           │
+    ├──sendMessage────────────────>│                           │
+    │                              │ 尋找 E3 標籤頁              │
+    │                              ├──tabs.query──────────────>│
+    │                              │                           │
+    │                              │<──找到或新開標籤頁──────────┤
+    │                              │                           │
+    │                              │ 發送載入請求                │
+    │                              ├──sendMessage─────────────>│
+    │                              │                           │ 執行載入
+    │                              │                           ├─loadAnnouncements()
+    │                              │                           ├─loadMessages()
+    │                              │                           │
+    │                              │<──載入完成──────────────────┤
+    │                              │ 儲存到 storage              │
+    │<─────response────────────────┤                           │
+    │                              │                           │
+    │ 從 storage 讀取並顯示          │                           │
+```
+
+**使用者體驗改善**：
+- ✅ 按鈕在所有網站都可用
+- ✅ 無需手動切換到 E3 網站
+- ✅ 自動在背景處理，不打斷使用者瀏覽
+- ✅ 清楚的狀態提示（載入中/完成/失敗）
+- ✅ 完整的錯誤處理與提示
+
+### 📝 新增 (Added)
+- 新增完整的 README.md 使用說明
+- 新增 CHANGELOG.md 詳細記錄版本變更
+
+---
+
+## [1.1.0] - 2025-01-17
+
+### ✨ 新增 (Added)
+
+#### 側邊欄介面
+- **浮動按鈕**：任何網頁都能快速開啟側邊欄
+- **響應式設計**：美觀的漸層介面，支援滑動展開/收合
+- **多分頁切換**：作業、公告、成績一目了然
+- **跨網頁使用**：不限於 E3 網站，任何網頁都能使用
+
+#### 作業倒數與管理
+- **即時倒數**：顯示作業截止時間倒數（天/小時/分鐘）
+- **狀態標記**：手動標記作業為「已繳交」或「待處理」
+- **視覺化提示**：
+  - 🔴 已逾期（紅色）
+  - 🟡 即將到期（黃色，3 天內）
+  - 🟢 充裕時間（綠色）
+- **快速連結**：點擊作業直接進入繳交頁面
+- **課程顯示**：自動顯示作業所屬課程名稱
+- **自動保留**：已標記為「已繳交」的作業不會被自動刪除
+
+#### 公告與信件整合
+- **公告聚合**：整合所有課程的最新公告
+- **信件整合**：支援 dcpcmail 系統的課程信件
+- **統一介面**：公告與信件合併顯示，方便管理
+- **篩選功能**：
+  - 按類型：全部/公告/信件
+  - 按狀態：全部/未讀/已讀
+- **詳細預覽**：點擊查看完整內容
+- **已讀追蹤**：自動記錄已讀狀態
+- **新分頁開啟**：預覽中的連結自動在新分頁開啟
+
+#### 成績查詢
+- **快速查詢**：一鍵查看所有課程成績
+- **詳細資訊**：
+  - 作業成績與比重
+  - 考試成績與比重
+  - 總成績計算
+- **視覺化呈現**：清楚的分數顯示與百分比
+- **即時更新**：支援手動重新載入
+
+#### 快速下載教材
+- **批次下載**：一鍵下載課程所有檔案
+- **ZIP 打包**：自動打包成 ZIP 檔案
+- **自動命名**：檔案名稱包含課程名稱
+- **進度提示**：下載過程中顯示進度
+
+#### 自動同步功能
+- **背景同步**：每小時自動同步一次
+- **手動同步**：點擊按鈕立即同步
+- **同步內容**：
+  - 作業列表與截止時間
+  - 課程列表
+  - 公告與信件（手動）
+- **同步狀態**：顯示最後同步時間
+- **登入檢查**：自動檢測登入狀態
+- **錯誤處理**：網路錯誤時友好提示
+
+### 🐛 修復 (Fixed)
+- 修復作業課程名稱顯示問題
+- 修復 Extension Context Invalidated 錯誤
+  - 新增擴充功能失效檢測
+  - 自動提示使用者重新整理頁面
+
+### 🎨 改進 (Improved)
+- 改進 UI/UX 設計，更加美觀易用
+- 優化側邊欄動畫效果
+- 改善按鈕視覺設計
+
+---
+
+## [1.0.0] - 2025-01-14
+
+### ✨ 新增 (Added)
+
+#### 一鍵前往作業
+- **快速按鈕**：在 E3 頁面的作業旁新增「📝 前往作業」按鈕
+- **直接進入**：點擊直接進入作業繳交頁面，跳過日曆頁面
+- **支援位置**：
+  - ✅ 首頁時間軸
+  - ✅ 日曆頁面
+  - ✅ 通知中心
+  - ✅ 課程總覽
+- **動態監聽**：使用 MutationObserver 自動偵測新增的作業元素
+- **紫色漸層按鈕**：美觀的視覺設計
+
+### 🔧 技術 (Technical)
+- 採用 Chrome Extension Manifest V3
+- 使用 Service Worker 架構
+- 支援 Chrome 88+
+
+---
+
+## 版本說明
+
+### 版本號格式
+- **主版本號 (Major)**：不相容的 API 變更
+- **次版本號 (Minor)**：向下相容的功能新增
+- **修訂號 (Patch)**：向下相容的問題修正
+
+### 變更類型
+- ✨ **新增 (Added)**：新功能
+- 🔄 **變更 (Changed)**：既有功能的變更
+- ⚠️ **棄用 (Deprecated)**：即將移除的功能
+- ❌ **移除 (Removed)**：已移除的功能
+- 🐛 **修復 (Fixed)**：錯誤修正
+- 🔒 **安全性 (Security)**：安全性相關修正
+- 🎨 **改進 (Improved)**：既有功能的改進
+- 📝 **文件 (Documentation)**：文件相關變更
+- 🔧 **技術 (Technical)**：技術架構相關變更
+
+---
+
+## 路線圖 (Roadmap)
+
+### 已完成
+- [x] AI 輔助功能（Gemini API 翻譯與摘要）- v1.6
+- [x] 智能通知徽章系統 - v1.6
+- [x] 桌面通知功能 - v1.6
+- [x] 作業提醒設定（24小時緊急通知）- v1.6
+- [x] 課程成員變動通知 - v1.6
+- [x] 手動新增作業功能 - v1.7
+- [x] 作業繳交狀態自動檢測 - v1.8
+- [x] 穩定性與效能優化 - v1.9
+
+### 未來計劃
+- [ ] 課表視覺化顯示
+- [ ] 匯出資料功能（CSV/JSON/ICS）
+- [ ] 英文介面支援
+
+---
+
+**相關連結**：
+- [GitHub Repository](https://github.com/CBJ0519/portal_e3_helper)
+- [Issues](https://github.com/CBJ0519/portal_e3_helper/issues)
+- [README](./README.md)

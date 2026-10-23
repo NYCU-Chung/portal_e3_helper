@@ -3,6 +3,10 @@
 ## [Unreleased]
 
 ### Fixed
+- Remove stale prepared download links whenever a new Safari file scan starts.
+- Choose an authenticated Safari E3 host even when the active tab on the other host is signed out or unreachable.
+- Keep Safari login, session keys, and sync requests on the available E3 tab origin.
+- Deliver native reminders for manual assignments with placeholder links using the E3 home page.
 - Keep pending exam cards and counts in sync between Coursework and Today's digest, including hidden tabs after accepting or dismissing a suggestion.
 - Retain overdue coursework edited during sync and apply delayed course-detail responses to the current saved record.
 - Save local coursework field changes through the shared queue, preserving concurrent exam acceptance and exam-to-assignment conversions during sync.

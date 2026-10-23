@@ -2,6 +2,9 @@
 (function () {
   'use strict';
   const english = {
+  "請逐一點擊下方連結，Safari 會下載檔案或開啟預覽。": "Click each link below. Safari will download the file or open a preview.",
+  "下載連結已備妥，請逐一點擊。": "Download links are ready. Click each one.",
+  "無法下載": "Download unavailable",
   "時間未知": "Unknown time",
   "AI 請求逾時，請重試": "AI request timed out. Please retry.",
   "OpenAI 串流中斷，請重試": "OpenAI stream interrupted. Please retry.",
@@ -632,7 +635,11 @@
   "全部加入（使用預選日期）": "Add all (preselected dates)",
   "要加入 ": "Add ",
   " 個考試嗎？每個都會使用預選的日期。": " exams? Each uses its preselected date.",
-  "在本機讀取": "Read locally"
+  "在本機讀取": "Read locally",
+  "請": "Please ",
+  "公告和信件已載入": "Announcements and messages loaded",
+  "已觸發成員檢測": "Membership check started",
+  "資料已在背景載入完成": "Data loaded in the background"
 };
   const pattern = new RegExp(Object.keys(english).sort((a, b) => b.length - a.length)
     .map(key => key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g');

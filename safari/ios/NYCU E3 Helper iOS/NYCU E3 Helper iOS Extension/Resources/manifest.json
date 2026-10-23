@@ -1,0 +1,57 @@
+{
+  "manifest_version": 3,
+  "minimum_chrome_version": "93",
+  "name": "NYCU E3 Helper",
+  "version": "2.3.0",
+  "description": "__MSG_extensionDescription__",
+  "permissions": [
+    "storage",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://e3.nycu.edu.tw/*",
+    "https://e3p.nycu.edu.tw/*",
+    "https://api.openai.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "https://translate.googleapis.com/*",
+    "https://timetable.nycu.edu.tw/*",
+    "https://portal.nycu.edu.tw/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://e3.nycu.edu.tw/*",
+        "https://e3p.nycu.edu.tw/*",
+        "https://timetable.nycu.edu.tw/*",
+        "https://portal.nycu.edu.tw/*"
+      ],
+      "js": [
+        "jszip.min.js",
+        "i18n.js",
+        "exam-detection.js",
+        "content.js"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_icon": {
+      "16": "128.png",
+      "48": "128.png",
+      "128": "128.png"
+    },
+    "default_title": "NYCU E3 Helper"
+  },
+  "icons": {
+    "16": "128.png",
+    "48": "128.png",
+    "128": "128.png"
+  },
+  "default_locale": "zh_TW",
+  "options_ui": {
+    "page": "notification-settings.html"
+  }
+}

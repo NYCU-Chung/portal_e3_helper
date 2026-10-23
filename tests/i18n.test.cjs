@@ -111,3 +111,10 @@ test('preference read failure falls back while failed writes preserve the langua
   assert.equal(writeFailure.i18n.language, 'en');
   assert.equal(writeFailure.data.interfaceLanguage, 'en');
 });
+
+test('Safari integration preserves shared exam and Safari status translations', async () => {
+  const { i18n } = await load('en');
+  assert.equal(i18n.text('在本機讀取'), 'Read locally');
+  assert.equal(i18n.text('下載連結已備妥，請逐一點擊。'), 'Download links are ready. Click each one.');
+  assert.equal(i18n.text('公告和信件已載入'), 'Announcements and messages loaded');
+});
