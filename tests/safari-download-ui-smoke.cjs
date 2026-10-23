@@ -25,6 +25,7 @@ const path = require('node:path');
       }, language);
       await page.goto('https://e3p.nycu.edu.tw/');
       await page.addScriptTag({ path: path.join(__dirname, '../i18n.js') });
+      await page.addScriptTag({ path: path.join(__dirname, '../exam-detection.js') });
       await page.addScriptTag({ path: path.join(__dirname, '../content.js') });
       await page.locator('.e3-helper-sidebar-toggle').tap();
       await page.locator('[data-tab="downloads"]').tap();

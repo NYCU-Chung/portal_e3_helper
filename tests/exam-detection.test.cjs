@@ -504,7 +504,7 @@ test('sync final write preserves exams accepted while status checks are pending'
   const background = fs.readFileSync(path.join(__dirname, '../background.js'), 'utf8');
   const start = background.indexOf('async function syncAssignments(');
   vm.runInContext(background.slice(start, background.indexOf('\n}\n', start) + 2), worker);
-  const syncing = worker.syncAssignments();
+  const syncing = worker.syncAssignments('https://e3p.nycu.edu.tw');
   await waiting;
   await worker.resolveExamSuggestion(storage.examSuggestions[0].id, 'accept', 0);
   release();
@@ -643,7 +643,7 @@ test('sync retains an exam converted back to ordinary coursework during status c
   const background = fs.readFileSync(path.join(__dirname, '../background.js'), 'utf8');
   const start = background.indexOf('async function syncAssignments(');
   vm.runInContext(background.slice(start, background.indexOf('\n}\n', start) + 2), worker);
-  await worker.syncAssignments();
+  await worker.syncAssignments('https://e3p.nycu.edu.tw');
   assert.equal(storage.assignments.length, 1);
   assert.equal(storage.assignments[0].kind, undefined);
   assert.equal(storage.assignments[0].name, 'Ordinary task');
@@ -695,7 +695,7 @@ test('sync preserves an overdue omitted task converted into a future exam', asyn
   const background = fs.readFileSync(path.join(__dirname, '../background.js'), 'utf8');
   const start = background.indexOf('async function syncAssignments(');
   vm.runInContext(background.slice(start, background.indexOf('\n}\n', start) + 2), worker);
-  await worker.syncAssignments();
+  await worker.syncAssignments('https://e3p.nycu.edu.tw');
   assert.equal(storage.assignments.length, 1);
   assert.equal(storage.assignments[0].kind, 'exam');
   assert.equal(storage.assignments[0].deadline, at(2099, 11, 5));

@@ -141,6 +141,7 @@ test('a whole Safari sync keeps the authenticated host after selection', async (
   const used = [];
   app.worker.console = { log() {}, error() {} };
   app.worker.chrome.storage = { local: { set: async () => {} } };
+  app.worker.scanTimetableExams = async () => {};
   app.worker.syncAssignments = async origin => { used.push(origin); return []; };
   app.worker.syncCourses = async origin => { used.push(origin); return []; };
   const start = background.indexOf('async function syncE3Data(');

@@ -9,7 +9,7 @@ const path = require('node:path');
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, hasTouch: true });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    await page.route('http://e3-test.local/**', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><head></head><body></body></html>' }));
+    await page.route('https://e3p.nycu.edu.tw/**', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><head></head><body></body></html>' }));
     await page.addInitScript(() => {
       const changes = [];
       const seed = { interfaceLanguage: 'en', assignments: [{ eventId: 'manual-1', name: '作業中文原文', course: '課程中文原文', deadline: Date.now() + 86400000, manualStatus: 'pending', isManual: true }], courses: [], announcements: [], lastSyncTime: Date.now(), lastSeenVersion: '2.2.0' };
@@ -31,9 +31,10 @@ const path = require('node:path');
         }
       };
     });
-    await page.goto('http://e3-test.local/');
+    await page.goto('https://e3p.nycu.edu.tw/');
     const inject = async () => {
       await page.addScriptTag({ path: path.join(__dirname, '../i18n.js') });
+      await page.addScriptTag({ path: path.join(__dirname, '../exam-detection.js') });
       await page.addScriptTag({ path: path.join(__dirname, '../content.js') });
       await page.waitForSelector('.e3-helper-sidebar-toggle');
       await page.locator('.e3-helper-sidebar-toggle').click();
@@ -60,7 +61,7 @@ const path = require('node:path');
       }
     };
     await checkTabLayout();
-    assert.deepEqual((await page.locator('.e3-helper-tab').allTextContents()).map(text => text.replace(/\d+$/, '')), ['Assignments', 'Courses', 'Downloads', 'Announcements', 'Alerts', 'Help']);
+    assert.deepEqual((await page.locator('.e3-helper-tab').allTextContents()).map(text => text.replace(/\d+$/, '')), ['Coursework', 'Courses', 'Downloads', 'Announcements', 'Alerts', 'Help']);
     assert.ok((await page.locator('[data-content="assignments"]').innerText()).includes('作業中文原文'));
     assert.ok((await page.locator('[data-content="assignments"]').innerText()).includes('Mark as submitted'));
     for (const tab of ['grades', 'downloads', 'announcements', 'notifications', 'help']) {
@@ -83,7 +84,7 @@ const path = require('node:path');
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fixture')).interfaceLanguage), 'zh-TW');
     await inject();
     await checkTabLayout();
-    assert.equal(await page.locator('[data-tab="assignments"]').innerText(), '作業');
+    assert.equal(await page.locator('[data-tab="assignments"]').innerText(), '課業');
     assert.ok((await page.locator('[data-content="assignments"]').innerText()).includes('標記為已繳交'));
     await page.setViewportSize({ width: 768, height: 1024 });
     await page.locator('#e3-helper-close-btn').tap();

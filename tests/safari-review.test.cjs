@@ -162,7 +162,7 @@ test('starting any new download scan removes prepared links from the previous se
 test('Safari exam module is synced and included in both Xcode resource graphs', t => {
   const file = 'exam-detection.js';
   const rootModule = fs.readFileSync(path.join(root, file), 'utf8');
-  assert.match(fs.readFileSync(path.join(root, 'scripts/sync-safari.py'), 'utf8'), /'exam-detection\\.js'/);
+  assert.match(fs.readFileSync(path.join(root, 'scripts/sync-safari.py'), 'utf8'), /'exam-detection\.js'/);
   const rootManifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
   assert.ok(rootManifest.content_scripts.some(script => script.js.includes(file)));
   for (const [project, extension] of [
@@ -173,7 +173,7 @@ test('Safari exam module is synced and included in both Xcode resource graphs', 
     assert.equal(fs.readFileSync(path.join(resources, file), 'utf8'), rootModule);
     const manifest = JSON.parse(fs.readFileSync(path.join(resources, 'manifest.json'), 'utf8'));
     assert.ok(manifest.content_scripts.some(script => script.js.includes(file)));
-    assert.match(fs.readFileSync(path.join(resources, 'background.js'), 'utf8'), /importScripts\\([^)]*exam-detection\\.js/);
+    assert.match(fs.readFileSync(path.join(resources, 'background.js'), 'utf8'), /importScripts\([^)]*exam-detection\.js/);
     if (process.platform !== 'darwin') continue;
     const projectPath = path.join(root, project);
     const pbx = path.join(projectPath, fs.readdirSync(projectPath).find(name => name.endsWith('.xcodeproj')), 'project.pbxproj');

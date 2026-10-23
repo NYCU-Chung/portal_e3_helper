@@ -635,16 +635,14 @@
   "全部加入（使用預選日期）": "Add all (preselected dates)",
   "要加入 ": "Add ",
   " 個考試嗎？每個都會使用預選的日期。": " exams? Each uses its preselected date.",
-  "在本機讀取": "Read locally"
-};
-  const pattern = new RegExp(Object.keys(english).sort((a, b) => b.length - a.length)
-    .map(key => key.replace(/[.*+?^${}()|[\]\\]/g, '\\  "請": "Please ",
+  "在本機讀取": "Read locally",
+  "請": "Please ",
   "公告和信件已載入": "Announcements and messages loaded",
   "已觸發成員檢測": "Membership check started",
   "資料已在背景載入完成": "Data loaded in the background"
 };
   const pattern = new RegExp(Object.keys(english).sort((a, b) => b.length - a.length)
-    .map(key => key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g');')).join('|'), 'g');
+    .map(key => key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g');
   const browserLanguage = globalThis.chrome?.i18n?.getUILanguage?.() || globalThis.navigator?.language || 'zh-TW';
   let language = /^zh/i.test(browserLanguage) ? 'zh-TW' : 'en';
   const normalize = value => value === 'en' || value === 'zh-TW' ? value : null;
