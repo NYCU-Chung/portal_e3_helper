@@ -3721,6 +3721,9 @@ function createSettingsModal() {
             <div class="e3-helper-settings-description">
               選擇 Gemini 或 OpenAI 生成公告與信件摘要與今日總覽；翻譯則使用 Google Translate 免費服務。
             </div>
+            <p class="e3-helper-setting-tip">
+              <a id="e3-helper-ai-setup-guide" href="https://github.com/nycu-portal/E3_helper/blob/main/docs/features/ai-api-setup.md" target="_blank" rel="noopener noreferrer">API Key 設定教學：免費額度、費用與隱私</a>
+            </p>
 
             <div class="e3-helper-setting-item">
               <label class="e3-helper-setting-label">

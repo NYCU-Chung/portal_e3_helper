@@ -1,5 +1,7 @@
 # Gemini / OpenAI summaries and daily digest
 
+For key creation, Gemini's free tier and OpenAI's optional input/output sharing incentive, see the [API key setup tutorial](ai-api-setup.md#english).
+
 Depends on the sidebar appearance change. Enable AI summaries in More → Settings, choose Gemini or OpenAI, enter that provider's API key, select a model, and test the connection. Both providers support single-item summaries and daily digests. Existing Gemini keys/model preferences are preserved; existing OpenAI-only settings continue to select OpenAI. Switching providers retains both sets of credentials. Translation uses Google Translate without an AI key.
 
 Gemini model choices come from the paginated models endpoint, filtered to models supporting `generateContent`. Opening Settings refreshes the list only when Gemini is selected; switching to Gemini or changing its key also refreshes the list, and a refresh button is available. Opening Settings with OpenAI selected does not contact Google for models. The last successful list is cached locally, and a manual model-ID field remains available when discovery fails. When no model is saved, choose one explicitly or enter its ID; API ordering does not imply a preferred or low-cost model. There is no fixed Gemini model list, and generation uses the provider/model's default output-token limit rather than a fixed Gemini limit.

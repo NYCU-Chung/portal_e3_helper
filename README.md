@@ -97,6 +97,8 @@
 
 ## AI 設定與資料處理
 
+第一次使用請看 [API Key 設定教學](docs/features/ai-api-setup.md)：包含 Gemini 免費方案，以及 OpenAI 分享輸入／輸出優惠的資格、費用與隱私說明。
+
 在「更多 → 設定」啟用 AI 摘要，選擇 Gemini 或 OpenAI，填入該供應商的 API Key、選擇模型並儲存設定。切換供應商會保留兩組設定。Gemini 啟用時可從 API 載入模型清單，也可重新載入或手動輸入模型 ID；產生摘要前需明確選擇模型。「測試連接」檢查目前供應商。額度、費用與模型存取權依供應商帳戶而定。
 
 課程資料、已讀狀態、設定與 API Key 儲存在本機瀏覽器。翻譯會傳送待翻譯文字到 Google Translate；單篇摘要會傳送內文到所選 Gemini／OpenAI，總覽則傳送今天的標題、課程、寄件者與時間。OpenAI 請求使用 Responses API 並設定 `store: false`。擴充功能使用既有 E3 登入狀態，不要求輸入 E3 密碼。
