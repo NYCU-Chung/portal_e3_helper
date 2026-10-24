@@ -2,16 +2,18 @@
 
 [English](#english) · [AI 摘要與今日總覽](openai-digest.md)
 
-最後查核官方文件：2026-10-23。資格、模型、額度與介面可能變更，請以自己的供應商控制台與下方官方文件為準。本教學適用於 Chrome、Safari 與 iPad 版的 AI 摘要設定。
+最後查核官方文件：2026-10-23（Gemini 區域帳務條款於 2026-10-24 再查核）。資格、模型、額度與介面可能變更，請以自己的供應商控制台與下方官方文件為準。本教學適用於 Chrome、Safari 與 iPad 版的 AI 摘要設定。
 
 API Key 是連接服務的私密金鑰；token 是計算輸入與輸出用量的單位。建立金鑰不代表取得免費用量。翻譯使用 Google Translate，不需要 AI 金鑰；單篇摘要與今日總覽才使用所選的 AI 供應商。
 
-## Gemini：使用免費方案
+## Gemini：確認方案與免費用量
 
 1. 使用自己的 Google 帳號登入 [Google AI Studio API Keys](https://aistudio.google.com/apikey)，確認符合 [使用資格與地區限制](https://ai.google.dev/gemini-api/docs/available-regions)；Gemini API 要求使用者年滿 18 歲。
 2. 接受服務條款後，選擇建立 API Key，依畫面指示建立或選取專案，再複製金鑰。詳細操作見 [官方金鑰教學](https://ai.google.dev/gemini-api/docs/api-key)。
-3. 在 AI Studio 確認專案方案與 [目前用量限制](https://ai.google.dev/gemini-api/docs/rate-limits)。若只想使用免費方案，先確認專案未升級付費，再從 [價格表](https://ai.google.dev/gemini-api/docs/pricing) 選擇有免費用量的模型。
+3. 在 AI Studio 確認專案方案與 [目前用量限制](https://ai.google.dev/gemini-api/docs/rate-limits)。依所在地與下方區域條款確認帳務啟用及使用資格，再從 [價格表](https://ai.google.dev/gemini-api/docs/pricing) 核對模型費用與可用免費額度；不要只憑尚未付費的專案就假設可使用免費方案。
 4. 依下方步驟貼入 E3 Helper。模型清單包含可生成內容的模型，但不代表每個模型都免費或帳號都有權限使用；請先核對價格表。
+
+**區域帳務條款：**依 [Gemini API 附加條款](https://ai.google.dev/gemini-api/terms)，向歐洲經濟區（EEA）、瑞士或英國使用者提供 API 用戶端時，僅可使用 Paid Services；Gemini API 須透過已連結有效 Cloud Billing 帳戶的專案存取，才屬於 Paid Services。免費用量與 Paid Services 分類是不同概念；未啟用帳務的免費專案不一定符合要求。受影響使用者應先確認帳務啟用、使用資格、最新價格及可用額度。
 
 免費方案受模型與專案額度限制。未付費服務的內容可能用於改善 Google 產品，並可能由人工審查；部分地區或帳戶適用不同條款。請閱讀 [Gemini API 條款](https://ai.google.dev/gemini-api/terms)，不要傳送敏感或機密內容。
 
@@ -52,15 +54,17 @@ OpenAI 請求使用 `store: false`，但這不代表零保留，也不會取消�
 
 ## English
 
-Official guidance checked on **2026-10-23**. Eligibility, quotas and models can change. Use your provider dashboard and the linked official documentation to confirm current terms. These steps apply to Chrome, Safari and iPad.
+Official guidance checked on **2026-10-23**; Gemini regional billing terms rechecked on **2026-10-24**. Eligibility, quotas and models can change. Use your provider dashboard and the linked official documentation to confirm current terms. These steps apply to Chrome, Safari and iPad.
 
 An **API key** is a private credential; **tokens** measure input and output usage. Creating a key does not grant free usage. Translation needs no AI key; summaries and daily digests use your selected provider.
 
-### Gemini free tier
+### Gemini plan and free quota
 
 1. Sign in to [Google AI Studio](https://aistudio.google.com/apikey). Check [age and region eligibility](https://ai.google.dev/gemini-api/docs/available-regions); Gemini API users must be 18 or older.
 2. Accept the terms, create an API key in a new or existing project, and copy it. See the [official key guide](https://ai.google.dev/gemini-api/docs/api-key).
-3. Confirm the project's plan and [limits](https://ai.google.dev/gemini-api/docs/rate-limits). For free usage, verify that the project has not been upgraded to paid billing and choose a model with a free tier in the [pricing table](https://ai.google.dev/gemini-api/docs/pricing). E3 Helper's model list does not indicate price or account access.
+3. Confirm the project's plan and [limits](https://ai.google.dev/gemini-api/docs/rate-limits). Check billing activation and eligibility for your region under the regional terms below, then verify model costs and available free quota in the [pricing table](https://ai.google.dev/gemini-api/docs/pricing). Do not assume an unbilled project is sufficient for free-tier use. E3 Helper's model list does not indicate price or account access.
+
+**Regional billing terms:** The [Gemini API Additional Terms](https://ai.google.dev/gemini-api/terms) require Paid Services when making API clients available to users in the European Economic Area (EEA), Switzerland or the UK. Gemini API access is classified as Paid Services only through a project linked to an active Cloud Billing account. Free quota and Paid Services classification are separate concepts; an unbilled free-tier project may not meet this requirement. Affected users should verify billing activation, eligibility, current pricing and quota availability.
 
 Unpaid-service content may be used for product improvement and human review; regional and account exceptions apply. Read the [Gemini terms](https://ai.google.dev/gemini-api/terms) before sending course content.
 

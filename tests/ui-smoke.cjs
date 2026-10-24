@@ -42,7 +42,7 @@ const fs = require('node:fs');
       assert.equal(await page.locator('#e3-helper-theme').inputValue(),'light');
       const setupGuide = page.locator('#e3-helper-ai-setup-guide');
       assert.ok(await setupGuide.isVisible(), 'Setup guide is available before enabling AI');
-      assert.equal(await setupGuide.getAttribute('href'), 'https://github.com/NYCU-Chung/portal_e3_helper/blob/main/docs/features/ai-api-setup.md');
+      assert.equal(await setupGuide.getAttribute('href'), 'https://github.com/nycu-portal/E3_helper/blob/main/docs/features/ai-api-setup.md');
       assert.equal(await setupGuide.getAttribute('target'), '_blank');
       assert.equal(await setupGuide.getAttribute('rel'), 'noopener noreferrer');
       assert.equal(await setupGuide.innerText(), language === 'en' ? 'API key setup guide: free quotas, costs and privacy' : 'API Key 設定教學：免費額度、費用與隱私');
